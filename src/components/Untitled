@@ -1,0 +1,21 @@
+import { Bell, ShieldCheck } from 'lucide-react';
+
+export default function Header() {
+  return (
+    <header className="h-16 bg-velora-card border-b border-velora-border flex items-center justify-between px-6 ml-64">
+      <div className="flex items-center gap-4">
+        <ShieldCheck className="text-velora-success" size={20} />
+        <span className="text-sm font-medium text-velora-success">SM Simão Mbulo Pro Plan ◆ VELORA IA ALPHA TREND</span>
+      </div>
+      <div className="flex items-center gap-4">
+        <div className="bg-velora-success/10 text-velora-success text-xs px-3 py-1.5 rounded-full border border-velora-success/20">
+          Meta diária atingida — Todas as posições fechadas automaticamente.
+        </div>
+        <button className="relative p-2 text-slate-400 hover:text-white">
+          <Bell size={20} />
+          <span className="absolute top-1 right-1 w-2 h-2 bg-velora-danger rounded-full"></span>
+        </button>
+      </div>
+    </header>
+  );
+}

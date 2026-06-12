@@ -1,0 +1,65 @@
+@import "tailwindcss";
+@import "@fontsource/space-grotesk/400.css";
+@import "@fontsource/space-grotesk/500.css";
+@import "@fontsource/space-grotesk/700.css";
+@import "@fontsource/space-mono/400.css";
+@import "@fontsource/space-mono/700.css";
+
+@theme {
+  --color-bg0:     #060a08;
+  --color-bg1:     #0b100d;
+  --color-bg2:     #101610;
+  --color-bg3:     #161e17;
+  --color-bg4:     #1c261d;
+  --color-border1: #1e2b1f;
+  --color-border2: #253227;
+  --color-cyan:    #00d4a0;
+  --color-gold:    #d4a843;
+  --color-red:     #e05252;
+  --color-text1:   #c8d4c9;
+  --color-text2:   #6b8a6e;
+  --color-text3:   #3a5040;
+
+  /* Mantém as cores velora para retrocompatibilidade */
+  --color-velora-bg:      #060a08;
+  --color-velora-card:    #0b100d;
+  --color-velora-border:  #1e2b1f;
+  --color-velora-accent:  #00d4a0;
+  --color-velora-success: #00d4a0;
+  --color-velora-danger:  #e05252;
+  --color-velora-warning: #d4a843;
+
+  --font-sans: 'Space Grotesk', sans-serif;
+  --font-mono: 'Space Mono', monospace;
+}
+
+:root {
+  --cyan-dim:    rgba(0, 212, 160, 0.12);
+  --gold-dim:    rgba(212, 168, 67, 0.12);
+  --red-dim:     rgba(224, 82, 82, 0.10);
+  --gold-border: rgba(212, 168, 67, 0.30);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background-color: #060a08;
+  color: #c8d4c9;
+  font-family: 'Space Grotesk', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar personalizada */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: #0b100d; }
+::-webkit-scrollbar-thumb { background: #253227; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: #00d4a0; }
+
+/* Utilitários inline para as cores rgba que o Tailwind não suporta directamente */
+.bg-cyan-dim   { background-color: rgba(0, 212, 160, 0.12); }
+.bg-gold-dim   { background-color: rgba(212, 168, 67, 0.12); }
+.bg-red-dim    { background-color: rgba(224, 82, 82, 0.10); }
+.border-cyan-20 { border-color: rgba(0, 212, 160, 0.20); }
+.border-cyan-30 { border-color: rgba(0, 212, 160, 0.30); }
+.border-gold-30 { border-color: rgba(212, 168, 67, 0.30); }
+.border-red-30  { border-color: rgba(224, 82, 82, 0.30); }
