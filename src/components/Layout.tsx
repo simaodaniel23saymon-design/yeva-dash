@@ -100,6 +100,14 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
 
         <span className="font-mono text-[8px] tracking-[2.5px] uppercase text-text3 px-2 mb-2 mt-5 block">Sistema</span>
         <NavLink to="/settings"  className={navLinkClass} onClick={close}><IconGrid /><span>Configurações</span></NavLink>
+        {user?.isAdmin && (
+          <NavLink to="/admin" className={navLinkClass} onClick={close}>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <path d="M10 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4L10 14.5l-4.8 2.4.9-5.4L2.2 7.7l5.4-.8L10 2Z" stroke="currentColor" strokeWidth="1.3"/>
+            </svg>
+            <span className="text-red">Admin</span>
+          </NavLink>
+        )}
       </nav>
 
       {/* Footer */}
@@ -181,8 +189,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      {/* Conteúdo */}
-      <main className="pb-[60px] lg:pb-0 p-3 sm:p-4 md:p-5">
+      {/* Conteúdo — scroll nativo do browser, sem contentor interno */}
+      <main className="pb-[72px] lg:pb-6 p-3 sm:p-4 md:p-5">
         {children}
       </main>
 

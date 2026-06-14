@@ -238,6 +238,15 @@ export default function LoginPage() {
                 }
               </button>
 
+              {tab === 'login' && (
+                <div className="text-center">
+                  <button type="button" onClick={() => navigate('/forgot-password')}
+                    className="font-mono text-[9px] text-text3 hover:text-cyan transition-colors uppercase tracking-wider">
+                    Esqueci a password
+                  </button>
+                </div>
+              )}
+
               <button type="button" onClick={handleDemo} disabled={loading}
                 className="w-full py-3 border border-gold-30 bg-gold-dim text-gold font-mono text-[10px] tracking-widest uppercase hover:bg-gold/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                 Entrar em Demo com $10.000

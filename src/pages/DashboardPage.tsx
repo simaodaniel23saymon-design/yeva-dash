@@ -55,10 +55,16 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchData = () =>
     api.get<DashboardData>('/dashboard')
       .then(res => setData(res.data))
-      .finally(() => setLoading(false));
+      .catch(() => {});
+
+  useEffect(() => {
+    fetchData().finally(() => setLoading(false));
+    // Polling a cada 15 segundos — mantém o dashboard vivo
+    const interval = setInterval(fetchData, 15000);
+    return () => clearInterval(interval);
   }, []);
 
   const toggleBot = async (id: string, status: string) => {

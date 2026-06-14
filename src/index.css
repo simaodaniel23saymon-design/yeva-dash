@@ -42,11 +42,24 @@
 
 * { box-sizing: border-box; }
 
+html {
+  height: 100%;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
 body {
+  min-height: 100%;
   background-color: #060a08;
   color: #c8d4c9;
   font-family: 'Space Grotesk', sans-serif;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+}
+
+#root {
+  min-height: 100vh;
 }
 
 /* Scrollbar personalizada */

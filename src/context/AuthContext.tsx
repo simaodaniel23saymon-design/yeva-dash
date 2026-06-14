@@ -8,6 +8,7 @@ interface User {
   name?: string;
   referralCode: string;
   plan?: string;
+  isAdmin?: boolean;
   twoFAEnabled?: boolean;
   telegramLinked?: boolean;
   createdAt?: string;
@@ -72,7 +73,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('yevatrade_refresh_token', refreshToken);
     api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
     setToken(newToken);
-    setUser(newUser);
+
+    // Buscar perfil completo (inclui isAdmin, plan, etc.)
+    try {
+      const meRes = await api.get<User>('/auth/me');
+      setUser(meRes.data);
+    } catch {
+      setUser(newUser);
+    }
     return {};
   };
 

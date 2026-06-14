@@ -12,6 +12,9 @@ import SettingsPage from './pages/SettingsPage';
 import TermsOfUse from './pages/legal/TermsOfUse';
 import PrivacyPolicy from './pages/legal/PrivacyPolicy';
 import AffiliateHub from './components/AffiliateHub';
+import AdminPage from './pages/AdminPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -39,6 +42,8 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/legal/terms" element={<TermsOfUse />} />
           <Route path="/legal/privacy" element={<PrivacyPolicy />} />
           <Route path="/dashboard" element={<AppRoute element={<DashboardPage />} />} />
@@ -49,6 +54,7 @@ export default function App() {
           <Route path="/wallet" element={<AppRoute element={<WalletPage />} />} />
           <Route path="/settings" element={<AppRoute element={<SettingsPage />} />} />
           <Route path="/affiliates" element={<AppRoute element={<AffiliateHub />} />} />
+          <Route path="/admin" element={<AppRoute element={<AdminPage />} />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </AuthProvider>
