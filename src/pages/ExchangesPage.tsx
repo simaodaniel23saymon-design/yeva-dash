@@ -3,6 +3,9 @@ import { api } from '../lib/api';
 
 interface ExchangeAccount { id: string; exchange: string; isActive: boolean; }
 
+// IP público do Droplet DigitalOcean — para whitelist nas exchanges
+const SERVER_IP = '134.209.81.127';
+
 export default function ExchangesPage() {
   const [accounts, setAccounts] = useState<ExchangeAccount[]>([]);
   const [loading, setLoading] = useState(true);
@@ -10,8 +13,15 @@ export default function ExchangesPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [showSecret, setShowSecret] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const [form, setForm] = useState({ exchange: 'BINANCE', apiKey: '', secretKey: '' });
+
+  const copyIp = () => {
+    navigator.clipboard.writeText(SERVER_IP);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   useEffect(() => {
     api.get<ExchangeAccount[]>('/exchanges').then(r => setAccounts(r.data)).finally(() => setLoading(false));
@@ -63,26 +73,19 @@ export default function ExchangesPage() {
       </div>
 
       {/* IP do servidor DigitalOcean — para whitelist nas exchanges */}
-      {(() => {
-        const SERVER_IP = '134.209.81.127'; // IP público do Droplet DigitalOcean
-        const [copied, setCopied] = useState(false);
-        const copy = () => { navigator.clipboard.writeText(SERVER_IP); setCopied(true); setTimeout(() => setCopied(false), 2000); };
-        return (
-          <div className="bg-bg1 border border-gold-30 p-4 space-y-2">
-            <p className="font-mono text-[9px] uppercase tracking-wider text-gold font-bold">⚠ IP para Whitelist</p>
-            <p className="font-mono text-[10px] text-text2 leading-relaxed">
-              Ao criar as chaves API na Binance ou Bybit, activa a <strong className="text-text1">restrição por IP</strong> e adiciona o endereço abaixo. Isso impede que as tuas chaves sejam usadas fora desta plataforma.
-            </p>
-            <div className="flex items-center gap-2 mt-1">
-              <code className="flex-1 bg-bg3 border border-border2 px-3 py-2 font-mono text-sm text-gold tracking-wider">{SERVER_IP}</code>
-              <button onClick={copy}
-                className={`px-3 py-2 border font-mono text-[9px] tracking-widest uppercase transition-all ${copied ? 'border-cyan bg-cyan-dim text-cyan' : 'border-border2 text-text2 hover:border-cyan hover:text-cyan'}`}>
-                {copied ? '✓ COPIADO' : 'COPIAR'}
-              </button>
-            </div>
-          </div>
-        );
-      })()}
+      <div className="bg-bg1 border border-gold-30 p-4 space-y-2">
+        <p className="font-mono text-[9px] uppercase tracking-wider text-gold font-bold">⚠ IP para Whitelist</p>
+        <p className="font-mono text-[10px] text-text2 leading-relaxed">
+          Ao criar as chaves API na Binance ou Bybit, activa a <strong className="text-text1">restrição por IP</strong> e adiciona o endereço abaixo. Isso impede que as tuas chaves sejam usadas fora desta plataforma.
+        </p>
+        <div className="flex items-center gap-2 mt-1">
+          <code className="flex-1 bg-bg3 border border-border2 px-3 py-2 font-mono text-sm text-gold tracking-wider">{SERVER_IP}</code>
+          <button onClick={copyIp}
+            className={`px-3 py-2 border font-mono text-[9px] tracking-widest uppercase transition-all ${copied ? 'border-cyan bg-cyan-dim text-cyan' : 'border-border2 text-text2 hover:border-cyan hover:text-cyan'}`}>
+            {copied ? '✓ COPIADO' : 'COPIAR'}
+          </button>
+        </div>
+      </div>
 
       {accounts.length === 0 ? (
         <div className="bg-bg1 border border-border1 p-12 text-center">
