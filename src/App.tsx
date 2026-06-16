@@ -5,7 +5,7 @@ import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import BotsPage from './pages/BotsPage';
 import ExchangesPage from './pages/ExchangesPage';
-import PositionsPage from './pages/PositionsPage';
+import OperationsPage from './pages/OperationsPage';
 import HistoryPage from './pages/HistoryPage';
 import WalletPage from './pages/WalletPage';
 import SettingsPage from './pages/SettingsPage';
@@ -65,7 +65,8 @@ export default function App() {
           <Route path="/dashboard" element={<AppRoute element={<DashboardPage />} />} />
           <Route path="/bots" element={<AppRoute element={<BotsPage />} />} />
           <Route path="/exchanges" element={<AppRoute element={<ExchangesPage />} />} />
-          <Route path="/positions" element={<AppRoute element={<PositionsPage />} />} />
+          <Route path="/operations" element={<AppRoute element={<OperationsPage />} />} />
+          <Route path="/positions" element={<AppRoute element={<OperationsPage />} />} />
           <Route path="/history" element={<AppRoute element={<HistoryPage />} />} />
           <Route path="/wallet" element={<AppRoute element={<WalletPage />} />} />
           <Route path="/settings" element={<AppRoute element={<SettingsPage />} />} />

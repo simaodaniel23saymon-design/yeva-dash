@@ -82,7 +82,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
         <span className="font-mono text-[8px] tracking-[2.5px] uppercase text-text3 px-2 mb-2 block">Principal</span>
         <NavLink to="/dashboard" className={navLinkClass} onClick={close}><IconGrid /><span>Dashboard</span></NavLink>
         <NavLink to="/bots"      className={navLinkClass} onClick={close}><IconBot /><span>Bots</span></NavLink>
-        <NavLink to="/positions" className={navLinkClass} onClick={close}><IconChart /><span>Operações</span></NavLink>
+        <NavLink to="/operations" className={navLinkClass} onClick={close}><IconChart /><span>Operações</span></NavLink>
         <NavLink to="/history"   className={navLinkClass} onClick={close}><IconChart /><span>Histórico</span></NavLink>
 
         <span className="font-mono text-[8px] tracking-[2.5px] uppercase text-text3 px-2 mb-2 mt-5 block">Exchanges</span>
