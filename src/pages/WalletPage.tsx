@@ -1,11 +1,9 @@
 import { useEffect, useState, useRef } from 'react';
 import { api } from '../lib/api';
 import { QuickGuide } from '../components/QuickGuide';
+import { useWallet } from '../hooks/useWallet';
+import { formatMoney, toUSDT } from '../utils/format';
 
-interface Wallet {
-  balance: number; lockedBalance: number;
-  totalDeposited: number; totalWithdrawn: number; totalFeesPaid: number;
-}
 interface Tx {
   id: string; type: string; amount: number; status: string;
   createdAt: string; network?: string; note?: string;
@@ -15,11 +13,6 @@ interface Deposit {
   payAmount: number; expiresAt?: string;
 }
 
-const money = (v: number) => `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-// Saldo/valores monetários da BD em micro-unidades (6 decimais): 1 USDT = 1.000.000
-const USDT_UNIT = 1_000_000;
-const usdt = (micro: number) => money((micro ?? 0) / USDT_UNIT);
-const toUsdt = (micro: number) => (micro ?? 0) / USDT_UNIT;
 const dt = (s: string) => new Date(s).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 const NETWORKS = [
@@ -31,7 +24,7 @@ const NETWORKS = [
 ];
 
 export default function WalletPage() {
-  const [wallet, setWallet] = useState<Wallet | null>(null);
+  const { wallet, loading: walletLoading, refresh: refreshWallet } = useWallet(30000);
   const [txs, setTxs] = useState<Tx[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'deposit' | 'withdraw'>('deposit');
@@ -58,12 +51,9 @@ export default function WalletPage() {
   };
 
   const loadWallet = async () => {
-    const [wRes, txRes] = await Promise.all([
-      api.get<Wallet>('/wallet'),
-      api.get<Tx[]>('/payments/transactions'),
-    ]);
-    setWallet(wRes.data);
+    const txRes = await api.get<Tx[]>('/payments/transactions');
     setTxs(txRes.data);
+    await refreshWallet();
   };
 
   useEffect(() => {
@@ -152,7 +142,7 @@ export default function WalletPage() {
     expired: 'Expirou',
   };
 
-  if (loading) return (
+  if (loading || walletLoading) return (
     <div className="py-32 flex justify-center">
       <div className="w-8 h-8 border-2 border-cyan border-t-transparent rounded-full animate-spin" />
     </div>
@@ -178,10 +168,10 @@ export default function WalletPage() {
       {/* Saldo cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          ['Disponível',  usdt(wallet?.balance ?? 0),          'text-cyan'],
-          ['Bloqueado',   usdt(wallet?.lockedBalance ?? 0),    'text-gold'],
-          ['Depositado',  usdt(wallet?.totalDeposited ?? 0),   'text-text1'],
-          ['Levantado',   usdt(wallet?.totalWithdrawn ?? 0),   'text-text1'],
+          ['Disponível',  formatMoney(wallet?.balance),          'text-cyan'],
+          ['Bloqueado',   formatMoney(wallet?.lockedBalance),    'text-gold'],
+          ['Depositado',  formatMoney(wallet?.totalDeposited),   'text-text1'],
+          ['Levantado',   formatMoney(wallet?.totalWithdrawn),   'text-text1'],
         ].map(([label, value, color]) => (
           <div key={label} className="bg-bg1 border border-border1 p-4">
             <div className="font-mono text-[8px] uppercase tracking-[2px] text-text3 mb-2">{label}</div>
@@ -309,8 +299,8 @@ export default function WalletPage() {
                 <input type="number" min="10" value={withdrawAmount}
                   onChange={e => setWithdrawAmount(e.target.value)}
                   placeholder="Ex: 50" className={inputClass} />
-                {wallet && withdrawAmount && parseFloat(withdrawAmount) > toUsdt(wallet.balance) && (
-                  <p className="font-mono text-[9px] text-red mt-1">Saldo insuficiente (disponível: {usdt(wallet.balance)})</p>
+                {wallet && withdrawAmount && parseFloat(withdrawAmount) > toUSDT(wallet.balance) && (
+                  <p className="font-mono text-[9px] text-red mt-1">Saldo insuficiente (disponível: {formatMoney(wallet.balance)})</p>
                 )}
               </div>
               <div>
@@ -373,7 +363,7 @@ export default function WalletPage() {
                 </span>
                 <div className="flex-1 min-w-0">
                   <p className={`font-mono text-sm font-bold ${tx.type === 'DEPOSIT' ? 'text-cyan' : 'text-gold'}`}>
-                    {tx.type === 'DEPOSIT' ? '+' : '-'}{usdt(tx.amount)}
+                    {tx.type === 'DEPOSIT' ? '+' : '-'}{formatMoney(tx.amount)}
                   </p>
                   {tx.note && <p className="font-mono text-[9px] text-text3 truncate">{tx.note}</p>}
                 </div>

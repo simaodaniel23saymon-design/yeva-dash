@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
-import { formatUSDT } from '../utils/format';
+import { formatMoney } from '../utils/format';
 
 interface BotStatus {
   id: string;
@@ -66,7 +66,7 @@ export function LiveTradingPanel() {
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <div className="bg-bg1 border border-cyan-20 p-4">
           <div className="font-mono text-[8px] uppercase tracking-[2px] text-text3 mb-1.5">Saldo Disponível</div>
-          <div className="text-xl font-bold text-cyan">${formatUSDT(status.wallet?.balance)}</div>
+          <div className="text-xl font-bold text-cyan">{formatMoney(status.wallet?.balance)}</div>
         </div>
         <div className="bg-bg1 border border-border1 p-4">
           <div className="font-mono text-[8px] uppercase tracking-[2px] text-text3 mb-1.5">Bots Activos</div>

@@ -5,7 +5,8 @@ import { api } from '../lib/api';
 import { QuickGuide } from '../components/QuickGuide';
 import { LiveTradingPanel } from '../components/LiveTradingPanel';
 import { BotToggleButton } from '../components/BotToggleButton';
-import { formatUSDT, toUSDT } from '../utils/format';
+import { toUSDT, formatMoney } from '../utils/format';
+import { useWallet } from '../hooks/useWallet';
 
 interface BotData {
   id: string;
@@ -56,6 +57,7 @@ interface DashboardData {
 const money = (value: number) => `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function DashboardPage() {
+  const { wallet } = useWallet(30000);
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -93,6 +95,8 @@ export default function DashboardPage() {
   }
 
   const stats = data?.stats;
+  const realBalance = wallet?.balance ?? stats?.realBalance;
+  const lockedBalance = wallet?.lockedBalance ?? stats?.lockedBalance;
   const chartData = data?.transactions.slice().reverse().map(tx => ({
     day: new Date(tx.createdAt).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short' }),
     amount: toUSDT(tx.type === 'WITHDRAWAL' ? -tx.amount : tx.amount),
@@ -112,10 +116,10 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: 'Saldo Real', value: `$${formatUSDT(stats?.realBalance)}`, sub: `$${formatUSDT(stats?.lockedBalance)} bloqueado`, color: 'text-gold' },
-          { label: 'Conta Demo', value: `$${formatUSDT(stats?.demoBalance)}`, sub: 'Ambiente de teste', color: 'text-cyan' },
+          { label: 'Saldo Real', value: formatMoney(realBalance), sub: `${formatMoney(lockedBalance)} bloqueado`, color: 'text-gold' },
+          { label: 'Conta Demo', value: formatMoney(stats?.demoBalance), sub: 'Ambiente de teste', color: 'text-cyan' },
           { label: 'Bots Activos', value: `${stats?.activeBots ?? 0}/${stats?.totalBots ?? 0}`, sub: `${stats?.demoBots ?? 0} demo`, color: 'text-text1' },
-          { label: 'P&L Total', value: `$${formatUSDT(stats?.pnlTotal)}`, sub: 'Rounds registados', color: (stats?.pnlTotal ?? 0) >= 0 ? 'text-cyan' : 'text-red' },
+          { label: 'P&L Total', value: formatMoney(stats?.pnlTotal), sub: 'Rounds registados', color: (toUSDT(stats?.pnlTotal) >= 0 ? 'text-cyan' : 'text-red') },
         ].map(item => (
           <div key={item.label} className="bg-bg1 border border-border1 p-4">
             <div className="font-mono text-[8px] tracking-[2px] uppercase text-text2 mb-2">{item.label}</div>
@@ -156,7 +160,7 @@ export default function DashboardPage() {
                       <span className="font-mono text-[8px] uppercase px-1.5 py-0.5 border border-border2 text-text2">{bot.exchange}</span>
                     </div>
                     <div className="flex gap-4 font-mono text-[10px] text-text2">
-                      <span className={bot.pnl >= 0 ? 'text-cyan' : 'text-red'}>${formatUSDT(bot.pnl)}</span>
+                      <span className={toUSDT(bot.pnl) >= 0 ? 'text-cyan' : 'text-red'}>{formatMoney(bot.pnl)}</span>
                       <span>{bot.rounds} rounds</span>
                       <span>{bot.leverage}x</span>
                     </div>

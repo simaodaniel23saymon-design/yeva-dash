@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { getFriendlyError } from '../utils/errorHandler'
+import { formatMoney, toWalletUnits } from '../utils/format'
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 interface Stats {
@@ -27,6 +28,10 @@ interface AdminTx {
   user: { email: string }
 }
 
+interface AdminUserDetail extends AdminUser {
+  transactions?: Array<Omit<AdminTx, 'user'>>
+}
+
 interface AdminBot {
   id: string; pair: string; market: string; status: string
   leverage: number; totalPnl: number
@@ -36,10 +41,6 @@ interface AdminBot {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-const money = (v: number) => `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-// Saldo/valores monetários são guardados em micro-unidades (6 decimais): 1 USDT = 1.000.000
-const USDT_UNIT = 1_000_000
-const usdt = (micro: number) => money((micro ?? 0) / USDT_UNIT)
 const dt = (s: string) => new Date(s).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' })
 
 const PLAN_COLORS: Record<string, string> = {
@@ -81,6 +82,9 @@ export default function AdminPage() {
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null)
   const [balanceAmount, setBalanceAmount] = useState('')
   const [balanceNote, setBalanceNote] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [userHistory, setUserHistory] = useState<Array<Omit<AdminTx, 'user'>>>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
   const [notifyMsg, setNotifyMsg] = useState({ subject: '', message: '', userId: '', channels: ['panel'] as string[] })
   const [flash, setFlash] = useState<{ text: string; ok: boolean } | null>(null)
 
@@ -127,6 +131,31 @@ export default function AdminPage() {
     if (tab === 'users') loadUsers(userPage)
   }, [tab, userPage])
 
+  const loadUserDetail = useCallback(async (id: string) => {
+    setHistoryLoading(true)
+    try {
+      const res = await api.get<AdminUserDetail>(`/admin/users/${id}`)
+      setUserHistory(res.data.transactions ?? [])
+      setSelectedUser(prev => prev?.id === id ? { ...prev, wallet: res.data.wallet ?? prev.wallet } : prev)
+    } catch {
+      setUserHistory([])
+    } finally {
+      setHistoryLoading(false)
+    }
+  }, [])
+
+  const selectUser = (u: AdminUser) => {
+    if (selectedUser?.id === u.id) {
+      setSelectedUser(null)
+      setUserHistory([])
+      return
+    }
+    setSelectedUser(u)
+    setBalanceAmount('')
+    setBalanceNote('')
+    setNewPassword('')
+    loadUserDetail(u.id)
+  }
   const updatePlan = async (id: string, plan: string) => {
     await api.patch(`/admin/users/${id}`, { plan })
     await loadUsers(userPage)
@@ -134,45 +163,72 @@ export default function AdminPage() {
     showFlash('Plano actualizado.')
   }
 
+  const toggleBlock = async (id: string) => {
+    if (!selectedUser) return
+    const blocked = selectedUser.plan !== 'BLOCKED'
+    const action = blocked ? 'BLOQUEAR' : 'DESBLOQUEAR'
+    if (!window.confirm(`Confirmas ${action} ${selectedUser.email}?`)) return
+    await api.patch(`/admin/users/${id}`, { plan: blocked ? 'BLOCKED' : 'FREE' })
+    await loadUsers(userPage)
+    setSelectedUser(prev => prev ? { ...prev, plan: blocked ? 'BLOCKED' : 'FREE' } : null)
+    showFlash(blocked ? 'Utilizador bloqueado.' : 'Utilizador desbloqueado.')
+  }
+
+  const resetPassword = async (id: string) => {
+    if (!newPassword || newPassword.length < 8) {
+      return showFlash('A nova senha deve ter pelo menos 8 caracteres.', false)
+    }
+    if (!window.confirm(`Confirmas alterar a senha de ${selectedUser?.email}?`)) return
+    try {
+      await api.post(`/admin/users/${id}/reset-password`, { newPassword })
+      setNewPassword('')
+      showFlash('Senha alterada com sucesso.')
+    } catch (err) {
+      showFlash(getFriendlyError(err).message, false)
+    }
+  }
+
   const adjustBalance = async (id: string) => {
     const amount = parseFloat(balanceAmount)
     if (isNaN(amount) || amount === 0) return showFlash('Introduz um valor diferente de zero (ex: 50 ou -20)', false)
     if (!balanceNote.trim()) return showFlash('A descrição do ajuste é obrigatória', false)
 
-    const type: 'deposit' | 'withdraw' = amount > 0 ? 'deposit' : 'withdraw'
-    const micro = Math.round(Math.abs(amount) * USDT_UNIT) // USDT → micro-unidades
+    const refBalance = selectedUser?.wallet?.balance
+    const signed = amount > 0
+      ? toWalletUnits(amount, refBalance)
+      : -toWalletUnits(Math.abs(amount), refBalance)
     const verbo = amount > 0 ? 'ADICIONAR' : 'REMOVER'
     const preposicao = amount > 0 ? 'ao' : 'do'
     const confirmado = window.confirm(
-      `Confirmas ${verbo} ${money(Math.abs(amount))} ${preposicao} saldo de ${selectedUser?.email}?\n\nMotivo: ${balanceNote.trim()}`
+      `Confirmas ${verbo} ${formatMoney(Math.abs(amount))} ${preposicao} saldo de ${selectedUser?.email}?\n\nMotivo: ${balanceNote.trim()}`
     )
     if (!confirmado) return
 
     try {
-      await api.post(`/admin/users/${id}/balance`, { amount: micro, type, description: balanceNote.trim() })
+      await api.post(`/admin/users/${id}/balance`, {
+        amount: signed,
+        note: balanceNote.trim(),
+        description: balanceNote.trim(),
+        type: amount > 0 ? 'deposit' : 'withdraw',
+      })
       setBalanceAmount('')
       setBalanceNote('')
       await loadUsers(userPage)
-      // Refresca o saldo no painel aberto (optimista) — em micro-unidades
-      if (selectedUser?.id === id) {
-        setSelectedUser(prev => prev ? {
-          ...prev,
-          wallet: {
-            balance: (prev.wallet?.balance ?? 0) + amount * USDT_UNIT,
-            totalDeposited: prev.wallet?.totalDeposited ?? 0,
-            totalFeesPaid: prev.wallet?.totalFeesPaid ?? 0,
-          },
-        } : null)
-      }
-      showFlash(`Saldo ajustado: ${amount >= 0 ? '+' : ''}${money(amount)}`)
+      await loadUserDetail(id)
+      showFlash(`Saldo ajustado: ${amount >= 0 ? '+' : ''}${formatMoney(Math.abs(amount))}`)
     } catch (err) {
       showFlash(getFriendlyError(err).message, false)
     }
   }
 
   const stopBots = async (id: string) => {
-    const res = await api.post<{ stopped: number }>(`/admin/users/${id}/stop-bots`)
-    showFlash(`${res.data.stopped} bot(s) parado(s).`)
+    if (!window.confirm(`Parar todos os bots de ${selectedUser?.email}?`)) return
+    try {
+      const res = await api.post<{ stopped: number }>(`/admin/users/${id}/stop-bots`)
+      showFlash(`${res.data.stopped} bot(s) parado(s).`)
+    } catch (err) {
+      showFlash(getFriendlyError(err).message, false)
+    }
   }
 
   const sendNotify = async () => {
@@ -227,8 +283,8 @@ export default function AdminPage() {
             <StatBox label="Total Utilizadores" value={stats.users.total} sub={`${stats.users.active} activos`} />
             <StatBox label="Total Bots" value={stats.bots.total} sub={`${stats.bots.active} activos`} color="text-gold" />
             <StatBox label="Transacções" value={stats.transactions.total} color="text-text1" />
-            <StatBox label="Taxas Performance" value={usdt(stats.revenue.totalFeesPaid)} sub="Total cobrado" color="text-cyan" />
-            <StatBox label="Total Depositado" value={usdt(stats.revenue.totalDeposited)} color="text-cyan" />
+            <StatBox label="Taxas Performance" value={formatMoney(stats.revenue.totalFeesPaid)} sub="Total cobrado" color="text-cyan" />
+            <StatBox label="Total Depositado" value={formatMoney(stats.revenue.totalDeposited)} color="text-cyan" />
           </div>
 
           <div className="bg-bg1 border border-border1">
@@ -293,7 +349,7 @@ export default function AdminPage() {
                         : <span className="font-mono text-[8px] text-text3">não</span>}
                     </td>
                     <td className="px-4 py-2.5 font-mono text-[10px] text-cyan">
-                      {usdt(u.wallet?.balance ?? 0)}
+                      {formatMoney(u.wallet?.balance ?? 0)}
                     </td>
                     <td className="px-4 py-2.5 font-mono text-[10px] text-text2">
                       {u._count?.bots ?? 0}
@@ -302,7 +358,7 @@ export default function AdminPage() {
                       {new Date(u.createdAt).toLocaleDateString('pt-PT')}
                     </td>
                     <td className="px-4 py-2.5">
-                      <button onClick={() => setSelectedUser(selectedUser?.id === u.id ? null : u)}
+                      <button onClick={() => selectUser(u)}
                         className="font-mono text-[8px] uppercase px-2 py-1 border border-border2 text-text2 hover:border-cyan hover:text-cyan transition-all">
                         {selectedUser?.id === u.id ? 'Fechar' : 'Gerir'}
                       </button>
@@ -322,9 +378,9 @@ export default function AdminPage() {
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-[9px]">
-                <div className="bg-bg2 border border-border1 p-2"><span className="text-text3">Saldo</span><div className="text-cyan mt-1">{usdt(selectedUser.wallet?.balance ?? 0)}</div></div>
-                <div className="bg-bg2 border border-border1 p-2"><span className="text-text3">Depositado</span><div className="text-text1 mt-1">{usdt(selectedUser.wallet?.totalDeposited ?? 0)}</div></div>
-                <div className="bg-bg2 border border-border1 p-2"><span className="text-text3">Taxas pagas</span><div className="text-text1 mt-1">{usdt(selectedUser.wallet?.totalFeesPaid ?? 0)}</div></div>
+                <div className="bg-bg2 border border-border1 p-2"><span className="text-text3">Saldo</span><div className="text-cyan mt-1">{formatMoney(selectedUser.wallet?.balance ?? 0)}</div></div>
+                <div className="bg-bg2 border border-border1 p-2"><span className="text-text3">Depositado</span><div className="text-text1 mt-1">{formatMoney(selectedUser.wallet?.totalDeposited ?? 0)}</div></div>
+                <div className="bg-bg2 border border-border1 p-2"><span className="text-text3">Taxas pagas</span><div className="text-text1 mt-1">{formatMoney(selectedUser.wallet?.totalFeesPaid ?? 0)}</div></div>
                 <div className="bg-bg2 border border-border1 p-2"><span className="text-text3">Bots</span><div className="text-text1 mt-1">{selectedUser._count?.bots ?? 0}</div></div>
               </div>
 
@@ -350,6 +406,32 @@ export default function AdminPage() {
                     Parar Todos
                   </button>
                 </div>
+
+                <div className="space-y-1">
+                  <p className="font-mono text-[8px] text-text3 uppercase">Conta</p>
+                  <button onClick={() => toggleBlock(selectedUser.id)}
+                    className={`px-3 py-1 border font-mono text-[8px] ${
+                      selectedUser.plan === 'BLOCKED'
+                        ? 'border-cyan-30 bg-cyan-dim text-cyan'
+                        : 'border-red-30 bg-red-dim text-red'
+                    }`}>
+                    {selectedUser.plan === 'BLOCKED' ? 'Desbloquear' : 'Bloquear'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-bg2 border border-border1 p-3 space-y-2">
+                <p className="font-mono text-[8px] text-text3 uppercase tracking-wider">Alterar Senha</p>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)}
+                    placeholder="Nova senha (mín. 8 caracteres)"
+                    className="flex-1 bg-bg3 border border-border2 text-text1 font-mono text-xs px-3 py-2 outline-none focus:border-cyan/50" />
+                  <button onClick={() => resetPassword(selectedUser.id)}
+                    disabled={newPassword.length < 8}
+                    className="px-4 py-2 border border-gold-30 bg-gold-dim text-gold font-mono text-[9px] uppercase disabled:opacity-40">
+                    Alterar Senha
+                  </button>
+                </div>
               </div>
 
               {/* Ajustar saldo — bloco dedicado */}
@@ -369,8 +451,37 @@ export default function AdminPage() {
                   </button>
                 </div>
                 <p className="font-mono text-[8px] text-text3">
-                  Valor em USDT. Positivo adiciona, negativo remove. Pede confirmação antes de aplicar.
+                  Valor em USDT. Positivo adiciona, negativo remove. Regista transacção no histórico.
                 </p>
+              </div>
+
+              {/* Histórico do utilizador */}
+              <div className="bg-bg2 border border-border1 p-3 space-y-2">
+                <p className="font-mono text-[8px] text-text3 uppercase tracking-wider">Histórico de Transacções</p>
+                {historyLoading ? (
+                  <p className="font-mono text-[9px] text-text3">A carregar...</p>
+                ) : userHistory.length === 0 ? (
+                  <p className="font-mono text-[9px] text-text3">Sem transacções registadas.</p>
+                ) : (
+                  <div className="divide-y divide-border1 max-h-48 overflow-y-auto">
+                    {userHistory.map(tx => (
+                      <div key={tx.id} className="flex items-center justify-between py-2 font-mono text-[9px]">
+                        <div>
+                          <span className={`px-1.5 py-0.5 border ${tx.type === 'DEPOSIT' ? 'text-cyan border-cyan-20' : 'text-red border-red-30'}`}>
+                            {tx.type}
+                          </span>
+                          {tx.note && <span className="text-text3 ml-2">{tx.note}</span>}
+                        </div>
+                        <div className="text-right">
+                          <div className={tx.type === 'DEPOSIT' ? 'text-cyan' : 'text-red'}>
+                            {tx.type === 'DEPOSIT' ? '+' : '-'}{formatMoney(tx.amount)}
+                          </div>
+                          <div className="text-text3">{dt(tx.createdAt)} · {tx.status}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -411,9 +522,9 @@ export default function AdminPage() {
                     </span>
                   </td>
                   <td className={`px-4 py-2.5 font-mono text-[10px] ${tx.type === 'DEPOSIT' ? 'text-cyan' : 'text-red'}`}>
-                    {tx.type === 'DEPOSIT' ? '+' : '-'}{usdt(tx.amount)}
+                    {tx.type === 'DEPOSIT' ? '+' : '-'}{formatMoney(tx.amount)}
                   </td>
-                  <td className="px-4 py-2.5 font-mono text-[10px] text-text3">{usdt(tx.fee ?? 0)}</td>
+                  <td className="px-4 py-2.5 font-mono text-[10px] text-text3">{formatMoney(tx.fee ?? 0)}</td>
                   <td className="px-4 py-2.5 font-mono text-[9px]">
                     <span className={tx.status === 'CONFIRMED' ? 'text-cyan' : tx.status === 'FAILED' ? 'text-red' : 'text-gold'}>
                       {tx.status}
@@ -452,7 +563,7 @@ export default function AdminPage() {
                     </span>
                   </td>
                   <td className={`px-4 py-2.5 font-mono text-[10px] ${(bot.totalPnl ?? 0) >= 0 ? 'text-cyan' : 'text-red'}`}>
-                    {usdt(bot.totalPnl ?? 0)}
+                    {formatMoney(bot.totalPnl ?? 0)}
                   </td>
                   <td className="px-4 py-2.5 font-mono text-[9px] text-text2">{bot._count.rounds}</td>
                   <td className="px-4 py-2.5 font-mono text-[9px] text-text3">{bot.market}</td>

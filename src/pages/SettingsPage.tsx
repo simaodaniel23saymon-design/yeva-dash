@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../lib/api'
+import { buildReferralLink } from '../utils/referral'
 
 interface Settings {
   email: string
@@ -81,9 +82,15 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings | null>(null)
   const [telegram, setTelegram] = useState<TelegramLink | null>(null)
   const [loading, setLoading] = useState(true)
+  const [copiedRef, setCopiedRef] = useState(false)
   const [msg, setMsg] = useState<{ text: string; type: 'ok' | 'err' } | null>(null)
 
-  // 2FA modals
+  const copyReferral = () => {
+    if (!settings?.referralCode) return
+    navigator.clipboard.writeText(buildReferralLink(settings.referralCode))
+    setCopiedRef(true)
+    setTimeout(() => setCopiedRef(false), 2000)
+  }
   const [modal2FA, setModal2FA] = useState<'setup' | 'enable' | 'disable' | null>(null)
   const [qrData, setQrData] = useState<{ qrCode: string; secret: string } | null>(null)
   const [twofaLoading, setTwofaLoading] = useState(false)
@@ -206,6 +213,22 @@ export default function SettingsPage() {
           ))}
         </div>
       </div>
+
+      {/* ── LINK DE INDICAÇÃO ── */}
+      {settings?.referralCode && (
+        <div className="bg-bg1 border border-border1 p-5">
+          <h3 className="font-mono text-[9px] uppercase tracking-wider text-text2 mb-3">Link de Indicação</h3>
+          <p className="font-mono text-[9px] text-text3 mb-3">Convida amigos e ganha comissões na tua rede.</p>
+          <div className="flex gap-2">
+            <input type="text" readOnly value={buildReferralLink(settings.referralCode)}
+              className="flex-1 bg-bg3 border border-border2 text-cyan font-mono text-xs px-3 py-2 outline-none" />
+            <button onClick={copyReferral}
+              className={`px-4 py-2 border font-mono text-[9px] uppercase transition-all ${copiedRef ? 'border-cyan-30 bg-cyan-dim text-cyan' : 'border-border2 text-text2 hover:border-cyan hover:text-cyan'}`}>
+              {copiedRef ? '✓ Copiado' : 'Copiar'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── SEGURANÇA + TELEGRAM ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

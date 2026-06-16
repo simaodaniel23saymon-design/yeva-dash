@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
+import { buildReferralLink } from '../utils/referral';
 
 interface AffiliateData {
   referralCode: string;
@@ -26,7 +27,8 @@ export default function AffiliateHub() {
 
   const copyLink = () => {
     if (!data) return;
-    navigator.clipboard.writeText(data.referralLink);
+    const link = buildReferralLink(data.referralCode);
+    navigator.clipboard.writeText(link);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -47,7 +49,7 @@ export default function AffiliateHub() {
         </div>
         <div className="p-4 space-y-3">
           <div className="flex items-center gap-2 bg-bg2 border border-border1 p-3">
-            <code className="text-cyan font-mono text-sm flex-1 truncate">{data?.referralLink ?? '—'}</code>
+            <code className="text-cyan font-mono text-sm flex-1 truncate">{buildReferralLink(data?.referralCode)}</code>
             <button onClick={copyLink}
               className={`font-mono text-[9px] uppercase tracking-wider px-3 py-1.5 border transition-all flex-shrink-0 ${copied ? 'border-cyan-30 bg-cyan-dim text-cyan' : 'border-border2 text-text2 hover:border-cyan hover:text-cyan'}`}>
               {copied ? '✓ COPIADO' : '⧉ COPIAR'}
