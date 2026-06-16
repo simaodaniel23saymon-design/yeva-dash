@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getFriendlyError } from '../utils/errorHandler';
 import { ErrorMessage } from '../components/ErrorMessage';
@@ -8,10 +8,20 @@ export default function LoginPage() {
   const { login, register, loginDemo } = useAuth();
   const navigate = useNavigate();
 
+  const [searchParams] = useSearchParams();
   const [tab, setTab] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [referralCode, setReferralCode] = useState('');
+
+  // Captura ?ref=CODE (vindo de /ref/:code) → pré-preenche o registo
+  useEffect(() => {
+    const ref = searchParams.get('ref');
+    if (ref) {
+      setReferralCode(ref.toUpperCase());
+      setTab('register');
+    }
+  }, [searchParams]);
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -205,6 +215,11 @@ export default function LoginPage() {
                   <input type="text" value={referralCode}
                     onChange={e => setReferralCode(e.target.value.toUpperCase())}
                     placeholder="YVT-XXXXXX" className={inputClass} />
+                  {referralCode && (
+                    <p className="mt-1.5 font-mono text-[9px] text-cyan">
+                      ✓ Convite aplicado: <span className="font-bold">{referralCode}</span>
+                    </p>
+                  )}
                 </div>
               )}
 

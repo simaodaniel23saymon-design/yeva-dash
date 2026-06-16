@@ -2,6 +2,10 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { api } from '../lib/api';
+import { QuickGuide } from '../components/QuickGuide';
+import { LiveTradingPanel } from '../components/LiveTradingPanel';
+import { BotToggleButton } from '../components/BotToggleButton';
+import { formatUSDT, toUSDT } from '../utils/format';
 
 interface BotData {
   id: string;
@@ -91,17 +95,27 @@ export default function DashboardPage() {
   const stats = data?.stats;
   const chartData = data?.transactions.slice().reverse().map(tx => ({
     day: new Date(tx.createdAt).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short' }),
-    amount: tx.type === 'WITHDRAWAL' ? -tx.amount : tx.amount,
+    amount: toUSDT(tx.type === 'WITHDRAWAL' ? -tx.amount : tx.amount),
   })) ?? [];
 
   return (
     <div className="space-y-4">
+      <QuickGuide title="Bem-vindo ao YevaTrade" steps={[
+        'Vê o teu saldo e os bots em tempo real',
+        'Acompanha os bots activos e o estado das operações',
+        'Monitoriza lucros e performance ao longo do tempo',
+      ]} />
+
+      {/* Painel em tempo real + controlo de bots */}
+      <BotToggleButton />
+      <LiveTradingPanel />
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: 'Saldo Real', value: money(stats?.realBalance ?? 0), sub: `${money(stats?.lockedBalance ?? 0)} bloqueado`, color: 'text-gold' },
-          { label: 'Conta Demo', value: money(stats?.demoBalance ?? 10000), sub: 'Ambiente de teste', color: 'text-cyan' },
+          { label: 'Saldo Real', value: `$${formatUSDT(stats?.realBalance)}`, sub: `$${formatUSDT(stats?.lockedBalance)} bloqueado`, color: 'text-gold' },
+          { label: 'Conta Demo', value: `$${formatUSDT(stats?.demoBalance)}`, sub: 'Ambiente de teste', color: 'text-cyan' },
           { label: 'Bots Activos', value: `${stats?.activeBots ?? 0}/${stats?.totalBots ?? 0}`, sub: `${stats?.demoBots ?? 0} demo`, color: 'text-text1' },
-          { label: 'P&L Total', value: money(stats?.pnlTotal ?? 0), sub: 'Rounds registados', color: (stats?.pnlTotal ?? 0) >= 0 ? 'text-cyan' : 'text-red' },
+          { label: 'P&L Total', value: `$${formatUSDT(stats?.pnlTotal)}`, sub: 'Rounds registados', color: (stats?.pnlTotal ?? 0) >= 0 ? 'text-cyan' : 'text-red' },
         ].map(item => (
           <div key={item.label} className="bg-bg1 border border-border1 p-4">
             <div className="font-mono text-[8px] tracking-[2px] uppercase text-text2 mb-2">{item.label}</div>
@@ -142,7 +156,7 @@ export default function DashboardPage() {
                       <span className="font-mono text-[8px] uppercase px-1.5 py-0.5 border border-border2 text-text2">{bot.exchange}</span>
                     </div>
                     <div className="flex gap-4 font-mono text-[10px] text-text2">
-                      <span className={bot.pnl >= 0 ? 'text-cyan' : 'text-red'}>{money(bot.pnl)}</span>
+                      <span className={bot.pnl >= 0 ? 'text-cyan' : 'text-red'}>${formatUSDT(bot.pnl)}</span>
                       <span>{bot.rounds} rounds</span>
                       <span>{bot.leverage}x</span>
                     </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { api } from '../lib/api';
+import { QuickGuide } from '../components/QuickGuide';
 
 interface Wallet {
   balance: number; lockedBalance: number;
@@ -162,6 +163,13 @@ export default function WalletPage() {
 
   return (
     <div className="space-y-4 max-w-2xl">
+      <QuickGuide title="Sobre a tua carteira" steps={[
+        'Carrega via USDT (TRC20 ou BEP20)',
+        'Mínimo de 10 USDT para operar',
+        'Recebe alertas por email e Telegram',
+        'Levantamentos processados em BEP20 (BSC)',
+      ]} />
+
       <div>
         <h2 className="text-text1 font-bold text-lg">Carteira</h2>
         <p className="font-mono text-[9px] uppercase tracking-wider text-text2 mt-0.5">Saldo e movimentos</p>

@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
@@ -38,12 +38,19 @@ function AppRoute({ element, requireAdmin = false }: { element: React.ReactNode;
   );
 }
 
+// Link de indicação: /ref/:code → encaminha para o registo com o código aplicado
+function ReferralRedirect() {
+  const { code } = useParams();
+  return <Navigate to={`/login?ref=${encodeURIComponent(code ?? '')}`} replace />;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/ref/:code" element={<ReferralRedirect />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/legal/terms" element={<TermsOfUse />} />
