@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
+import { getFriendlyError } from '../utils/errorHandler'
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 interface Stats {
@@ -36,6 +37,9 @@ interface AdminBot {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const money = (v: number) => `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+// Saldo/valores monetários são guardados em micro-unidades (6 decimais): 1 USDT = 1.000.000
+const USDT_UNIT = 1_000_000
+const usdt = (micro: number) => money((micro ?? 0) / USDT_UNIT)
 const dt = (s: string) => new Date(s).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' })
 
 const PLAN_COLORS: Record<string, string> = {
@@ -76,6 +80,7 @@ export default function AdminPage() {
   const [userPage, setUserPage] = useState(1)
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null)
   const [balanceAmount, setBalanceAmount] = useState('')
+  const [balanceNote, setBalanceNote] = useState('')
   const [notifyMsg, setNotifyMsg] = useState({ subject: '', message: '', userId: '', channels: ['panel'] as string[] })
   const [flash, setFlash] = useState<{ text: string; ok: boolean } | null>(null)
 
@@ -131,11 +136,38 @@ export default function AdminPage() {
 
   const adjustBalance = async (id: string) => {
     const amount = parseFloat(balanceAmount)
-    if (isNaN(amount)) return showFlash('Valor inválido', false)
-    await api.post(`/admin/users/${id}/balance`, { amount })
-    setBalanceAmount('')
-    await loadUsers(userPage)
-    showFlash(`Saldo ajustado: ${amount >= 0 ? '+' : ''}${money(amount)}`)
+    if (isNaN(amount) || amount === 0) return showFlash('Introduz um valor diferente de zero (ex: 50 ou -20)', false)
+    if (!balanceNote.trim()) return showFlash('A descrição do ajuste é obrigatória', false)
+
+    const type: 'deposit' | 'withdraw' = amount > 0 ? 'deposit' : 'withdraw'
+    const micro = Math.round(Math.abs(amount) * USDT_UNIT) // USDT → micro-unidades
+    const verbo = amount > 0 ? 'ADICIONAR' : 'REMOVER'
+    const preposicao = amount > 0 ? 'ao' : 'do'
+    const confirmado = window.confirm(
+      `Confirmas ${verbo} ${money(Math.abs(amount))} ${preposicao} saldo de ${selectedUser?.email}?\n\nMotivo: ${balanceNote.trim()}`
+    )
+    if (!confirmado) return
+
+    try {
+      await api.post(`/admin/users/${id}/balance`, { amount: micro, type, description: balanceNote.trim() })
+      setBalanceAmount('')
+      setBalanceNote('')
+      await loadUsers(userPage)
+      // Refresca o saldo no painel aberto (optimista) — em micro-unidades
+      if (selectedUser?.id === id) {
+        setSelectedUser(prev => prev ? {
+          ...prev,
+          wallet: {
+            balance: (prev.wallet?.balance ?? 0) + amount * USDT_UNIT,
+            totalDeposited: prev.wallet?.totalDeposited ?? 0,
+            totalFeesPaid: prev.wallet?.totalFeesPaid ?? 0,
+          },
+        } : null)
+      }
+      showFlash(`Saldo ajustado: ${amount >= 0 ? '+' : ''}${money(amount)}`)
+    } catch (err) {
+      showFlash(getFriendlyError(err).message, false)
+    }
   }
 
   const stopBots = async (id: string) => {
@@ -195,8 +227,8 @@ export default function AdminPage() {
             <StatBox label="Total Utilizadores" value={stats.users.total} sub={`${stats.users.active} activos`} />
             <StatBox label="Total Bots" value={stats.bots.total} sub={`${stats.bots.active} activos`} color="text-gold" />
             <StatBox label="Transacções" value={stats.transactions.total} color="text-text1" />
-            <StatBox label="Taxas Performance" value={money(stats.revenue.totalFeesPaid)} sub="Total cobrado" color="text-cyan" />
-            <StatBox label="Total Depositado" value={money(stats.revenue.totalDeposited)} color="text-cyan" />
+            <StatBox label="Taxas Performance" value={usdt(stats.revenue.totalFeesPaid)} sub="Total cobrado" color="text-cyan" />
+            <StatBox label="Total Depositado" value={usdt(stats.revenue.totalDeposited)} color="text-cyan" />
           </div>
 
           <div className="bg-bg1 border border-border1">
@@ -233,10 +265,10 @@ export default function AdminPage() {
           </div>
 
           <div className="bg-bg1 border border-border1 overflow-x-auto">
-            <table className="w-full min-w-[700px]">
+            <table className="w-full min-w-[820px]">
               <thead>
                 <tr className="border-b border-border1">
-                  {['Email', 'Plano', 'Saldo', 'Bots', 'Criado', 'Acções'].map(h => (
+                  {['Email', 'Nome', 'Plano', 'Admin', 'Saldo', 'Bots', 'Criado', 'Acções'].map(h => (
                     <th key={h} className="px-4 py-2.5 text-left font-mono text-[8px] uppercase tracking-wider text-text3">{h}</th>
                   ))}
                 </tr>
@@ -246,15 +278,22 @@ export default function AdminPage() {
                   <tr key={u.id} className="hover:bg-bg2 transition-colors">
                     <td className="px-4 py-2.5">
                       <div className="text-xs text-text1 font-medium">{u.email}</div>
-                      {u.isAdmin && <span className="font-mono text-[8px] text-red">ADMIN</span>}
+                    </td>
+                    <td className="px-4 py-2.5 font-mono text-[10px] text-text2">
+                      {u.name || '—'}
                     </td>
                     <td className="px-4 py-2.5">
                       <span className={`font-mono text-[8px] px-1.5 py-0.5 border ${PLAN_COLORS[u.plan] || 'text-text2 border-border2'}`}>
                         {u.plan}
                       </span>
                     </td>
+                    <td className="px-4 py-2.5">
+                      {u.isAdmin
+                        ? <span className="font-mono text-[8px] px-1.5 py-0.5 border border-red-30 text-red">SIM</span>
+                        : <span className="font-mono text-[8px] text-text3">não</span>}
+                    </td>
                     <td className="px-4 py-2.5 font-mono text-[10px] text-cyan">
-                      {money(u.wallet?.balance ?? 0)}
+                      {usdt(u.wallet?.balance ?? 0)}
                     </td>
                     <td className="px-4 py-2.5 font-mono text-[10px] text-text2">
                       {u._count?.bots ?? 0}
@@ -283,9 +322,9 @@ export default function AdminPage() {
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-[9px]">
-                <div className="bg-bg2 border border-border1 p-2"><span className="text-text3">Saldo</span><div className="text-cyan mt-1">{money(selectedUser.wallet?.balance ?? 0)}</div></div>
-                <div className="bg-bg2 border border-border1 p-2"><span className="text-text3">Depositado</span><div className="text-text1 mt-1">{money(selectedUser.wallet?.totalDeposited ?? 0)}</div></div>
-                <div className="bg-bg2 border border-border1 p-2"><span className="text-text3">Taxas pagas</span><div className="text-text1 mt-1">{money(selectedUser.wallet?.totalFeesPaid ?? 0)}</div></div>
+                <div className="bg-bg2 border border-border1 p-2"><span className="text-text3">Saldo</span><div className="text-cyan mt-1">{usdt(selectedUser.wallet?.balance ?? 0)}</div></div>
+                <div className="bg-bg2 border border-border1 p-2"><span className="text-text3">Depositado</span><div className="text-text1 mt-1">{usdt(selectedUser.wallet?.totalDeposited ?? 0)}</div></div>
+                <div className="bg-bg2 border border-border1 p-2"><span className="text-text3">Taxas pagas</span><div className="text-text1 mt-1">{usdt(selectedUser.wallet?.totalFeesPaid ?? 0)}</div></div>
                 <div className="bg-bg2 border border-border1 p-2"><span className="text-text3">Bots</span><div className="text-text1 mt-1">{selectedUser._count?.bots ?? 0}</div></div>
               </div>
 
@@ -303,20 +342,6 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                {/* Ajustar saldo */}
-                <div className="space-y-1">
-                  <p className="font-mono text-[8px] text-text3 uppercase">Ajustar Saldo</p>
-                  <div className="flex gap-1">
-                    <input value={balanceAmount} onChange={e => setBalanceAmount(e.target.value)}
-                      placeholder="+50 ou -20"
-                      className="w-24 bg-bg3 border border-border2 text-text1 font-mono text-xs px-2 py-1 outline-none focus:border-cyan/50" />
-                    <button onClick={() => adjustBalance(selectedUser.id)}
-                      className="px-3 py-1 border border-cyan-30 bg-cyan-dim text-cyan font-mono text-[8px]">
-                      Aplicar
-                    </button>
-                  </div>
-                </div>
-
                 {/* Parar bots */}
                 <div className="space-y-1">
                   <p className="font-mono text-[8px] text-text3 uppercase">Bots</p>
@@ -325,6 +350,27 @@ export default function AdminPage() {
                     Parar Todos
                   </button>
                 </div>
+              </div>
+
+              {/* Ajustar saldo — bloco dedicado */}
+              <div className="bg-bg2 border border-border1 p-3 space-y-2">
+                <p className="font-mono text-[8px] text-text3 uppercase tracking-wider">Ajustar Saldo (USDT)</p>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input value={balanceAmount} onChange={e => setBalanceAmount(e.target.value)}
+                    inputMode="decimal" placeholder="+50 (adicionar) ou -20 (remover)"
+                    className="w-full sm:w-44 bg-bg3 border border-border2 text-text1 font-mono text-xs px-3 py-2 outline-none focus:border-cyan/50" />
+                  <input value={balanceNote} onChange={e => setBalanceNote(e.target.value)}
+                    placeholder="Descrição do ajuste (obrigatória)"
+                    className="flex-1 bg-bg3 border border-border2 text-text1 font-mono text-xs px-3 py-2 outline-none focus:border-cyan/50" />
+                  <button onClick={() => adjustBalance(selectedUser.id)}
+                    disabled={!balanceAmount || !balanceNote.trim()}
+                    className="px-4 py-2 border border-cyan-30 bg-cyan-dim text-cyan font-mono text-[9px] uppercase tracking-wider hover:bg-cyan/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                    Confirmar Ajuste
+                  </button>
+                </div>
+                <p className="font-mono text-[8px] text-text3">
+                  Valor em USDT. Positivo adiciona, negativo remove. Pede confirmação antes de aplicar.
+                </p>
               </div>
             </div>
           )}
@@ -365,9 +411,9 @@ export default function AdminPage() {
                     </span>
                   </td>
                   <td className={`px-4 py-2.5 font-mono text-[10px] ${tx.type === 'DEPOSIT' ? 'text-cyan' : 'text-red'}`}>
-                    {tx.type === 'DEPOSIT' ? '+' : '-'}{money(tx.amount)}
+                    {tx.type === 'DEPOSIT' ? '+' : '-'}{usdt(tx.amount)}
                   </td>
-                  <td className="px-4 py-2.5 font-mono text-[10px] text-text3">{money(tx.fee ?? 0)}</td>
+                  <td className="px-4 py-2.5 font-mono text-[10px] text-text3">{usdt(tx.fee ?? 0)}</td>
                   <td className="px-4 py-2.5 font-mono text-[9px]">
                     <span className={tx.status === 'CONFIRMED' ? 'text-cyan' : tx.status === 'FAILED' ? 'text-red' : 'text-gold'}>
                       {tx.status}
@@ -406,7 +452,7 @@ export default function AdminPage() {
                     </span>
                   </td>
                   <td className={`px-4 py-2.5 font-mono text-[10px] ${(bot.totalPnl ?? 0) >= 0 ? 'text-cyan' : 'text-red'}`}>
-                    {money(bot.totalPnl ?? 0)}
+                    {usdt(bot.totalPnl ?? 0)}
                   </td>
                   <td className="px-4 py-2.5 font-mono text-[9px] text-text2">{bot._count.rounds}</td>
                   <td className="px-4 py-2.5 font-mono text-[9px] text-text3">{bot.market}</td>

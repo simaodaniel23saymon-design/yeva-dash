@@ -15,6 +15,10 @@ interface Deposit {
 }
 
 const money = (v: number) => `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+// Saldo/valores monetários da BD em micro-unidades (6 decimais): 1 USDT = 1.000.000
+const USDT_UNIT = 1_000_000;
+const usdt = (micro: number) => money((micro ?? 0) / USDT_UNIT);
+const toUsdt = (micro: number) => (micro ?? 0) / USDT_UNIT;
 const dt = (s: string) => new Date(s).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 const NETWORKS = [
@@ -166,10 +170,10 @@ export default function WalletPage() {
       {/* Saldo cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          ['Disponível',  money(wallet?.balance ?? 0),          'text-cyan'],
-          ['Bloqueado',   money(wallet?.lockedBalance ?? 0),    'text-gold'],
-          ['Depositado',  money(wallet?.totalDeposited ?? 0),   'text-text1'],
-          ['Levantado',   money(wallet?.totalWithdrawn ?? 0),   'text-text1'],
+          ['Disponível',  usdt(wallet?.balance ?? 0),          'text-cyan'],
+          ['Bloqueado',   usdt(wallet?.lockedBalance ?? 0),    'text-gold'],
+          ['Depositado',  usdt(wallet?.totalDeposited ?? 0),   'text-text1'],
+          ['Levantado',   usdt(wallet?.totalWithdrawn ?? 0),   'text-text1'],
         ].map(([label, value, color]) => (
           <div key={label} className="bg-bg1 border border-border1 p-4">
             <div className="font-mono text-[8px] uppercase tracking-[2px] text-text3 mb-2">{label}</div>
@@ -297,8 +301,8 @@ export default function WalletPage() {
                 <input type="number" min="10" value={withdrawAmount}
                   onChange={e => setWithdrawAmount(e.target.value)}
                   placeholder="Ex: 50" className={inputClass} />
-                {wallet && withdrawAmount && parseFloat(withdrawAmount) > wallet.balance && (
-                  <p className="font-mono text-[9px] text-red mt-1">Saldo insuficiente (disponível: {money(wallet.balance)})</p>
+                {wallet && withdrawAmount && parseFloat(withdrawAmount) > toUsdt(wallet.balance) && (
+                  <p className="font-mono text-[9px] text-red mt-1">Saldo insuficiente (disponível: {usdt(wallet.balance)})</p>
                 )}
               </div>
               <div>
@@ -361,7 +365,7 @@ export default function WalletPage() {
                 </span>
                 <div className="flex-1 min-w-0">
                   <p className={`font-mono text-sm font-bold ${tx.type === 'DEPOSIT' ? 'text-cyan' : 'text-gold'}`}>
-                    {tx.type === 'DEPOSIT' ? '+' : '-'}{money(tx.amount)}
+                    {tx.type === 'DEPOSIT' ? '+' : '-'}{usdt(tx.amount)}
                   </p>
                   {tx.note && <p className="font-mono text-[9px] text-text3 truncate">{tx.note}</p>}
                 </div>

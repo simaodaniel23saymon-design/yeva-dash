@@ -16,7 +16,7 @@ import AdminPage from './pages/AdminPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+function ProtectedRoute({ children, requireAdmin = false }: { children: React.ReactNode; requireAdmin?: boolean }) {
   const { user, loading } = useAuth();
   if (loading) {
     return (
@@ -25,12 +25,14 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  return user ? <>{children}</> : <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (requireAdmin && !user.isAdmin) return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
 }
 
-function AppRoute({ element }: { element: React.ReactNode }) {
+function AppRoute({ element, requireAdmin = false }: { element: React.ReactNode; requireAdmin?: boolean }) {
   return (
-    <ProtectedRoute>
+    <ProtectedRoute requireAdmin={requireAdmin}>
       <Layout>{element}</Layout>
     </ProtectedRoute>
   );
@@ -54,7 +56,7 @@ export default function App() {
           <Route path="/wallet" element={<AppRoute element={<WalletPage />} />} />
           <Route path="/settings" element={<AppRoute element={<SettingsPage />} />} />
           <Route path="/affiliates" element={<AppRoute element={<AffiliateHub />} />} />
-          <Route path="/admin" element={<AppRoute element={<AdminPage />} />} />
+          <Route path="/admin" element={<AppRoute element={<AdminPage />} requireAdmin />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </AuthProvider>
