@@ -1,9 +1,14 @@
 import axios from 'axios';
 
+// URL do backend em produção. Usada como fallback caso VITE_API_URL não esteja
+// definida no build (ex.: variável esquecida no painel da Cloudflare).
+// Tem de terminar em /api — o backend monta todas as rotas sob /api.
+const PROD_API_URL = 'https://api.yevatrade.com/api';
+
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api'),
+  baseURL: import.meta.env.VITE_API_URL || (import.meta.env.PROD ? PROD_API_URL : 'http://localhost:3001/api'),
   withCredentials: true,
-  timeout: 10000,
+  timeout: 15000,
 });
 
 api.interceptors.request.use(

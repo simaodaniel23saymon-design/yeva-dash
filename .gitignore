@@ -17,12 +17,14 @@ dist-ssr
 build/
 *.local
 
-# Environment — apenas ficheiros com segredos / locais
-# NOTA: .env.production, .env.development e .env.example SÃO versionados
-# (contêm apenas URLs públicas, sem segredos) para o build da Cloudflare funcionar.
+# Environment variables (mantidos fora do git)
+# NOTA: o fallback de produção está em src/lib/api.ts, por isso o build da
+# Cloudflare funciona mesmo sem estes ficheiros. O .env.example FICA versionado.
 .env
 .env.local
 .env.*.local
+.env.production
+.env.development
 
 # Editor / IDE
 .vscode/*

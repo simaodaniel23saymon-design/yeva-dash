@@ -1,24 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-
-function getLoginErrorMessage(err: unknown) {
-  const error = err as {
-    code?: string;
-    message?: string;
-    response?: { status?: number; data?: { error?: string } };
-  };
-
-  if (error.response?.status === 401) return 'Credenciais inválidas.';
-  if (error.response?.status === 400) return error.response.data?.error ?? 'Preenche o email e a password.';
-  if (error.response?.status === 409) return error.response.data?.error ?? 'Este email já está registado.';
-  if (error.response?.status === 429) return 'Muitas tentativas. Aguarda um pouco e tenta novamente.';
-  if (error.code === 'ECONNABORTED') return 'O servidor demorou a responder. Tenta novamente.';
-  if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
-    return 'Backend offline. Inicia o backend em http://localhost:3001 e tenta novamente.';
-  }
-  return error.response?.data?.error ?? 'Não foi possível concluir o pedido.';
-}
+import { getFriendlyError } from '../utils/errorHandler';
+import { ErrorMessage } from '../components/ErrorMessage';
 
 export default function LoginPage() {
   const { login, register, loginDemo } = useAuth();
@@ -87,7 +71,7 @@ export default function LoginPage() {
         navigate('/dashboard');
       }
     } catch (err: unknown) {
-      setError(getLoginErrorMessage(err));
+      setError(getFriendlyError(err).message);
     } finally {
       setLoading(false);
     }
@@ -100,7 +84,7 @@ export default function LoginPage() {
       await loginDemo();
       navigate('/dashboard');
     } catch (err: unknown) {
-      setError(getLoginErrorMessage(err));
+      setError(getFriendlyError(err).message);
     } finally {
       setLoading(false);
     }
@@ -172,8 +156,8 @@ export default function LoginPage() {
               </div>
 
               {error && (
-                <div className="bg-red-dim border border-red-30 p-3 font-mono text-[10px] text-red mb-4">
-                  {error}
+                <div className="mb-4">
+                  <ErrorMessage message={error} onClose={() => setError('')} />
                 </div>
               )}
 
@@ -224,11 +208,7 @@ export default function LoginPage() {
                 </div>
               )}
 
-              {error && (
-                <div className="bg-red-dim border border-red-30 p-3 font-mono text-[10px] text-red">
-                  {error}
-                </div>
-              )}
+              {error && <ErrorMessage message={error} onClose={() => setError('')} />}
 
               <button type="submit" disabled={loading}
                 className="w-full py-3 border border-cyan-30 bg-cyan-dim text-cyan font-mono text-[10px] tracking-widest uppercase hover:bg-cyan/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2">
