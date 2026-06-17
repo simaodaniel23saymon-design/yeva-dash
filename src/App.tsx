@@ -8,6 +8,7 @@ import ExchangesPage from './pages/ExchangesPage';
 import OperationsPage from './pages/OperationsPage';
 import HistoryPage from './pages/HistoryPage';
 import WalletPage from './pages/WalletPage';
+import DepositPage from './pages/DepositPage';
 import SettingsPage from './pages/SettingsPage';
 import TermsOfUse from './pages/legal/TermsOfUse';
 import PrivacyPolicy from './pages/legal/PrivacyPolicy';
@@ -69,6 +70,7 @@ export default function App() {
           <Route path="/positions" element={<AppRoute element={<OperationsPage />} />} />
           <Route path="/history" element={<AppRoute element={<HistoryPage />} />} />
           <Route path="/wallet" element={<AppRoute element={<WalletPage />} />} />
+          <Route path="/deposit" element={<AppRoute element={<DepositPage />} />} />
           <Route path="/settings" element={<AppRoute element={<SettingsPage />} />} />
           <Route path="/affiliates" element={<AppRoute element={<AffiliateHub />} />} />
           <Route path="/admin" element={<AppRoute element={<AdminPage />} requireAdmin />} />

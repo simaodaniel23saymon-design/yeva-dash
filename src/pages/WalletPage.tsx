@@ -1,8 +1,10 @@
 import { useEffect, useState, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { QuickGuide } from '../components/QuickGuide';
 import { useWallet } from '../hooks/useWallet';
-import { formatMoney, toUSDT } from '../utils/format';
+import { useBalances } from '../hooks/useBalances';
+import { formatMoney, formatUSDT, toUSDT } from '../utils/format';
 
 interface Tx {
   id: string; type: string; amount: number; status: string;
@@ -25,6 +27,7 @@ const NETWORKS = [
 
 export default function WalletPage() {
   const { wallet, loading: walletLoading, refresh: refreshWallet } = useWallet(30000);
+  const { gasBalance, binanceUSDT, loading: balancesLoading, refresh: refreshBalances } = useBalances(30000);
   const [txs, setTxs] = useState<Tx[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'deposit' | 'withdraw'>('deposit');
@@ -53,7 +56,7 @@ export default function WalletPage() {
   const loadWallet = async () => {
     const txRes = await api.get<Tx[]>('/payments/transactions');
     setTxs(txRes.data);
-    await refreshWallet();
+    await Promise.all([refreshWallet(), refreshBalances()]);
   };
 
   useEffect(() => {
@@ -142,7 +145,7 @@ export default function WalletPage() {
     expired: 'Expirou',
   };
 
-  if (loading || walletLoading) return (
+  if (loading || walletLoading || balancesLoading) return (
     <div className="py-32 flex justify-center">
       <div className="w-8 h-8 border-2 border-cyan border-t-transparent rounded-full animate-spin" />
     </div>
@@ -154,28 +157,66 @@ export default function WalletPage() {
   return (
     <div className="space-y-4 max-w-2xl">
       <QuickGuide title="Sobre a tua carteira" steps={[
-        'Carrega via USDT (TRC20 ou BEP20)',
-        'Mínimo de 10 USDT para operar',
-        'Recebe alertas por email e Telegram',
-        'Levantamentos processados em BEP20 (BSC)',
+        'Gás do sistema: mínimo $17 USDT para usar os bots',
+        'Saldo Binance: dinheiro real na exchange para operar',
+        'Performance fee de 30% sobre lucros desconta do gás',
+        'Recebes alertas por email e Telegram quando o gás acabar',
       ]} />
 
       <div>
         <h2 className="text-text1 font-bold text-lg">Carteira</h2>
-        <p className="font-mono text-[9px] uppercase tracking-wider text-text2 mt-0.5">Saldo e movimentos</p>
+        <p className="font-mono text-[9px] uppercase tracking-wider text-text2 mt-0.5">Gás interno + saldo Binance</p>
       </div>
 
-      {/* Saldo cards */}
+      {/* Dois saldos principais */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="bg-bg1 border border-cyan-20 p-5">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-mono text-[9px] uppercase tracking-wider text-cyan font-bold">Gás do Sistema</h3>
+            <span className="font-mono text-[8px] px-1.5 py-0.5 border border-cyan-30 text-cyan">Interno</span>
+          </div>
+          <p className="text-2xl font-bold text-cyan">${formatUSDT(wallet?.balance ?? gasBalance)} USDT</p>
+          <p className="font-mono text-[10px] text-text2 mt-2">Usado para operar os bots. Mínimo: $17 USDT</p>
+          <Link to="/deposit"
+            className="inline-block mt-4 font-mono text-[9px] uppercase tracking-wider px-4 py-2 border border-cyan-30 bg-cyan-dim text-cyan hover:bg-cyan/20 transition-all">
+            + Recarregar Gás
+          </Link>
+        </div>
+
+        <div className="bg-bg1 border border-gold-30 p-5">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-mono text-[9px] uppercase tracking-wider text-gold font-bold">Saldo Binance</h3>
+            <span className="font-mono text-[8px] px-1.5 py-0.5 border border-gold-30 text-gold">Exchange</span>
+          </div>
+          <p className="text-2xl font-bold text-gold">${binanceUSDT.toFixed(2)} USDT</p>
+          <p className="font-mono text-[10px] text-text2 mt-2">Dinheiro real para operar na Binance</p>
+          <a href="https://www.binance.com/pt/my/wallet" target="_blank" rel="noreferrer"
+            className="inline-block mt-4 font-mono text-[9px] uppercase tracking-wider px-4 py-2 border border-gold-30 bg-gold-dim text-gold hover:bg-gold/15 transition-all">
+            Ver na Binance →
+          </a>
+        </div>
+      </div>
+
+      <div className="bg-gold-dim border border-gold-30 p-4">
+        <h3 className="font-mono text-[9px] uppercase tracking-wider text-gold font-bold mb-2">Como funciona</h3>
+        <ul className="font-mono text-[10px] text-text2 space-y-1">
+          <li>• <strong className="text-text1">Gás do sistema</strong>: depósito mínimo $17 USDT para usar os bots</li>
+          <li>• <strong className="text-text1">Saldo Binance</strong>: capital real na exchange</li>
+          <li>• <strong className="text-text1">Performance fee</strong>: 30% sobre lucros descontado do gás</li>
+          <li>• <strong className="text-text1">Afiliados</strong>: 50% do depósito distribuído em 10 níveis</li>
+        </ul>
+      </div>
+
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          ['Disponível',  formatMoney(wallet?.balance),          'text-cyan'],
           ['Bloqueado',   formatMoney(wallet?.lockedBalance),    'text-gold'],
           ['Depositado',  formatMoney(wallet?.totalDeposited),   'text-text1'],
           ['Levantado',   formatMoney(wallet?.totalWithdrawn),   'text-text1'],
+          ['Taxas pagas', formatMoney(wallet?.totalFeesPaid ?? 0), 'text-text2'],
         ].map(([label, value, color]) => (
           <div key={label} className="bg-bg1 border border-border1 p-4">
             <div className="font-mono text-[8px] uppercase tracking-[2px] text-text3 mb-2">{label}</div>
-            <div className={`text-xl font-bold ${color}`}>{value}</div>
+            <div className={`text-lg font-bold ${color}`}>{value}</div>
           </div>
         ))}
       </div>

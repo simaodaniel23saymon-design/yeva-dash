@@ -142,6 +142,18 @@ export default function BotsPage() {
 
       <BotToggleButton />
 
+      <div className="bg-bg1 border border-cyan-20 p-4">
+        <h3 className="font-mono text-[9px] uppercase tracking-wider text-cyan font-bold mb-2">
+          Trading automático activo
+        </h3>
+        <ul className="font-mono text-[10px] text-text2 space-y-1">
+          <li>• Os bots analisam o mercado a cada 30 segundos</li>
+          <li>• Usam EMA50, EMA200 e ADX para decidir entradas</li>
+          <li>• Criam ordens reais na Binance automaticamente</li>
+          <li>• Monitorizam TP/SL e fecham posições automaticamente</li>
+        </ul>
+      </div>
+
       {flash && (
         <div className="bg-cyan-dim border border-cyan-20 p-3 font-mono text-[10px] text-cyan">{flash}</div>
       )}

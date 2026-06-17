@@ -96,6 +96,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
 
         <span className="font-mono text-[8px] tracking-[2.5px] uppercase text-text3 px-2 mb-2 mt-5 block">Finanças</span>
         <NavLink to="/wallet"    className={navLinkClass} onClick={close}><IconWallet /><span>Carteira</span></NavLink>
+        <NavLink to="/deposit"   className={navLinkClass} onClick={close}><IconWallet /><span>Depósito</span></NavLink>
         <NavLink to="/affiliates"className={navLinkClass} onClick={close}><IconNetwork /><span>Afiliados</span></NavLink>
 
         <span className="font-mono text-[8px] tracking-[2.5px] uppercase text-text3 px-2 mb-2 mt-5 block">Sistema</span>
