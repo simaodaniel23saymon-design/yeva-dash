@@ -7,6 +7,7 @@ import { LiveTradingPanel } from '../components/LiveTradingPanel';
 import { BotToggleButton } from '../components/BotToggleButton';
 import { toUSDT, formatMoney } from '../utils/format';
 import { useWallet } from '../hooks/useWallet';
+import { useExchange } from '../hooks/useExchange';
 
 interface BotData {
   id: string;
@@ -58,18 +59,29 @@ const money = (value: number) => `$${value.toLocaleString('en-US', { minimumFrac
 
 export default function DashboardPage() {
   const { wallet } = useWallet(30000);
+  const { isConnected, exchangeBalance } = useExchange(30000);
   const [data, setData] = useState<DashboardData | null>(null);
+  const [liveBots, setLiveBots] = useState<{ id: string; pair?: string; symbol?: string; status: string; market?: string; leverage?: number }[]>([]);
+  const [openPnl, setOpenPnl] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  const fetchData = () =>
-    api.get<DashboardData>('/dashboard')
-      .then(res => setData(res.data))
-      .catch(() => {});
+  const fetchData = async () => {
+    const [dashRes, botsRes] = await Promise.allSettled([
+      api.get<DashboardData>('/dashboard'),
+      api.get<{ bots: typeof liveBots }>('/bots/status'),
+    ]);
+    if (dashRes.status === 'fulfilled') setData(dashRes.value.data);
+    if (botsRes.status === 'fulfilled') {
+      const bots = botsRes.value.data.bots ?? [];
+      setLiveBots(bots);
+      const running = bots.filter(b => b.status === 'running' || b.status === 'ACTIVE');
+      setOpenPnl(running.reduce((sum, b) => sum + (toUSDT((b as { pnl?: number }).pnl ?? 0)), 0));
+    }
+  };
 
   useEffect(() => {
     fetchData().finally(() => setLoading(false));
-    // Polling a cada 15 segundos — mantém o dashboard vivo
-    const interval = setInterval(fetchData, 15000);
+    const interval = setInterval(fetchData, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -114,12 +126,21 @@ export default function DashboardPage() {
       <BotToggleButton />
       <LiveTradingPanel />
 
+      {!isConnected && (
+        <div className="bg-gold-dim border border-gold-30 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <p className="font-mono text-[11px] text-gold">Nenhuma exchange conectada — conecta para ver saldo real e operar.</p>
+          <Link to="/exchanges" className="font-mono text-[9px] uppercase px-4 py-2 border border-cyan-30 bg-cyan-dim text-cyan shrink-0 text-center">
+            Conectar API
+          </Link>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: 'Saldo Real', value: formatMoney(realBalance), sub: `${formatMoney(lockedBalance)} bloqueado`, color: 'text-gold' },
-          { label: 'Conta Demo', value: formatMoney(stats?.demoBalance), sub: 'Ambiente de teste', color: 'text-cyan' },
-          { label: 'Bots Activos', value: `${stats?.activeBots ?? 0}/${stats?.totalBots ?? 0}`, sub: `${stats?.demoBots ?? 0} demo`, color: 'text-text1' },
-          { label: 'P&L Total', value: formatMoney(stats?.pnlTotal), sub: 'Rounds registados', color: (toUSDT(stats?.pnlTotal) >= 0 ? 'text-cyan' : 'text-red') },
+          { label: 'Equity Exchange', value: exchangeBalance != null ? `$${exchangeBalance.toFixed(2)}` : '—', sub: isConnected ? 'Saldo Binance/Bybit' : 'Não conectado', color: 'text-cyan' },
+          { label: 'Saldo Gás', value: formatMoney(realBalance), sub: `${formatMoney(lockedBalance)} bloqueado`, color: 'text-gold' },
+          { label: 'Bots Activos', value: `${liveBots.filter(b => b.status === 'running' || b.status === 'ACTIVE').length}/${liveBots.length || (stats?.totalBots ?? 0)}`, sub: `${stats?.demoBots ?? 0} demo`, color: 'text-text1' },
+          { label: 'P&L Aberto', value: `$${openPnl.toFixed(2)}`, sub: `Total: ${formatMoney(stats?.pnlTotal)}`, color: openPnl >= 0 ? 'text-cyan' : 'text-red' },
         ].map(item => (
           <div key={item.label} className="bg-bg1 border border-border1 p-4">
             <div className="font-mono text-[8px] tracking-[2px] uppercase text-text2 mb-2">{item.label}</div>
@@ -144,13 +165,24 @@ export default function DashboardPage() {
               Novo
             </Link>
           </div>
-          {!data?.bots.length ? (
+          {!data?.bots.length && liveBots.length === 0 ? (
             <div className="p-8 text-center text-text2 font-mono text-xs">
-              Sem bots criados. Usa a conta demo para testar antes de ligar uma exchange real.
+              Sem bots activos.{' '}
+              <Link to="/bots" className="text-cyan underline">Configura um bot</Link>
             </div>
           ) : (
             <div className="divide-y divide-border1 max-h-80 overflow-y-auto">
-              {data.bots.map(bot => (
+              {(liveBots.length ? liveBots.map(b => ({
+                id: b.id,
+                pair: b.pair ?? b.symbol ?? '—',
+                status: b.status === 'running' ? 'ACTIVE' : b.status,
+                market: b.market ?? '',
+                leverage: b.leverage ?? 0,
+                accountType: 'REAL' as const,
+                exchange: '',
+                pnl: 0,
+                rounds: 0,
+              })) : (data?.bots ?? [])).map(bot => (
                 <div key={bot.id} className="flex items-center justify-between px-4 py-3">
                   <div>
                     <div className="flex items-center gap-2 mb-1">

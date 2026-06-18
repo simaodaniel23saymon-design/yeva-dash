@@ -1,89 +1,170 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { getFriendlyError } from '../utils/errorHandler';
+import {
+  useExchange,
+  type ExchangeName,
+  type MarketType,
+  type AccountMode,
+} from '../hooks/useExchange';
 
-interface ExchangeAccount { id: string; exchange: string; isActive: boolean; createdAt?: string; }
+const inputClass = 'w-full bg-bg3 border border-border2 text-text1 font-mono text-sm px-3 py-2.5 outline-none focus:border-cyan/35 transition-colors placeholder:text-text2';
 
-interface ExchangeStatus {
-  connected: boolean;
-  exchange?: {
-    id?: string;
-    exchange?: string;
-    createdAt?: string;
-    isActive?: boolean;
-  } | null;
-}
-
-const SERVER_IP = '134.209.81.127';
+const tabClass = (active: boolean) =>
+  `flex-1 py-2.5 font-mono text-[9px] uppercase tracking-wider border transition-all ${
+    active ? 'bg-cyan-dim border-cyan-30 text-cyan' : 'border-border2 text-text2 hover:border-border1'
+  }`;
 
 export default function ExchangesPage() {
-  const [accounts, setAccounts] = useState<ExchangeAccount[]>([]);
-  const [status, setStatus] = useState<ExchangeStatus>({ connected: false });
-  const [loading, setLoading] = useState(true);
-  const [disconnecting, setDisconnecting] = useState(false);
-  const [showForm, setShowForm] = useState(false);
+  const {
+    status, isConnected, exchangeBalance, serverIp, loading,
+    refreshStatus, testConnection, setExchangeBalance,
+  } = useExchange();
+
+  const [exchange, setExchange] = useState<ExchangeName>('Binance');
+  const [market, setMarket] = useState<MarketType>('FUTURES');
+  const [accountType, setAccountType] = useState<AccountMode>('real');
+  const [apiKey, setApiKey] = useState('');
+  const [apiSecret, setApiSecret] = useState('');
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [showApiSecret, setShowApiSecret] = useState(false);
+  const [testedBalance, setTestedBalance] = useState<number | null>(null);
+  const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [editMode, setEditMode] = useState(false);
   const [error, setError] = useState('');
   const [flash, setFlash] = useState<{ text: string; ok: boolean } | null>(null);
-  const [showSecret, setShowSecret] = useState(false);
   const [copied, setCopied] = useState(false);
-
-  const [form, setForm] = useState({ exchange: 'BINANCE', apiKey: '', secretKey: '' });
+  const [maskedKey, setMaskedKey] = useState('');
 
   const showFlash = (text: string, ok = true) => {
     setFlash({ text, ok });
     setTimeout(() => setFlash(null), 4000);
   };
 
+  useEffect(() => {
+    if (status.exchange?.exchange) {
+      setExchange(status.exchange.exchange.toUpperCase().includes('BYBIT') ? 'Bybit' : 'Binance');
+      if (status.exchange.market === 'SPOT' || status.exchange.market === 'FUTURES') {
+        setMarket(status.exchange.market);
+      }
+      if (status.exchange.accountType) {
+        setAccountType(status.exchange.accountType === 'demo' || status.exchange.accountType === 'DEMO' ? 'demo' : 'real');
+      }
+      if (status.exchange.apiKeyMasked) setMaskedKey(status.exchange.apiKeyMasked);
+    }
+  }, [status]);
+
+  useEffect(() => {
+    if (exchangeBalance != null && isConnected && !editMode) {
+      setTestedBalance(exchangeBalance);
+    }
+  }, [exchangeBalance, isConnected, editMode]);
+
   const copyIp = () => {
-    navigator.clipboard.writeText(SERVER_IP);
+    navigator.clipboard.writeText(serverIp);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const loadData = useCallback(async () => {
-    const [accountsRes, statusRes] = await Promise.allSettled([
-      api.get<ExchangeAccount[]>('/exchanges'),
-      api.get<ExchangeStatus>('/exchange/status'),
-    ]);
-
-    if (accountsRes.status === 'fulfilled') {
-      setAccounts(accountsRes.value.data.filter(a => a.exchange !== 'DEMO'));
+  const handleTest = async () => {
+    if (!apiKey || !apiSecret) {
+      setError('Preenche a API Key e o Secret.');
+      return;
     }
-
-    if (statusRes.status === 'fulfilled') {
-      setStatus(statusRes.value.data);
+    setTesting(true);
+    setError('');
+    setTestedBalance(null);
+    const result = await testConnection({
+      apiKey, apiSecret, exchange, market, testnet: accountType === 'demo',
+    });
+    if (result.success && result.balance != null) {
+      setTestedBalance(result.balance);
+      setMaskedKey(`${apiKey.slice(0, 10)}...`);
+      showFlash(`Conexão OK — Saldo ${market}: $${result.balance.toFixed(2)} USDT`);
     } else {
-      // Fallback: considera conectado se houver conta real activa
-      const real = accountsRes.status === 'fulfilled'
-        ? accountsRes.value.data.filter(a => a.exchange !== 'DEMO' && a.isActive)
-        : [];
-      setStatus({ connected: real.length > 0, exchange: real[0] ?? null });
+      setError(result.error ?? 'Falha na conexão');
     }
-  }, []);
+    setTesting(false);
+  };
 
-  useEffect(() => {
-    loadData().finally(() => setLoading(false));
-  }, [loadData]);
-
-  const disconnect = async () => {
-    const confirmed = window.confirm(
-      '⚠️ ATENÇÃO!\n\n' +
-      'Ao desconectar:\n' +
-      '• Todos os bots serão parados\n' +
-      '• As chaves API serão removidas\n' +
-      '• Terás de conectar novamente para operar\n\n' +
-      'Tens a certeza?'
-    );
-    if (!confirmed) return;
-
-    setDisconnecting(true);
+  const handleSave = async () => {
+    if (testedBalance == null) {
+      showFlash('Testa a conexão antes de guardar.', false);
+      return;
+    }
+    setSaving(true);
     setError('');
     try {
+      try {
+        await api.post('/exchange/connect', {
+          apiKey, apiSecret, exchange, market, accountType,
+        });
+      } catch {
+        await api.post('/exchanges/connect', {
+          exchange: exchange.toUpperCase(),
+          apiKey,
+          secretKey: apiSecret,
+          market,
+          accountType,
+        });
+      }
+      await refreshStatus();
+      setEditMode(false);
+      setApiKey('');
+      setApiSecret('');
+      showFlash('Conexão guardada com sucesso.');
+    } catch (err: unknown) {
+      setError(getFriendlyError(err).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleUpdateKeys = async () => {
+    if (!apiKey || !apiSecret) {
+      setError('Preenche as novas chaves.');
+      return;
+    }
+    setUpdating(true);
+    setError('');
+    try {
+      await api.put('/exchange/update-keys', {
+        apiKey, apiSecret, exchange,
+      });
+      const result = await testConnection({
+        apiKey, apiSecret, exchange, market, testnet: accountType === 'demo',
+      });
+      if (result.success && result.balance != null) {
+        setTestedBalance(result.balance);
+        setMaskedKey(`${apiKey.slice(0, 10)}...`);
+      }
+      setEditMode(false);
+      setApiKey('');
+      setApiSecret('');
+      showFlash('Chaves actualizadas com sucesso.');
+    } catch (err: unknown) {
+      setError(getFriendlyError(err).message);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const disconnect = async () => {
+    if (!window.confirm(
+      'Ao desconectar:\n• Todos os bots serão parados\n• As chaves API serão removidas\n\nTens a certeza?'
+    )) return;
+    setDisconnecting(true);
+    try {
       await api.delete('/exchange/disconnect');
-      setStatus({ connected: false, exchange: null });
-      setAccounts([]);
-      showFlash('Exchange desconectada com sucesso.');
+      setTestedBalance(null);
+      setExchangeBalance(null);
+      setMaskedKey('');
+      setEditMode(false);
+      await refreshStatus();
+      showFlash('Exchange desconectada.');
     } catch (err: unknown) {
       showFlash(getFriendlyError(err).message, false);
     } finally {
@@ -91,46 +172,24 @@ export default function ExchangesPage() {
     }
   };
 
-  const connect = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true); setError('');
-    try {
-      await api.post('/exchanges/connect', form);
-      await loadData();
-      setShowForm(false);
-      setForm({ exchange: 'BINANCE', apiKey: '', secretKey: '' });
-      showFlash('Exchange conectada com sucesso.');
-    } catch (err: unknown) {
-      setError(getFriendlyError(err).message);
-    } finally { setSaving(false); }
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <div className="w-8 h-8 border-2 border-cyan border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
-  const inputClass = "w-full bg-bg3 border border-border2 text-text1 font-mono text-sm px-3 py-2.5 outline-none focus:border-cyan/35 transition-colors placeholder:text-text2";
-  const selectClass = "w-full bg-bg3 border border-border2 text-text1 font-mono text-sm px-3 py-2.5 outline-none focus:border-cyan/35 transition-colors";
-
-  const connectedExchange = status.exchange?.exchange ?? accounts.find(a => a.isActive)?.exchange;
-  const connectedSince = status.exchange?.createdAt ?? accounts.find(a => a.isActive)?.createdAt;
-  const isConnected = status.connected || accounts.some(a => a.isActive);
-
-  if (loading) return (
-    <div className="flex items-center justify-center py-32">
-      <div className="w-8 h-8 border-2 border-cyan border-t-transparent rounded-full animate-spin" />
-    </div>
-  );
+  const displayBalance = testedBalance ?? exchangeBalance;
+  const showForm = !isConnected || editMode;
 
   return (
     <div className="space-y-4 max-w-2xl">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h2 className="text-text1 font-bold text-lg">Conexão com Exchange</h2>
-          <p className="font-mono text-[9px] uppercase tracking-wider text-text2 mt-0.5">Chaves encriptadas com AES-256-GCM</p>
-        </div>
-        {!isConnected && (
-          <button onClick={() => setShowForm(true)}
-            className="font-mono text-[9px] tracking-widest uppercase px-4 py-2 border border-cyan-30 bg-cyan-dim text-cyan hover:bg-cyan/20 transition-all">
-            + CONECTAR
-          </button>
-        )}
+      <div>
+        <h2 className="text-text1 font-bold text-lg">Conexão com Exchange</h2>
+        <p className="font-mono text-[9px] uppercase tracking-wider text-text2 mt-0.5">
+          Testa antes de guardar · Chaves encriptadas AES-256-GCM
+        </p>
       </div>
 
       {flash && (
@@ -139,139 +198,153 @@ export default function ExchangesPage() {
         </div>
       )}
 
-      {isConnected ? (
-        <div className="bg-bg1 border border-cyan-20 p-5">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="w-[6px] h-[6px] rounded-full bg-cyan animate-pulse shadow-[0_0_6px_#00d4a0]" />
-                <h3 className="text-text1 font-bold">Conectado</h3>
-              </div>
-              <p className="font-mono text-[11px] text-text2">
-                Exchange: <span className="text-cyan font-bold">
-                  {connectedExchange
-                    ? connectedExchange.charAt(0) + connectedExchange.slice(1).toLowerCase()
-                    : 'Binance'}
-                </span>
-              </p>
-              {connectedSince && (
-                <p className="font-mono text-[9px] text-text3 mt-1">
-                  Conectado desde: {new Date(connectedSince).toLocaleDateString('pt-PT')}
-                </p>
-              )}
-            </div>
-            <button onClick={disconnect} disabled={disconnecting}
-              className="font-mono text-[9px] tracking-widest uppercase px-5 py-3 border border-red-30 bg-red-dim text-red hover:bg-red/15 disabled:opacity-50 transition-all flex items-center justify-center gap-2">
-              {disconnecting
-                ? <><span className="w-3 h-3 border border-red border-t-transparent rounded-full animate-spin" /> A desconectar...</>
-                : 'Desconectar'}
-            </button>
+      {/* Tabs Exchange */}
+      <div className="flex gap-2">
+        {(['Binance', 'Bybit'] as const).map(ex => (
+          <button key={ex} type="button" onClick={() => setExchange(ex)} className={tabClass(exchange === ex)}>
+            {ex}
+          </button>
+        ))}
+      </div>
+
+      {/* IP Servidor */}
+      <div className="bg-bg1 border border-gold-30 p-4 space-y-2">
+        <p className="font-mono text-[9px] uppercase tracking-wider text-gold font-bold">Libera este IP na corretora</p>
+        <div className="flex gap-2">
+          <code className="flex-1 bg-bg3 border border-border2 px-3 py-2 font-mono text-sm text-gold">{serverIp}</code>
+          <button onClick={copyIp}
+            className={`px-3 py-2 border font-mono text-[9px] uppercase ${copied ? 'border-cyan-30 bg-cyan-dim text-cyan' : 'border-border2 text-text2 hover:border-cyan hover:text-cyan'}`}>
+            {copied ? '✓' : 'Copiar'}
+          </button>
+        </div>
+        <p className="font-mono text-[9px] text-text3">Restringe as chaves API a este IP por segurança.</p>
+      </div>
+
+      {/* Conta + Mercado */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <p className="font-mono text-[9px] uppercase tracking-wider text-text2 mb-2">Tipo de conta</p>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setAccountType('real')} className={tabClass(accountType === 'real')}>Real</button>
+            <button type="button" onClick={() => setAccountType('demo')} className={tabClass(accountType === 'demo')}>Demo</button>
           </div>
         </div>
-      ) : (
-        <div className="bg-bg1 border border-border1 p-6">
-          <p className="font-mono text-[11px] text-text2 mb-2">Nenhuma exchange conectada.</p>
-          <p className="font-mono text-[10px] text-text3">Conecta a tua conta Binance ou Bybit para começar a operar.</p>
+        <div>
+          <p className="font-mono text-[9px] uppercase tracking-wider text-text2 mb-2">Mercado</p>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setMarket('FUTURES')} className={tabClass(market === 'FUTURES')}>Futures</button>
+            <button type="button" onClick={() => setMarket('SPOT')} className={tabClass(market === 'SPOT')}>Spot</button>
+          </div>
+        </div>
+      </div>
+
+      {accountType === 'demo' && (
+        <div className="bg-gold-dim border border-gold-30 p-3 font-mono text-[10px] text-gold">
+          Modo Demo: usa Testnet — nenhuma ordem real será enviada.
         </div>
       )}
 
-      <div className="bg-cyan-dim border border-cyan-20 p-3.5 flex items-start gap-3">
-        <span className="text-cyan flex-shrink-0">⚙</span>
-        <p className="font-mono text-[10px] text-text2 leading-relaxed">
-          <span className="text-cyan font-bold">Segurança AES-256-GCM — </span>
-          API Keys são encriptadas antes de serem guardadas. Usa <strong className="text-text1">apenas permissões de Leitura + Trading</strong> (nunca Withdrawal).
-        </p>
-      </div>
-
-      <div className="bg-bg1 border border-gold-30 p-4 space-y-2">
-        <p className="font-mono text-[9px] uppercase tracking-wider text-gold font-bold">IP para Whitelist</p>
-        <p className="font-mono text-[10px] text-text2 leading-relaxed">
-          Ao criar as chaves API na Binance ou Bybit, activa a <strong className="text-text1">restrição por IP</strong> e adiciona o endereço abaixo.
-        </p>
-        <div className="flex items-center gap-2 mt-1">
-          <code className="flex-1 bg-bg3 border border-border2 px-3 py-2 font-mono text-sm text-gold tracking-wider">{SERVER_IP}</code>
-          <button onClick={copyIp}
-            className={`px-3 py-2 border font-mono text-[9px] tracking-widest uppercase transition-all ${copied ? 'border-cyan bg-cyan-dim text-cyan' : 'border-border2 text-text2 hover:border-cyan hover:text-cyan'}`}>
-            {copied ? '✓ COPIADO' : 'COPIAR'}
-          </button>
-        </div>
-      </div>
-
-      {accounts.length > 0 && (
-        <div className="space-y-3">
-          <p className="font-mono text-[8px] uppercase tracking-wider text-text3">Contas registadas</p>
-          {accounts.map(acc => (
-            <div key={acc.id} className="bg-bg1 border border-border1 p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className={`w-[6px] h-[6px] rounded-full ${acc.isActive ? 'bg-cyan animate-pulse shadow-[0_0_6px_#00d4a0]' : 'bg-text3'}`} />
-                <div>
-                  <p className="text-text1 font-bold">{acc.exchange.charAt(0) + acc.exchange.slice(1).toLowerCase()}</p>
-                  <p className="font-mono text-[9px] text-text2">API Key: ••••••••••••••••</p>
-                </div>
-              </div>
-              <span className={`font-mono text-[8px] uppercase px-1.5 py-0.5 border ${acc.isActive ? 'border-cyan-30 bg-cyan-dim text-cyan' : 'border-border2 text-text3'}`}>
-                {acc.isActive ? 'Activa' : 'Inactiva'}
-              </span>
-            </div>
-          ))}
+      {isConnected && !editMode && (
+        <div className="bg-bg1 border border-cyan-20 p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="w-[6px] h-[6px] rounded-full bg-cyan animate-pulse" />
+            <span className="text-text1 font-bold">Conectado</span>
+          </div>
+          {maskedKey && (
+            <p className="font-mono text-[10px] text-text2 mb-1">
+              Chave API: <span className="text-cyan">{maskedKey}</span>
+            </p>
+          )}
+          {displayBalance != null && (
+            <p className="font-mono text-sm text-cyan font-bold">
+              Saldo {market}: ${displayBalance.toFixed(2)} USDT
+            </p>
+          )}
+          <div className="flex gap-2 mt-4">
+            <button type="button" onClick={() => { setEditMode(true); setTestedBalance(null); }}
+              className="flex-1 py-2.5 border border-gold-30 bg-gold-dim text-gold font-mono text-[9px] uppercase">
+              Editar chaves
+            </button>
+            <button type="button" onClick={disconnect} disabled={disconnecting}
+              className="flex-1 py-2.5 border border-red-30 bg-red-dim text-red font-mono text-[9px] uppercase disabled:opacity-50">
+              {disconnecting ? 'A desconectar...' : 'Desconectar'}
+            </button>
+          </div>
         </div>
       )}
 
       {showForm && (
-        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-          <div className="bg-bg1 border border-border1 w-full max-w-md">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-border1">
-              <h3 className="text-text1 font-bold">Conectar Exchange</h3>
-              <button onClick={() => setShowForm(false)} className="text-text2 hover:text-text1 transition-colors">✕</button>
+        <>
+          <div className="space-y-3">
+            <div>
+              <label className="font-mono text-[9px] uppercase tracking-wider text-text2 mb-1.5 block">API Key</label>
+              <div className="relative">
+                <input type={showApiKey ? 'text' : 'password'} value={apiKey}
+                  onChange={e => setApiKey(e.target.value)} placeholder="Cola a tua API Key" className={`${inputClass} pr-14`} />
+                <button type="button" onClick={() => setShowApiKey(!showApiKey)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 font-mono text-[8px] uppercase text-text2">
+                  {showApiKey ? 'Ocultar' : 'Ver'}
+                </button>
+              </div>
             </div>
-
-            <form onSubmit={connect} className="p-5 space-y-4">
-              <div>
-                <label className="font-mono text-[9px] uppercase tracking-wider text-text2 mb-1.5 block">Exchange</label>
-                <select value={form.exchange} onChange={e => setForm(f => ({ ...f, exchange: e.target.value }))} className={selectClass}>
-                  <option value="BINANCE">Binance</option>
-                  <option value="BYBIT">Bybit</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="font-mono text-[9px] uppercase tracking-wider text-text2 mb-1.5 block">API Key</label>
-                <input type="text" value={form.apiKey} onChange={e => setForm(f => ({ ...f, apiKey: e.target.value }))}
-                  required placeholder="Cole a tua API Key aqui" className={inputClass} />
-              </div>
-
-              <div>
-                <label className="font-mono text-[9px] uppercase tracking-wider text-text2 mb-1.5 block">Secret Key</label>
-                <div className="relative">
-                  <input type={showSecret ? 'text' : 'password'} value={form.secretKey}
-                    onChange={e => setForm(f => ({ ...f, secretKey: e.target.value }))} required
-                    placeholder="Cole a tua Secret Key aqui" className={`${inputClass} pr-14`} />
-                  <button type="button" onClick={() => setShowSecret(!showSecret)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 font-mono text-[9px] uppercase text-text2 hover:text-text1 transition-colors">
-                    {showSecret ? 'HIDE' : 'SHOW'}
-                  </button>
-                </div>
-              </div>
-
-              <div className="bg-gold-dim border border-gold-30 p-3 font-mono text-[10px] text-gold">
-                Activa apenas permissões de <strong>Leitura + Trading</strong>. Nunca actives &quot;Withdrawal&quot;.
-              </div>
-
-              {error && <p className="text-red font-mono text-[10px] bg-red-dim border border-red-30 p-3">{error}</p>}
-
-              <div className="flex gap-3">
-                <button type="button" onClick={() => setShowForm(false)}
-                  className="flex-1 py-2.5 border border-border2 text-text2 font-mono text-[9px] uppercase tracking-wider hover:text-text1 transition-all">
-                  Cancelar
-                </button>
-                <button type="submit" disabled={saving}
-                  className="flex-1 py-2.5 border border-cyan-30 bg-cyan-dim text-cyan font-mono text-[9px] uppercase tracking-wider hover:bg-cyan/20 disabled:opacity-50 transition-all flex items-center justify-center gap-2">
-                  {saving ? <><span className="w-3 h-3 border border-cyan border-t-transparent rounded-full animate-spin" /> A conectar...</> : 'Conectar com Segurança'}
+            <div>
+              <label className="font-mono text-[9px] uppercase tracking-wider text-text2 mb-1.5 block">API Secret</label>
+              <div className="relative">
+                <input type={showApiSecret ? 'text' : 'password'} value={apiSecret}
+                  onChange={e => setApiSecret(e.target.value)} placeholder="Cola o teu API Secret" className={`${inputClass} pr-14`} />
+                <button type="button" onClick={() => setShowApiSecret(!showApiSecret)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 font-mono text-[8px] uppercase text-text2">
+                  {showApiSecret ? 'Ocultar' : 'Ver'}
                 </button>
               </div>
-            </form>
+            </div>
           </div>
-        </div>
+
+          <div className="bg-bg2 border border-border1 p-4 font-mono text-[10px] space-y-1.5">
+            <p className="text-text2 font-bold uppercase text-[9px] tracking-wider mb-2">Permissões necessárias</p>
+            <p className="text-cyan">✓ Enable Reading</p>
+            <p className="text-cyan">✓ Enable Futures / Spot Trading</p>
+            <p className="text-red">✗ Enable Withdrawals (deixa desactivado)</p>
+          </div>
+
+          <button type="button" onClick={handleTest} disabled={testing || !apiKey || !apiSecret}
+            className="w-full py-3 border border-cyan-30 bg-cyan-dim text-cyan font-mono text-[10px] uppercase tracking-widest hover:bg-cyan/20 disabled:opacity-50">
+            {testing ? 'A testar...' : 'Testar conexão'}
+          </button>
+
+          {error && (
+            <div className="bg-red-dim border border-red-30 p-3 font-mono text-[10px] text-red">{error}</div>
+          )}
+
+          {testedBalance != null && (
+            <div className="bg-cyan-dim border border-cyan-20 p-4 font-mono text-[10px]">
+              <p className="text-cyan font-bold mb-1">Conexão estabelecida!</p>
+              <p className="text-text2">
+                Saldo {market}: <span className="text-cyan font-bold text-base">${testedBalance.toFixed(2)} USDT</span>
+              </p>
+              <p className="text-text3 mt-1">{exchange} · {accountType === 'real' ? 'Conta Real' : 'Demo (Testnet)'}</p>
+            </div>
+          )}
+
+          {isConnected && editMode ? (
+            <button type="button" onClick={handleUpdateKeys} disabled={updating || testedBalance == null}
+              className="w-full py-3 border border-gold-30 bg-gold-dim text-gold font-mono text-[10px] uppercase disabled:opacity-50">
+              {updating ? 'A actualizar...' : 'Guardar novas chaves'}
+            </button>
+          ) : !isConnected ? (
+            <button type="button" onClick={handleSave} disabled={saving || testedBalance == null}
+              className="w-full py-3 border border-cyan-30 bg-cyan-dim text-cyan font-mono text-[10px] uppercase disabled:opacity-50">
+              {saving ? 'A guardar...' : 'Guardar conexão'}
+            </button>
+          ) : null}
+
+          {editMode && (
+            <button type="button" onClick={() => { setEditMode(false); setApiKey(''); setApiSecret(''); setError(''); }}
+              className="w-full py-2 border border-border2 text-text2 font-mono text-[9px] uppercase">
+              Cancelar edição
+            </button>
+          )}
+        </>
       )}
     </div>
   );

@@ -66,6 +66,7 @@ export default function App() {
           <Route path="/dashboard" element={<AppRoute element={<DashboardPage />} />} />
           <Route path="/bots" element={<AppRoute element={<BotsPage />} />} />
           <Route path="/exchanges" element={<AppRoute element={<ExchangesPage />} />} />
+          <Route path="/exchange" element={<AppRoute element={<ExchangesPage />} />} />
           <Route path="/operations" element={<AppRoute element={<OperationsPage />} />} />
           <Route path="/positions" element={<AppRoute element={<OperationsPage />} />} />
           <Route path="/history" element={<AppRoute element={<HistoryPage />} />} />
