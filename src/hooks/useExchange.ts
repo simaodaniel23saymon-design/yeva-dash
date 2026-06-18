@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../lib/api';
+import { getFriendlyError } from '../utils/errorHandler';
 
 export type ExchangeName = 'Binance' | 'Bybit';
 export type MarketType = 'FUTURES' | 'SPOT';
@@ -62,9 +63,7 @@ export function useExchange(pollMs = 0) {
       }
       return res.data;
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
-        ?? 'Erro ao testar conexão';
-      return { success: false, error: msg };
+      return { success: false, error: getFriendlyError(err).message };
     }
   }, []);
 

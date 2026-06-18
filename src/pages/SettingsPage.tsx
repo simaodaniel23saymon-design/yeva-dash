@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../lib/api'
 import { buildReferralLink } from '../utils/referral'
+import { getFriendlyError } from '../utils/errorHandler'
 
 interface Settings {
   email: string
@@ -117,7 +118,7 @@ export default function SettingsPage() {
       setQrData(res.data)
       setModal2FA('enable')
     } catch (err: any) {
-      flash(err.response?.data?.error ?? 'Erro ao gerar QR Code', 'err')
+      flash(getFriendlyError(err).message, 'err')
     } finally {
       setTwofaLoading(false)
     }
@@ -133,7 +134,7 @@ export default function SettingsPage() {
       setQrData(null)
       await load()
     } catch (err: any) {
-      flash(err.response?.data?.error ?? 'Código inválido', 'err')
+      flash(getFriendlyError(err).message, 'err')
     } finally {
       setTwofaLoading(false)
     }
@@ -148,7 +149,7 @@ export default function SettingsPage() {
       setModal2FA(null)
       await load()
     } catch (err: any) {
-      flash(err.response?.data?.error ?? 'Código inválido', 'err')
+      flash(getFriendlyError(err).message, 'err')
     } finally {
       setTwofaLoading(false)
     }
@@ -160,7 +161,7 @@ export default function SettingsPage() {
       const res = await api.post<TelegramLink>('/telegram/link-code')
       setTelegram(res.data)
     } catch (err: any) {
-      flash(err.response?.data?.error ?? 'Erro ao gerar link Telegram', 'err')
+      flash(getFriendlyError(err).message, 'err')
     }
   }
 
@@ -171,7 +172,7 @@ export default function SettingsPage() {
       flash('Telegram desligado.')
       await load()
     } catch (err: any) {
-      flash(err.response?.data?.error ?? 'Erro ao desligar Telegram', 'err')
+      flash(getFriendlyError(err).message, 'err')
     }
   }
 

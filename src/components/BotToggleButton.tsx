@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
+import { getFriendlyError } from '../utils/errorHandler';
 
 interface BotsStatus {
   anyRunning?: boolean;
@@ -53,7 +54,7 @@ export function BotToggleButton() {
         flash('Saldo insuficiente. A levar-te para a carteira...', false);
         setTimeout(() => navigate('/wallet'), 1200);
       } else {
-        flash(err.response?.data?.error ?? 'Erro ao alternar os bots.', false);
+        flash(getFriendlyError(error).message, false);
       }
     } finally {
       setLoading(false);

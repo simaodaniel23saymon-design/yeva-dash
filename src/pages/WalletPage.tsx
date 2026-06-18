@@ -5,6 +5,7 @@ import { QuickGuide } from '../components/QuickGuide';
 import { useWallet } from '../hooks/useWallet';
 import { useBalances } from '../hooks/useBalances';
 import { formatMoney, formatUSDT, toUSDT } from '../utils/format';
+import { getFriendlyError } from '../utils/errorHandler';
 
 interface Tx {
   id: string; type: string; amount: number; status: string;
@@ -88,8 +89,8 @@ export default function WalletPage() {
       setDeposit(res.data);
       setPayStatus('waiting');
       startPolling(res.data.paymentId);
-    } catch (err: any) {
-      showFlash(err.response?.data?.error ?? 'Erro ao gerar endereço', false);
+    } catch (err: unknown) {
+      showFlash(getFriendlyError(err).message, false);
     } finally { setBusy(false); }
   };
 
@@ -111,8 +112,8 @@ export default function WalletPage() {
       });
       setWithdrawStep('code');
       showFlash('Código enviado para o teu email. Verifica a caixa de entrada.');
-    } catch (err: any) {
-      showFlash(err.response?.data?.error ?? 'Erro ao solicitar saque', false);
+    } catch (err: unknown) {
+      showFlash(getFriendlyError(err).message, false);
     } finally { setBusy(false); }
   };
 
@@ -130,8 +131,8 @@ export default function WalletPage() {
       setWithdrawStep('form');
       setWithdrawAmount(''); setWithdrawAddress(''); setWithdrawCode('');
       await loadWallet();
-    } catch (err: any) {
-      showFlash(err.response?.data?.error ?? 'Erro ao processar saque', false);
+    } catch (err: unknown) {
+      showFlash(getFriendlyError(err).message, false);
     } finally { setBusy(false); }
   };
 

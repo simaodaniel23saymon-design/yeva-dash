@@ -16,7 +16,6 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  token: string | null;
   loading: boolean;
   login: (email: string, password: string, totpCode?: string) => Promise<{ requires2FA?: boolean }>;
   register: (email: string, password: string, referralCode?: string) => Promise<void>;
@@ -35,26 +34,29 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const savedToken = localStorage.getItem('yevatrade_token');
     if (savedToken) {
-      setToken(savedToken);
       api.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`;
       api.get<User>('/auth/me')
         .then(res => setUser(res.data))
         .catch(() => {
           localStorage.removeItem('yevatrade_token');
           localStorage.removeItem('yevatrade_refresh_token');
-          setToken(null);
         })
         .finally(() => setLoading(false));
     } else {
       setLoading(false);
     }
   }, []);
+
+  const persistSession = (newToken: string, refreshToken?: string) => {
+    localStorage.setItem('yevatrade_token', newToken);
+    if (refreshToken) localStorage.setItem('yevatrade_refresh_token', refreshToken);
+    api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+  };
 
   const login = async (email: string, password: string, totpCode?: string): Promise<{ requires2FA?: boolean }> => {
     const res = await api.post<Partial<AuthResponse> & { requires2FA?: boolean }>('/auth/login', {
@@ -63,18 +65,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ...(totpCode ? { totpCode } : {}),
     });
 
-    // Backend pediu código 2FA
-    if (res.data.requires2FA) {
-      return { requires2FA: true };
-    }
+    if (res.data.requires2FA) return { requires2FA: true };
 
     const { token: newToken, refreshToken, user: newUser } = res.data as AuthResponse;
-    localStorage.setItem('yevatrade_token', newToken);
-    localStorage.setItem('yevatrade_refresh_token', refreshToken);
-    api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-    setToken(newToken);
+    persistSession(newToken, refreshToken);
 
-    // Buscar perfil completo (inclui isAdmin, plan, etc.)
     try {
       const meRes = await api.get<User>('/auth/me');
       setUser(meRes.data);
@@ -90,33 +85,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password,
       ...(referralCode ? { referralCode } : {}),
     });
-    const { token: newToken, user: newUser } = res.data;
-    localStorage.setItem('yevatrade_token', newToken);
-    api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-    setToken(newToken);
+    const { token: newToken, refreshToken, user: newUser } = res.data;
+    persistSession(newToken, refreshToken);
     setUser(newUser);
   };
 
   const loginDemo = async () => {
     const res = await api.post<AuthResponse>('/auth/demo');
     const { token: newToken, refreshToken, user: newUser } = res.data;
-    localStorage.setItem('yevatrade_token', newToken);
-    localStorage.setItem('yevatrade_refresh_token', refreshToken);
-    api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-    setToken(newToken);
+    persistSession(newToken, refreshToken);
     setUser(newUser);
   };
 
   const logout = () => {
+    const refreshToken = localStorage.getItem('yevatrade_refresh_token');
+    if (refreshToken) {
+      api.post('/auth/logout', { refreshToken }).catch(() => {});
+    }
     localStorage.removeItem('yevatrade_token');
     localStorage.removeItem('yevatrade_refresh_token');
     delete api.defaults.headers.common['Authorization'];
-    setToken(null);
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, loginDemo, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, loginDemo, logout }}>
       {children}
     </AuthContext.Provider>
   );

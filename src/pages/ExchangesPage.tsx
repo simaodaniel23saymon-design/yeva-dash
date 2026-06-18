@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { api } from '../lib/api';
 import { getFriendlyError } from '../utils/errorHandler';
 import {
@@ -38,6 +38,7 @@ export default function ExchangesPage() {
   const [flash, setFlash] = useState<{ text: string; ok: boolean } | null>(null);
   const [copied, setCopied] = useState(false);
   const [maskedKey, setMaskedKey] = useState('');
+  const [balanceUpdatedAt, setBalanceUpdatedAt] = useState<Date | null>(null);
 
   const showFlash = (text: string, ok = true) => {
     setFlash({ text, ok });
@@ -60,8 +61,27 @@ export default function ExchangesPage() {
   useEffect(() => {
     if (exchangeBalance != null && isConnected && !editMode) {
       setTestedBalance(exchangeBalance);
+      setBalanceUpdatedAt(new Date());
     }
   }, [exchangeBalance, isConnected, editMode]);
+
+  const fetchBalance = useCallback(async () => {
+    if (!isConnected) return;
+    const result = await testConnection({
+      exchange, market, testnet: accountType === 'demo',
+    });
+    if (result.success && result.balance != null) {
+      setTestedBalance(result.balance);
+      setBalanceUpdatedAt(new Date());
+    }
+  }, [isConnected, exchange, market, accountType, testConnection]);
+
+  useEffect(() => {
+    if (!isConnected || editMode) return;
+    fetchBalance();
+    const interval = setInterval(fetchBalance, 10000);
+    return () => clearInterval(interval);
+  }, [isConnected, editMode, fetchBalance]);
 
   const copyIp = () => {
     navigator.clipboard.writeText(serverIp);
@@ -82,6 +102,7 @@ export default function ExchangesPage() {
     });
     if (result.success && result.balance != null) {
       setTestedBalance(result.balance);
+      setBalanceUpdatedAt(new Date());
       setMaskedKey(`${apiKey.slice(0, 10)}...`);
       showFlash(`Conexão OK — Saldo ${market}: $${result.balance.toFixed(2)} USDT`);
     } else {
@@ -256,9 +277,16 @@ export default function ExchangesPage() {
             </p>
           )}
           {displayBalance != null && (
-            <p className="font-mono text-sm text-cyan font-bold">
-              Saldo {market}: ${displayBalance.toFixed(2)} USDT
-            </p>
+            <>
+              <p className="font-mono text-sm text-cyan font-bold">
+                Saldo {market}: ${displayBalance.toFixed(2)} USDT
+              </p>
+              {balanceUpdatedAt && (
+                <p className="font-mono text-[9px] text-text3 mt-1">
+                  Actualizado: {balanceUpdatedAt.toLocaleTimeString('pt-PT')}
+                </p>
+              )}
+            </>
           )}
           <div className="flex gap-2 mt-4">
             <button type="button" onClick={() => { setEditMode(true); setTestedBalance(null); }}
@@ -280,6 +308,7 @@ export default function ExchangesPage() {
               <label className="font-mono text-[9px] uppercase tracking-wider text-text2 mb-1.5 block">API Key</label>
               <div className="relative">
                 <input type={showApiKey ? 'text' : 'password'} value={apiKey}
+                  autoComplete="off"
                   onChange={e => setApiKey(e.target.value)} placeholder="Cola a tua API Key" className={`${inputClass} pr-14`} />
                 <button type="button" onClick={() => setShowApiKey(!showApiKey)}
                   className="absolute right-2 top-1/2 -translate-y-1/2 font-mono text-[8px] uppercase text-text2">
@@ -291,6 +320,7 @@ export default function ExchangesPage() {
               <label className="font-mono text-[9px] uppercase tracking-wider text-text2 mb-1.5 block">API Secret</label>
               <div className="relative">
                 <input type={showApiSecret ? 'text' : 'password'} value={apiSecret}
+                  autoComplete="new-password"
                   onChange={e => setApiSecret(e.target.value)} placeholder="Cola o teu API Secret" className={`${inputClass} pr-14`} />
                 <button type="button" onClick={() => setShowApiSecret(!showApiSecret)}
                   className="absolute right-2 top-1/2 -translate-y-1/2 font-mono text-[8px] uppercase text-text2">
@@ -323,6 +353,9 @@ export default function ExchangesPage() {
                 Saldo {market}: <span className="text-cyan font-bold text-base">${testedBalance.toFixed(2)} USDT</span>
               </p>
               <p className="text-text3 mt-1">{exchange} · {accountType === 'real' ? 'Conta Real' : 'Demo (Testnet)'}</p>
+              {balanceUpdatedAt && (
+                <p className="text-text3 mt-1">Actualizado: {balanceUpdatedAt.toLocaleTimeString('pt-PT')}</p>
+              )}
             </div>
           )}
 

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import { getFriendlyError } from '../utils/errorHandler';
 
 export default function ResetPasswordPage() {
   const [params] = useSearchParams();
@@ -19,8 +20,8 @@ export default function ResetPasswordPage() {
     try {
       await api.post('/auth/reset-password', { token, password });
       navigate('/login', { state: { message: 'Password alterada com sucesso! Podes fazer login.' } });
-    } catch (err: any) {
-      setError(err.response?.data?.error ?? 'Link inválido ou expirado');
+    } catch (err: unknown) {
+      setError(getFriendlyError(err).message);
     } finally { setLoading(false); }
   };
 
