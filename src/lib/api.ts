@@ -56,7 +56,7 @@ api.interceptors.response.use(
       const refreshed = await refreshSession();
       if (refreshed) return api(config);
       if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
-        window.location.href = '/login';
+        window.location.href = '/login?expired=true';
       }
     }
 

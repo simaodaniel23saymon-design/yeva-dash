@@ -10,6 +10,7 @@ export default function LoginPage() {
   const location = useLocation();
 
   const [searchParams] = useSearchParams();
+  const expired = searchParams.get('expired') === 'true';
   const [tab, setTab] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -26,6 +27,7 @@ export default function LoginPage() {
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [rateLimited, setRateLimited] = useState(false);
   const [success, setSuccess] = useState(
     (location.state as { message?: string } | null)?.message ?? ''
   );
@@ -66,6 +68,7 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setRateLimited(false);
     setLoading(true);
     try {
       if (tab === 'register') {
@@ -92,7 +95,9 @@ export default function LoginPage() {
         navigate('/dashboard');
       }
     } catch (err: unknown) {
-      setError(getFriendlyError(err).message);
+      const friendly = getFriendlyError(err);
+      setError(friendly.message);
+      setRateLimited(friendly.code === 'RATE_LIMITED');
     } finally {
       setLoading(false);
     }
@@ -100,12 +105,15 @@ export default function LoginPage() {
 
   const handleDemo = async () => {
     setError('');
+    setRateLimited(false);
     setLoading(true);
     try {
       await loginDemo();
       navigate('/dashboard');
     } catch (err: unknown) {
-      setError(getFriendlyError(err).message);
+      const friendly = getFriendlyError(err);
+      setError(friendly.message);
+      setRateLimited(friendly.code === 'RATE_LIMITED');
     } finally {
       setLoading(false);
     }
@@ -129,6 +137,14 @@ export default function LoginPage() {
         </div>
 
         <div className="bg-bg1 border border-border1">
+          {expired && (
+            <div className="bg-gold-dim border-b border-gold-30 p-4">
+              <p className="font-mono text-[10px] text-gold leading-relaxed">
+                Sessão expirou (24h de inactividade). Faz login novamente.
+              </p>
+            </div>
+          )}
+
           {/* Tabs — só mostra quando não está no step 2FA */}
           {!requires2FA && (
             <div className="flex border-b border-border1">
@@ -176,7 +192,13 @@ export default function LoginPage() {
                 ))}
               </div>
 
-              {error && (
+              {rateLimited && (
+                <div className="mb-4 bg-red-dim border border-red-30 p-3 font-mono text-[10px] text-red">
+                  Muitas tentativas. Aguarda alguns minutos e tenta novamente.
+                </div>
+              )}
+
+              {error && !rateLimited && (
                 <div className="mb-4">
                   <ErrorMessage message={error} onClose={() => setError('')} />
                 </div>
@@ -238,7 +260,13 @@ export default function LoginPage() {
                 <div className="bg-cyan-dim border border-cyan-20 p-3 font-mono text-[10px] text-cyan">{success}</div>
               )}
 
-              {error && <ErrorMessage message={error} onClose={() => setError('')} />}
+              {rateLimited && (
+                <div className="bg-red-dim border border-red-30 p-3 font-mono text-[10px] text-red">
+                  Muitas tentativas. Aguarda alguns minutos e tenta novamente.
+                </div>
+              )}
+
+              {error && !rateLimited && <ErrorMessage message={error} onClose={() => setError('')} />}
 
               <button type="submit" disabled={loading}
                 className="w-full py-3 border border-cyan-30 bg-cyan-dim text-cyan font-mono text-[10px] tracking-widest uppercase hover:bg-cyan/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2">
