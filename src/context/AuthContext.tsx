@@ -2,6 +2,12 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
+import {
+  clearAuthStorage,
+  getAccessToken,
+  persistTokens,
+  type AuthTokens,
+} from '../lib/authStorage';
 
 export interface User {
   id: string;
@@ -25,7 +31,7 @@ interface AuthContextType {
   refreshUser: () => Promise<void>;
 }
 
-interface LoginResponse {
+interface AuthResponse extends AuthTokens {
   requires2FA?: boolean;
   message?: string;
   user?: User;
@@ -33,9 +39,31 @@ interface LoginResponse {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+function readStoredUser(): User | null {
+  try {
+    const raw = localStorage.getItem('user');
+    return raw ? (JSON.parse(raw) as User) : null;
+  } catch {
+    return null;
+  }
+}
+
+function storeUser(user: User): void {
+  localStorage.setItem('user', JSON.stringify(user));
+}
+
 async function fetchMe(): Promise<User> {
   const res = await api.get<User>('/auth/me');
   return res.data;
+}
+
+function applyAuthResponse(data: AuthResponse): User | null {
+  persistTokens(data);
+  if (data.user) {
+    storeUser(data.user);
+    return data.user;
+  }
+  return null;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -44,13 +72,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshUser = useCallback(async () => {
     const me = await fetchMe();
+    storeUser(me);
     setUser(me);
   }, []);
 
   useEffect(() => {
+    const token = getAccessToken();
+    if (!token) {
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+
+    const cached = readStoredUser();
+    if (cached) setUser(cached);
+
     fetchMe()
-      .then(setUser)
-      .catch(() => setUser(null))
+      .then((me) => {
+        storeUser(me);
+        setUser(me);
+      })
+      .catch(() => {
+        clearAuthStorage();
+        setUser(null);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -59,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
     totpCode?: string
   ): Promise<{ requires2FA?: boolean }> => {
-    const res = await api.post<LoginResponse>('/auth/login', {
+    const res = await api.post<AuthResponse>('/auth/login', {
       email,
       password,
       ...(totpCode ? { totpCode } : {}),
@@ -67,38 +112,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (res.data.requires2FA) return { requires2FA: true };
 
+    const authUser = applyAuthResponse(res.data);
     try {
       await refreshUser();
     } catch {
-      if (res.data.user) setUser(res.data.user);
+      if (authUser) setUser(authUser);
     }
     return {};
   };
 
   const register = async (email: string, password: string, referralCode?: string) => {
-    await api.post('/auth/register', {
+    const res = await api.post<AuthResponse>('/auth/register', {
       email,
       password,
       ...(referralCode ? { referralCode } : {}),
     });
+
+    const authUser = applyAuthResponse(res.data);
     try {
       await refreshUser();
     } catch {
-      setUser(null);
+      if (authUser) setUser(authUser);
     }
   };
 
   const loginDemo = async () => {
-    await api.post('/auth/demo');
+    const res = await api.post<AuthResponse>('/auth/demo');
+    applyAuthResponse(res.data);
     await refreshUser();
   };
 
   const logout = async () => {
+    const refreshToken = localStorage.getItem('refreshToken');
     try {
-      await api.post('/auth/logout');
+      await api.post('/auth/logout', refreshToken ? { refreshToken } : undefined);
     } catch {
-      /* cookies podem já estar limpos */
+      /* ignora — limpa localmente */
     }
+    clearAuthStorage();
     setUser(null);
   };
 
@@ -115,7 +166,6 @@ export function useAuth() {
   return ctx;
 }
 
-/** Hook para logout com redirecionamento */
 export function useLogout() {
   const { logout } = useAuth();
   const navigate = useNavigate();
@@ -125,3 +175,5 @@ export function useLogout() {
     navigate('/login', { replace: true });
   };
 }
+
+export { isAuthenticated } from '../lib/authStorage';
