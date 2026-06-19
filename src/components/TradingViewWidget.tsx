@@ -5,6 +5,8 @@ interface Props {
   interval?: string;
   height?: number;
   exchange?: 'BINANCE' | 'BYBIT';
+  /** Bloqueia pesquisa de símbolo — par controlado pela app */
+  locked?: boolean;
 }
 
 const TV_SCRIPT = 'https://s3.tradingview.com/tv.js';
@@ -44,6 +46,7 @@ export function TradingViewWidget({
   interval = '60',
   height = 480,
   exchange = 'BINANCE',
+  locked = false,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const uid = useId().replace(/:/g, '');
@@ -78,14 +81,26 @@ export function TradingViewWidget({
           backgroundColor: '#0b100d',
           gridColor: '#1e2b1f',
           enable_publishing: false,
-          hide_top_toolbar: false,
+          hide_top_toolbar: locked,
+          hide_side_toolbar: locked,
           hide_legend: false,
           save_image: false,
           container_id: containerId,
-          studies: ['MASimple@tv-basicstudies', 'RSI@tv-basicstudies'],
-          show_popup_button: true,
+          studies: locked ? [] : ['MASimple@tv-basicstudies', 'RSI@tv-basicstudies'],
+          show_popup_button: !locked,
           popup_width: '1000',
           popup_height: '650',
+          ...(locked
+            ? {
+                disabled_features: [
+                  'header_symbol_search',
+                  'symbol_search_hot_key',
+                  'header_compare',
+                  'compare_symbol',
+                  'display_market_status',
+                ],
+              }
+            : {}),
         });
       })
       .catch(() => {
@@ -99,7 +114,7 @@ export function TradingViewWidget({
       cancelled = true;
       if (containerRef.current) containerRef.current.innerHTML = '';
     };
-  }, [symbol, interval, exchange, containerId]);
+  }, [symbol, interval, exchange, containerId, locked]);
 
   return (
     <div

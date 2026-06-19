@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { QuickGuide } from '../components/QuickGuide';
 import { LiveOrders } from '../components/LiveOrders';
-import { TradingViewWidget } from '../components/TradingViewWidget';
+import { LiveChart } from '../components/LiveChart';
+import { useChartSymbol } from '../hooks/useChartSymbol';
 import {
   fetchBotsList,
   fetchExchangePositions,
@@ -82,9 +83,10 @@ export default function OperationsPage() {
   const selectedBot = bots.find(b => b.id === selected);
   const isRunning = selectedBot ? isBotRunning(selectedBot.status) : false;
 
-  const chartSymbol = selected
-    ? botPair(selectedBot ?? { pair: 'BTCUSDT' })
-    : botPair(runningBots[0] ?? bots[0] ?? { pair: 'BTCUSDT' });
+  const { symbol: chartSymbol, pairs, autoSymbol, selectSymbol, followAuto } = useChartSymbol(
+    bots,
+    positions,
+  );
 
   if (loading) {
     return (
@@ -113,12 +115,17 @@ export default function OperationsPage() {
         </div>
       </div>
 
-      {(runningBots.length > 0 || selected) && (
-        <div className="bg-bg1 border border-border1 p-4 animate-fade-in-up">
-          <h3 className="text-sm font-bold text-text1 mb-3">Gráfico · {chartSymbol}</h3>
-          <TradingViewWidget symbol={chartSymbol} interval="60" height={400} />
-        </div>
-      )}
+      <div className="bg-bg1 border border-border1 p-4 animate-fade-in-up">
+        <LiveChart
+          symbol={chartSymbol}
+          pairs={pairs}
+          onSymbolChange={selectSymbol}
+          autoSymbol={autoSymbol}
+          onFollowAuto={followAuto}
+          height={400}
+          title="Gráfico"
+        />
+      </div>
 
       {runningBots.length === 0 ? (
         <div className="bg-bg1 border border-border1 p-8 text-center">
@@ -136,7 +143,14 @@ export default function OperationsPage() {
             const pnl = hasPosition ? parseNum(hasPosition.unrealizedProfit) : 0;
 
             return (
-              <div key={bot.id} className="bg-bg1 border border-border1 p-4">
+              <div
+                key={bot.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => selectSymbol(pair)}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') selectSymbol(pair); }}
+                className="bg-bg1 border border-border1 p-4 cursor-pointer hover:border-cyan-30 transition-colors"
+              >
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="font-bold text-text1">{pair} — {bot.market ?? 'FUTURES'}</h3>
                   <span className="font-mono text-[8px] uppercase px-2 py-0.5 border border-cyan-30 bg-cyan-dim text-cyan">
@@ -184,7 +198,16 @@ export default function OperationsPage() {
         <label className="font-mono text-[9px] uppercase tracking-wider text-text2 block">
           Detalhe por bot
         </label>
-        <select value={selected} onChange={e => setSelected(e.target.value)} className={selectClass}>
+        <select
+          value={selected}
+          onChange={e => {
+            const id = e.target.value;
+            setSelected(id);
+            const bot = bots.find(b => b.id === id);
+            if (bot) selectSymbol(botPair(bot));
+          }}
+          className={selectClass}
+        >
           <option value="">Selecciona um bot...</option>
           {bots.map(b => (
             <option key={b.id} value={b.id}>

@@ -4,7 +4,8 @@ import { api } from '../lib/api';
 import { QuickGuide } from '../components/QuickGuide';
 import { BotToggleButton } from '../components/BotToggleButton';
 import { LiveTradingPanel } from '../components/LiveTradingPanel';
-import { TradingViewWidget } from '../components/TradingViewWidget';
+import { LiveChart } from '../components/LiveChart';
+import { useChartSymbol } from '../hooks/useChartSymbol';
 import { AnimatedStat } from '../components/AnimatedStat';
 import { useWallet } from '../hooks/useWallet';
 import {
@@ -108,9 +109,10 @@ export default function DashboardPage() {
 
   const marginPct = stats.balance > 0 ? Math.min(100, (stats.usedMargin / stats.balance) * 100) : 0;
 
-  const chartSymbol =
-    positions[0]?.symbol ??
-    botPair(bots.find(b => isBotRunning(b.status)) ?? bots[0] ?? { pair: 'BTCUSDT' });
+  const { symbol: chartSymbol, pairs, autoSymbol, selectSymbol, followAuto } = useChartSymbol(
+    bots,
+    positions,
+  );
 
   if (loading) {
     return (
@@ -195,11 +197,15 @@ export default function DashboardPage() {
           </div>
 
           <div className="bg-bg1 border border-border1 p-4 animate-fade-in-up" style={{ animationDelay: '200ms' }}>
-            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-              <h3 className="text-sm font-bold text-text1">Gráfico · {chartSymbol}</h3>
-              <span className="font-mono text-[9px] text-text3 uppercase">TradingView · 1H</span>
-            </div>
-            <TradingViewWidget symbol={chartSymbol} interval="60" height={420} />
+            <LiveChart
+              symbol={chartSymbol}
+              pairs={pairs}
+              onSymbolChange={selectSymbol}
+              autoSymbol={autoSymbol}
+              onFollowAuto={followAuto}
+              height={420}
+              title="Gráfico"
+            />
           </div>
 
           <div className="bg-bg1 border border-border1 p-4">
@@ -227,7 +233,14 @@ export default function DashboardPage() {
               {positions.map((pos, idx) => {
                 const pnl = parseNum(pos.unrealizedProfit);
                 return (
-                  <div key={`${pos.symbol}-${idx}`} className="bg-bg2 border border-border1 p-4">
+                  <div
+                    key={`${pos.symbol}-${idx}`}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => selectSymbol(pos.symbol)}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') selectSymbol(pos.symbol); }}
+                    className="bg-bg2 border border-border1 p-4 cursor-pointer hover:border-cyan-30 transition-colors"
+                  >
                     <div className="flex justify-between items-center mb-2">
                       <span className="font-bold text-text1">{pos.symbol}</span>
                       <span className={`font-mono text-[10px] px-2 py-0.5 border ${pnl >= 0 ? 'border-cyan-30 text-cyan' : 'border-red-30 text-red'}`}>
