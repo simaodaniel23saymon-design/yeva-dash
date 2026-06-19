@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 
 const RAW_API_URL =
   import.meta.env.VITE_API_URL ||
@@ -16,28 +16,18 @@ export const api = axios.create({
   timeout: 15000,
 });
 
-let refreshPromise: Promise<string | null> | null = null;
+let refreshPromise: Promise<boolean> | null = null;
 
-async function refreshAccessToken(): Promise<string | null> {
+/** Renova a sessão via cookie HttpOnly (refresh token no servidor). */
+export async function refreshSession(): Promise<boolean> {
   if (refreshPromise) return refreshPromise;
 
   refreshPromise = (async () => {
-    const refreshToken = localStorage.getItem('yevatrade_refresh_token');
-    if (!refreshToken) return null;
-
     try {
-      const res = await api.post('/auth/refresh', { refreshToken });
-      const { token, refreshToken: newRefreshToken } = res.data;
-      localStorage.setItem('yevatrade_token', token);
-      if (newRefreshToken) {
-        localStorage.setItem('yevatrade_refresh_token', newRefreshToken);
-      }
-      api.defaults.headers.common.Authorization = `Bearer ${token}`;
-      return token as string;
+      await api.post('/auth/refresh');
+      return true;
     } catch {
-      localStorage.removeItem('yevatrade_refresh_token');
-      localStorage.removeItem('yevatrade_token');
-      return null;
+      return false;
     } finally {
       refreshPromise = null;
     }
@@ -46,32 +36,30 @@ async function refreshAccessToken(): Promise<string | null> {
   return refreshPromise;
 }
 
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('yevatrade_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+const AUTH_PATHS = ['/auth/login', '/auth/register', '/auth/demo', '/auth/refresh', '/auth/logout'];
+
+function isAuthRequest(url: string): boolean {
+  return AUTH_PATHS.some((path) => url.includes(path));
+}
+
+type RetryConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
 api.interceptors.response.use(
   (response) => response,
-  async (error) => {
-    const requestUrl = String(error.config?.url ?? '');
-    const isAuthAttempt = ['/auth/login', '/auth/register', '/auth/demo', '/auth/refresh'].some(path => requestUrl.includes(path));
+  async (error: AxiosError) => {
+    const config = error.config as RetryConfig | undefined;
+    const status = error.response?.status;
+    const requestUrl = String(config?.url ?? '');
 
-    if (error.response?.status === 401 && !isAuthAttempt && !(error.config as { _retry?: boolean })?._retry) {
-      (error.config as { _retry?: boolean })._retry = true;
-      const newToken = await refreshAccessToken();
-      if (newToken) {
-        error.config.headers.Authorization = `Bearer ${newToken}`;
-        return api(error.config);
+    if (status === 401 && config && !isAuthRequest(requestUrl) && !config._retry) {
+      config._retry = true;
+      const refreshed = await refreshSession();
+      if (refreshed) return api(config);
+      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+        window.location.href = '/login';
       }
-      window.location.href = '/login';
     }
+
     return Promise.reject(error);
   }
 );

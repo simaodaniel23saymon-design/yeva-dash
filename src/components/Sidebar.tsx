@@ -1,14 +1,14 @@
 import { LayoutDashboard, Bot, Activity, History, Wallet, Users, Settings, LogOut, Circle } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useAuth, useLogout } from '../context/AuthContext';
+import { useLocation, Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 
 interface ExchangeAccount { id: string; exchange: string; isActive: boolean; }
 
 export default function Sidebar() {
-  const { logout, user } = useAuth();
-  const navigate = useNavigate();
+  const { user } = useAuth();
+  const handleLogout = useLogout();
   const location = useLocation();
   const [exchanges, setExchanges] = useState<ExchangeAccount[]>([]);
 
@@ -87,7 +87,7 @@ export default function Sidebar() {
           </div>
         </div>
         <button
-          onClick={() => { logout(); navigate('/login'); }}
+          onClick={() => { handleLogout(); }}
           className="flex items-center gap-2 text-slate-500 hover:text-velora-danger w-full px-2 py-1.5 transition-colors rounded-lg hover:bg-velora-danger/10 text-xs"
         >
           <LogOut size={14} />

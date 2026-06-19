@@ -1,8 +1,9 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 
-interface User {
+export interface User {
   id: string;
   email: string;
   name?: string;
@@ -20,46 +21,45 @@ interface AuthContextType {
   login: (email: string, password: string, totpCode?: string) => Promise<{ requires2FA?: boolean }>;
   register: (email: string, password: string, referralCode?: string) => Promise<void>;
   loginDemo: () => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
-interface AuthResponse {
-  token: string;
-  accessToken?: string;
-  refreshToken: string;
-  user: User;
+interface LoginResponse {
+  requires2FA?: boolean;
+  message?: string;
+  user?: User;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
+
+async function fetchMe(): Promise<User> {
+  const res = await api.get<User>('/auth/me');
+  return res.data;
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const savedToken = localStorage.getItem('yevatrade_token');
-    if (savedToken) {
-      api.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`;
-      api.get<User>('/auth/me')
-        .then(res => setUser(res.data))
-        .catch(() => {
-          localStorage.removeItem('yevatrade_token');
-          localStorage.removeItem('yevatrade_refresh_token');
-        })
-        .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
-    }
+  const refreshUser = useCallback(async () => {
+    const me = await fetchMe();
+    setUser(me);
   }, []);
 
-  const persistSession = (newToken: string, refreshToken?: string) => {
-    localStorage.setItem('yevatrade_token', newToken);
-    if (refreshToken) localStorage.setItem('yevatrade_refresh_token', refreshToken);
-    api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-  };
+  useEffect(() => {
+    fetchMe()
+      .then(setUser)
+      .catch(() => setUser(null))
+      .finally(() => setLoading(false));
+  }, []);
 
-  const login = async (email: string, password: string, totpCode?: string): Promise<{ requires2FA?: boolean }> => {
-    const res = await api.post<Partial<AuthResponse> & { requires2FA?: boolean }>('/auth/login', {
+  const login = async (
+    email: string,
+    password: string,
+    totpCode?: string
+  ): Promise<{ requires2FA?: boolean }> => {
+    const res = await api.post<LoginResponse>('/auth/login', {
       email,
       password,
       ...(totpCode ? { totpCode } : {}),
@@ -67,49 +67,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (res.data.requires2FA) return { requires2FA: true };
 
-    const { token: newToken, refreshToken, user: newUser } = res.data as AuthResponse;
-    persistSession(newToken, refreshToken);
-
     try {
-      const meRes = await api.get<User>('/auth/me');
-      setUser(meRes.data);
+      await refreshUser();
     } catch {
-      setUser(newUser);
+      if (res.data.user) setUser(res.data.user);
     }
     return {};
   };
 
   const register = async (email: string, password: string, referralCode?: string) => {
-    const res = await api.post<AuthResponse>('/auth/register', {
+    await api.post('/auth/register', {
       email,
       password,
       ...(referralCode ? { referralCode } : {}),
     });
-    const { token: newToken, refreshToken, user: newUser } = res.data;
-    persistSession(newToken, refreshToken);
-    setUser(newUser);
+    try {
+      await refreshUser();
+    } catch {
+      setUser(null);
+    }
   };
 
   const loginDemo = async () => {
-    const res = await api.post<AuthResponse>('/auth/demo');
-    const { token: newToken, refreshToken, user: newUser } = res.data;
-    persistSession(newToken, refreshToken);
-    setUser(newUser);
+    await api.post('/auth/demo');
+    await refreshUser();
   };
 
-  const logout = () => {
-    const refreshToken = localStorage.getItem('yevatrade_refresh_token');
-    if (refreshToken) {
-      api.post('/auth/logout', { refreshToken }).catch(() => {});
+  const logout = async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch {
+      /* cookies podem já estar limpos */
     }
-    localStorage.removeItem('yevatrade_token');
-    localStorage.removeItem('yevatrade_refresh_token');
-    delete api.defaults.headers.common['Authorization'];
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, loginDemo, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, loginDemo, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
@@ -119,4 +113,15 @@ export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth deve ser usado dentro de AuthProvider');
   return ctx;
+}
+
+/** Hook para logout com redirecionamento */
+export function useLogout() {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  return async () => {
+    await logout();
+    navigate('/login', { replace: true });
+  };
 }

@@ -76,3 +76,43 @@ body {
 .border-cyan-30 { border-color: rgba(0, 212, 160, 0.30); }
 .border-gold-30 { border-color: rgba(212, 168, 67, 0.30); }
 .border-red-30  { border-color: rgba(224, 82, 82, 0.30); }
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes livePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 212, 160, 0.25); }
+  50% { box-shadow: 0 0 0 6px rgba(0, 212, 160, 0); }
+}
+
+@keyframes tickerFlash {
+  0% { background-color: rgba(0, 212, 160, 0.15); }
+  100% { background-color: transparent; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.45s ease-out both;
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.5s ease-out both;
+}
+
+.live-glow {
+  animation: livePulse 2.5s ease-in-out infinite;
+}
+
+.stat-value {
+  transition: color 0.3s ease, transform 0.3s ease;
+}
+
+.price-flash {
+  animation: tickerFlash 0.6s ease-out;
+}

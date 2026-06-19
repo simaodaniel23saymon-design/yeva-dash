@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { formatMoney } from '../utils/format';
 
@@ -25,6 +25,8 @@ export function LiveTradingPanel() {
   const [status, setStatus] = useState<StatusResp | null>(null);
   const [tickers, setTickers] = useState<Ticker[]>([]);
   const [failed, setFailed] = useState(false);
+  const [flashSymbols, setFlashSymbols] = useState<Set<string>>(new Set());
+  const prevPrices = useRef<Record<string, number>>({});
 
   useEffect(() => {
     let active = true;
@@ -36,7 +38,18 @@ export function LiveTradingPanel() {
         ]);
         if (!active) return;
         setStatus(s.data);
-        setTickers(Array.isArray(t.data) ? t.data : []);
+        const list = Array.isArray(t.data) ? t.data : [];
+        const flashed = new Set<string>();
+        list.forEach(ticker => {
+          const prev = prevPrices.current[ticker.symbol];
+          if (prev != null && prev !== ticker.price) flashed.add(ticker.symbol);
+          prevPrices.current[ticker.symbol] = ticker.price;
+        });
+        setTickers(list);
+        if (flashed.size) {
+          setFlashSymbols(flashed);
+          setTimeout(() => setFlashSymbols(new Set()), 700);
+        }
         setFailed(false);
       } catch {
         if (active) setFailed(true);
@@ -61,7 +74,7 @@ export function LiveTradingPanel() {
   const activeCount = bots.filter(b => b.status === 'running').length;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 animate-fade-in">
       {/* Saldo + estado */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <div className="bg-bg1 border border-cyan-20 p-4">
@@ -86,7 +99,12 @@ export function LiveTradingPanel() {
           <h3 className="font-mono text-[9px] uppercase tracking-wider text-text2 mb-3">Preços em Tempo Real</h3>
           <div className="grid grid-cols-2 gap-2">
             {tickers.map(t => (
-              <div key={t.symbol} className="flex justify-between items-center p-2 bg-bg2 border border-border1">
+              <div
+                key={t.symbol}
+                className={`flex justify-between items-center p-2 bg-bg2 border border-border1 transition-colors ${
+                  flashSymbols.has(t.symbol) ? 'price-flash' : ''
+                }`}
+              >
                 <span className="font-mono text-xs font-bold text-text1">{t.symbol.replace('USDT', '')}</span>
                 <span className={`font-mono text-[10px] ${t.change24h >= 0 ? 'text-cyan' : 'text-red'}`}>
                   ${Number(t.price ?? 0).toFixed(2)} ({t.change24h >= 0 ? '+' : ''}{Number(t.change24h ?? 0).toFixed(2)}%)

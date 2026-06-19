@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import { buildReferralLink } from '../utils/referral'
 import { getFriendlyError } from '../utils/errorHandler'
@@ -289,6 +290,18 @@ export default function SettingsPage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Zona de perigo */}
+      <div className="bg-bg1 border border-red-30 p-5">
+        <h3 className="font-mono text-[9px] uppercase tracking-wider text-red font-bold mb-2">Zona de perigo</h3>
+        <p className="font-mono text-[10px] text-text2 mb-4 leading-relaxed">
+          Eliminar a conta remove permanentemente os teus dados, bots e ligações à exchange.
+        </p>
+        <Link to="/settings/delete-account"
+          className="inline-block px-4 py-2 border border-red-30 bg-red-dim text-red font-mono text-[9px] uppercase tracking-wider hover:bg-red/15 transition-all">
+          Eliminar conta
+        </Link>
       </div>
 
       {/* ════ MODAL: QR CODE ════ */}

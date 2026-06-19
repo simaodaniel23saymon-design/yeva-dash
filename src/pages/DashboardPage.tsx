@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { QuickGuide } from '../components/QuickGuide';
 import { BotToggleButton } from '../components/BotToggleButton';
+import { LiveTradingPanel } from '../components/LiveTradingPanel';
+import { TradingViewWidget } from '../components/TradingViewWidget';
+import { AnimatedStat } from '../components/AnimatedStat';
 import { useWallet } from '../hooks/useWallet';
 import {
   fetchBotsList,
@@ -105,6 +108,10 @@ export default function DashboardPage() {
 
   const marginPct = stats.balance > 0 ? Math.min(100, (stats.usedMargin / stats.balance) * 100) : 0;
 
+  const chartSymbol =
+    positions[0]?.symbol ??
+    botPair(bots.find(b => isBotRunning(b.status)) ?? bots[0] ?? { pair: 'BTCUSDT' });
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-32">
@@ -147,6 +154,8 @@ export default function DashboardPage() {
 
       <BotToggleButton />
 
+      <LiveTradingPanel />
+
       {!isConnected ? (
         <div className="bg-gold-dim border border-gold-30 p-6 text-center">
           <p className="font-mono text-[11px] text-gold mb-4">Nenhuma exchange conectada</p>
@@ -154,30 +163,43 @@ export default function DashboardPage() {
             className="inline-block font-mono text-[9px] uppercase px-6 py-3 border border-cyan-30 bg-cyan-dim text-cyan">
             Conectar Exchange
           </Link>
+          <Link to="/api-guide"
+            className="inline-block font-mono text-[9px] uppercase px-6 py-3 border border-border2 text-text2 hover:border-cyan hover:text-cyan ml-2">
+            Ver Guia API
+          </Link>
         </div>
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="bg-bg1 border border-cyan-20 p-4">
-              <p className="font-mono text-[8px] uppercase tracking-wider text-text2 mb-1">Saldo disponível</p>
-              <p className="text-2xl font-bold text-cyan">${stats.balance.toFixed(2)}</p>
-              <p className="font-mono text-[9px] text-text3 mt-1">
-                {stats.accountType === 'demo' ? 'Demo (Testnet)' : 'Conta real'}
-                {stats.exchange ? ` · ${stats.exchange}` : ''}
-              </p>
+            <AnimatedStat
+              label="Saldo disponível"
+              value={`$${stats.balance.toFixed(2)}`}
+              sub={`${stats.accountType === 'demo' ? 'Demo' : 'Real'}${stats.exchange ? ` · ${stats.exchange}` : ''}`}
+              accent="cyan"
+              delay={0}
+              pulse={stats.runningBotsCount > 0}
+            />
+            <AnimatedStat
+              label="P&L aberto"
+              value={`$${stats.totalPnl.toFixed(2)}`}
+              accent={stats.totalPnl >= 0 ? 'cyan' : 'red'}
+              delay={80}
+            />
+            <AnimatedStat
+              label="Bots activos"
+              value={`${stats.runningBotsCount}/${stats.botsCount}`}
+              accent="default"
+              delay={160}
+              pulse={stats.runningBotsCount > 0}
+            />
+          </div>
+
+          <div className="bg-bg1 border border-border1 p-4 animate-fade-in-up" style={{ animationDelay: '200ms' }}>
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <h3 className="text-sm font-bold text-text1">Gráfico · {chartSymbol}</h3>
+              <span className="font-mono text-[9px] text-text3 uppercase">TradingView · 1H</span>
             </div>
-            <div className="bg-bg1 border border-border1 p-4">
-              <p className="font-mono text-[8px] uppercase tracking-wider text-text2 mb-1">P&L aberto</p>
-              <p className={`text-2xl font-bold ${stats.totalPnl >= 0 ? 'text-cyan' : 'text-red'}`}>
-                ${stats.totalPnl.toFixed(2)}
-              </p>
-            </div>
-            <div className="bg-bg1 border border-border1 p-4">
-              <p className="font-mono text-[8px] uppercase tracking-wider text-text2 mb-1">Bots activos</p>
-              <p className="text-2xl font-bold text-text1">
-                {stats.runningBotsCount}/{stats.botsCount}
-              </p>
-            </div>
+            <TradingViewWidget symbol={chartSymbol} interval="60" height={420} />
           </div>
 
           <div className="bg-bg1 border border-border1 p-4">

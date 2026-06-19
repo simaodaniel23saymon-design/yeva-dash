@@ -10,12 +10,14 @@ import HistoryPage from './pages/HistoryPage';
 import WalletPage from './pages/WalletPage';
 import DepositPage from './pages/DepositPage';
 import SettingsPage from './pages/SettingsPage';
+import DeleteAccountPage from './pages/DeleteAccountPage';
 import TermsOfUse from './pages/legal/TermsOfUse';
 import PrivacyPolicy from './pages/legal/PrivacyPolicy';
 import AffiliateHub from './components/AffiliateHub';
 import AdminPage from './pages/AdminPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import ApiGuidePage from './pages/ApiGuidePage';
 
 function ProtectedRoute({ children, requireAdmin = false }: { children: React.ReactNode; requireAdmin?: boolean }) {
   const { user, loading } = useAuth();
@@ -67,12 +69,14 @@ export default function App() {
           <Route path="/bots" element={<AppRoute element={<BotsPage />} />} />
           <Route path="/exchanges" element={<AppRoute element={<ExchangesPage />} />} />
           <Route path="/exchange" element={<AppRoute element={<ExchangesPage />} />} />
+          <Route path="/api-guide" element={<AppRoute element={<ApiGuidePage />} />} />
           <Route path="/operations" element={<AppRoute element={<OperationsPage />} />} />
           <Route path="/positions" element={<AppRoute element={<OperationsPage />} />} />
           <Route path="/history" element={<AppRoute element={<HistoryPage />} />} />
           <Route path="/wallet" element={<AppRoute element={<WalletPage />} />} />
           <Route path="/deposit" element={<AppRoute element={<DepositPage />} />} />
           <Route path="/settings" element={<AppRoute element={<SettingsPage />} />} />
+          <Route path="/settings/delete-account" element={<AppRoute element={<DeleteAccountPage />} />} />
           <Route path="/affiliates" element={<AppRoute element={<AffiliateHub />} />} />
           <Route path="/admin" element={<AppRoute element={<AdminPage />} requireAdmin />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

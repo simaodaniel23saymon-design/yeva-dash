@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, NavLink, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, useLogout } from '../context/AuthContext';
 import { api } from '../lib/api';
 
 interface ExchangeAccount { id: string; exchange: string; isActive: boolean; }
@@ -53,8 +53,8 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
 
 // ── Sidebar ─────────────────────────────────────────────────────────────────
 function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
+  const { user } = useAuth();
+  const handleLogout = useLogout();
   const [exchanges, setExchanges] = useState<ExchangeAccount[]>([]);
 
   useEffect(() => {
@@ -87,6 +87,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
 
         <span className="font-mono text-[8px] tracking-[2.5px] uppercase text-text3 px-2 mb-2 mt-5 block">Exchanges</span>
         <NavLink to="/exchanges" className={navLinkClass} onClick={close}><IconApi /><span>Conectar Exchange</span></NavLink>
+        <NavLink to="/api-guide" className={navLinkClass} onClick={close}><IconApi /><span>Guia API</span></NavLink>
         {exchanges.map(ex => (
           <div key={ex.id} className="flex items-center gap-2.5 px-2.5 py-1.5 text-[12px] text-text2">
             <span className={`w-[5px] h-[5px] rounded-full ${ex.isActive ? 'bg-cyan shadow-[0_0_6px_#00d4a0]' : 'bg-text3'}`} />
@@ -126,7 +127,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
             <div className="font-mono text-[8px] text-gold tracking-wider uppercase">PRO PLAN ◆</div>
           </div>
         </div>
-        <button onClick={() => { logout(); navigate('/login'); close(); }}
+        <button onClick={() => { handleLogout(); close(); }}
           className="w-full text-left font-mono text-[9px] tracking-wider uppercase text-text2 hover:text-red px-2.5 py-1.5 transition-colors">
           ⏻ Sair do Sistema
         </button>

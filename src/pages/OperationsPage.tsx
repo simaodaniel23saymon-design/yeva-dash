@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { QuickGuide } from '../components/QuickGuide';
 import { LiveOrders } from '../components/LiveOrders';
+import { TradingViewWidget } from '../components/TradingViewWidget';
 import {
   fetchBotsList,
   fetchExchangePositions,
@@ -81,6 +82,10 @@ export default function OperationsPage() {
   const selectedBot = bots.find(b => b.id === selected);
   const isRunning = selectedBot ? isBotRunning(selectedBot.status) : false;
 
+  const chartSymbol = selected
+    ? botPair(selectedBot ?? { pair: 'BTCUSDT' })
+    : botPair(runningBots[0] ?? bots[0] ?? { pair: 'BTCUSDT' });
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-32">
@@ -107,6 +112,13 @@ export default function OperationsPage() {
           )}
         </div>
       </div>
+
+      {(runningBots.length > 0 || selected) && (
+        <div className="bg-bg1 border border-border1 p-4 animate-fade-in-up">
+          <h3 className="text-sm font-bold text-text1 mb-3">Gráfico · {chartSymbol}</h3>
+          <TradingViewWidget symbol={chartSymbol} interval="60" height={400} />
+        </div>
+      )}
 
       {runningBots.length === 0 ? (
         <div className="bg-bg1 border border-border1 p-8 text-center">

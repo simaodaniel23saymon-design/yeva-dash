@@ -83,8 +83,8 @@ export function isBotRunning(status: string): boolean {
   return status === 'running' || status === 'ACTIVE';
 }
 
-export function botPair(bot: LiveBot): string {
-  return bot.pair ?? bot.symbol ?? '—';
+export function botPair(bot?: Pick<LiveBot, 'pair' | 'symbol'> | null, fallback = 'BTCUSDT'): string {
+  return bot?.pair ?? bot?.symbol ?? fallback;
 }
 
 export function parseNum(value: string | number | undefined): number {

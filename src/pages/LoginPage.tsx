@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getFriendlyError } from '../utils/errorHandler';
 import { ErrorMessage } from '../components/ErrorMessage';
@@ -7,6 +7,7 @@ import { ErrorMessage } from '../components/ErrorMessage';
 export default function LoginPage() {
   const { login, register, loginDemo } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [searchParams] = useSearchParams();
   const [tab, setTab] = useState<'login' | 'register'>('login');
@@ -25,6 +26,16 @@ export default function LoginPage() {
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState(
+    (location.state as { message?: string } | null)?.message ?? ''
+  );
+
+  useEffect(() => {
+    if (success) {
+      const t = setTimeout(() => setSuccess(''), 6000);
+      return () => clearTimeout(t);
+    }
+  }, [success]);
 
   // 2FA step
   const [requires2FA, setRequires2FA] = useState(false);
@@ -221,6 +232,10 @@ export default function LoginPage() {
                     </p>
                   )}
                 </div>
+              )}
+
+              {success && (
+                <div className="bg-cyan-dim border border-cyan-20 p-3 font-mono text-[10px] text-cyan">{success}</div>
               )}
 
               {error && <ErrorMessage message={error} onClose={() => setError('')} />}

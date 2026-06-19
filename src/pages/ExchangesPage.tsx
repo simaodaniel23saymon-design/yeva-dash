@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { getFriendlyError } from '../utils/errorHandler';
 import {
@@ -209,7 +210,8 @@ export default function ExchangesPage() {
       <div>
         <h2 className="text-text1 font-bold text-lg">Conexão com Exchange</h2>
         <p className="font-mono text-[9px] uppercase tracking-wider text-text2 mt-0.5">
-          Testa antes de guardar · Chaves encriptadas AES-256-GCM
+          Testa antes de guardar · Chaves encriptadas AES-256-GCM ·{' '}
+          <Link to="/api-guide" className="text-cyan hover:underline">Guia API</Link>
         </p>
       </div>
 
