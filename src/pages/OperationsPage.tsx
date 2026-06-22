@@ -122,7 +122,7 @@ export default function OperationsPage() {
           onSymbolChange={selectSymbol}
           autoSymbol={autoSymbol}
           onFollowAuto={followAuto}
-          height={400}
+          height={560}
           title="Gráfico"
         />
       </div>

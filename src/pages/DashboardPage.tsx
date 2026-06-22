@@ -244,7 +244,7 @@ export default function DashboardPage() {
               onSymbolChange={selectSymbol}
               autoSymbol={autoSymbol}
               onFollowAuto={followAuto}
-              height={480}
+              height={560}
               title="Gráfico"
             />
           </div>

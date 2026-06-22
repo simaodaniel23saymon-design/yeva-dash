@@ -19,7 +19,7 @@ export function LiveChart({
   onSymbolChange,
   autoSymbol,
   onFollowAuto,
-  height = 480,
+  height = 560,
   title,
 }: Props) {
   const [market, setMarket] = useState<ChartMarket>('FUTURES');
