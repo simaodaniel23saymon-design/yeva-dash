@@ -6,6 +6,7 @@ import { useWallet } from '../hooks/useWallet';
 import { useBalances } from '../hooks/useBalances';
 import { formatMoney, formatUSDT, toUSDT } from '../utils/format';
 import { getFriendlyError } from '../utils/errorHandler';
+import { MIN_DEPOSIT } from '../utils/constants';
 
 interface Tx {
   id: string; type: string; amount: number; status: string;
@@ -158,7 +159,7 @@ export default function WalletPage() {
   return (
     <div className="space-y-4 max-w-2xl">
       <QuickGuide title="Sobre a tua carteira" steps={[
-        'Gás do sistema: mínimo $17 USDT para usar os bots',
+        `Gás do sistema: mínimo $${MIN_DEPOSIT} USDT para usar os bots`,
         'Saldo Binance: dinheiro real na exchange para operar',
         'Performance fee de 30% sobre lucros desconta do gás',
         'Recebes alertas por email e Telegram quando o gás acabar',
@@ -177,7 +178,7 @@ export default function WalletPage() {
             <span className="font-mono text-[8px] px-1.5 py-0.5 border border-cyan-30 text-cyan">Interno</span>
           </div>
           <p className="text-2xl font-bold text-cyan">${formatUSDT(wallet?.balance ?? gasBalance)} USDT</p>
-          <p className="font-mono text-[10px] text-text2 mt-2">Usado para operar os bots. Mínimo: $17 USDT</p>
+          <p className="font-mono text-[10px] text-text2 mt-2">{`Usado para operar os bots. Mínimo: $${MIN_DEPOSIT} USDT`}</p>
           <Link to="/deposit"
             className="inline-block mt-4 font-mono text-[9px] uppercase tracking-wider px-4 py-2 border border-cyan-30 bg-cyan-dim text-cyan hover:bg-cyan/20 transition-all">
             + Recarregar Gás
@@ -201,7 +202,7 @@ export default function WalletPage() {
       <div className="bg-gold-dim border border-gold-30 p-4">
         <h3 className="font-mono text-[9px] uppercase tracking-wider text-gold font-bold mb-2">Como funciona</h3>
         <ul className="font-mono text-[10px] text-text2 space-y-1">
-          <li>• <strong className="text-text1">Gás do sistema</strong>: depósito mínimo $17 USDT para usar os bots</li>
+          <li>• <strong className="text-text1">Gás do sistema</strong>: {`depósito mínimo $${MIN_DEPOSIT} USDT para usar os bots`}</li>
           <li>• <strong className="text-text1">Saldo Binance</strong>: capital real na exchange</li>
           <li>• <strong className="text-text1">Performance fee</strong>: 30% sobre lucros descontado do gás</li>
           <li>• <strong className="text-text1">Afiliados</strong>: 50% do depósito distribuído em 10 níveis</li>
@@ -258,7 +259,7 @@ export default function WalletPage() {
                 </select>
               </div>
               <div className="bg-bg2 border border-border1 p-3 font-mono text-[10px] text-text2">
-                Mínimo: <span className="text-cyan">$17</span> · Confirmação automática após 1-3 blocos
+                Mínimo: <span className="text-cyan">${MIN_DEPOSIT}</span> · Confirmação automática após 1-3 blocos
               </div>
               <button onClick={startDeposit} disabled={busy}
                 className="w-full py-3 border border-cyan-30 bg-cyan-dim text-cyan font-mono text-[10px] uppercase tracking-widest hover:bg-cyan/20 disabled:opacity-50 transition-all flex items-center justify-center gap-2">

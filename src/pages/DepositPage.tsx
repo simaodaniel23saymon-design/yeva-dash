@@ -4,8 +4,7 @@ import { api } from '../lib/api';
 import { QuickGuide } from '../components/QuickGuide';
 import { getFriendlyError } from '../utils/errorHandler';
 import { toWalletUnits } from '../utils/format';
-
-const MIN_DEPOSIT = 17;
+import { MIN_DEPOSIT } from '../utils/constants';
 
 const DISTRIBUTION_LEVELS = [
   { level: 1, pct: 15, label: 'Quem te convidou' },
@@ -56,7 +55,7 @@ export default function DepositPage() {
   return (
     <div className="space-y-4 max-w-lg">
       <QuickGuide title="Recarregar gás" steps={[
-        'Mínimo de $17 USDT para activar o sistema',
+        `Mínimo de $${MIN_DEPOSIT} USDT para activar o sistema`,
         '50% fica no sistema · 50% distribuído a afiliados',
         'Performance fee de 30% sobre lucros desconta do gás',
       ]} />

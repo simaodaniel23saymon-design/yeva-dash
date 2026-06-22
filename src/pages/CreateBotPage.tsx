@@ -5,6 +5,7 @@ import { QuickGuide } from '../components/QuickGuide';
 import { useWallet } from '../hooks/useWallet';
 import { useExchange, type MarketType } from '../hooks/useExchange';
 import { getFriendlyError } from '../utils/errorHandler';
+import { MIN_DEPOSIT } from '../utils/constants';
 
 export default function CreateBotPage() {
   const navigate = useNavigate();
@@ -54,7 +55,7 @@ export default function CreateBotPage() {
     } catch (err: unknown) {
       const axiosErr = err as { response?: { status?: number; data?: { error?: string } } };
       if (axiosErr.response?.status === 403) {
-        setError('Depósito mínimo de $10 USDT necessário. Adiciona fundos na página de Depósitos.');
+        setError(`Depósito mínimo de $${MIN_DEPOSIT} USDT necessário. Adiciona fundos na página de Depósitos.`);
       } else {
         setError(getFriendlyError(err).message);
       }
@@ -76,7 +77,7 @@ export default function CreateBotPage() {
       <QuickGuide title="Criar novo bot" steps={[
         'Escolhe Spot ou Futures e o par de moedas',
         'Define modo de risco, alavancagem e capital',
-        'Depósito mínimo de $10 USDT necessário',
+        `Depósito mínimo de $${MIN_DEPOSIT} USDT necessário`,
       ]} />
 
       <div>
@@ -190,7 +191,7 @@ export default function CreateBotPage() {
 
         <div className="bg-gold-dim border border-gold-30 p-4">
           <p className="text-[12px] text-text2 leading-relaxed">
-            É necessário um depósito mínimo de $10 USDT para criar bots.
+            {`É necessário um depósito mínimo de $${MIN_DEPOSIT} USDT para criar bots.`}
           </p>
         </div>
       </form>
