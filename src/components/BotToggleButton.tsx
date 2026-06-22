@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { getFriendlyError } from '../utils/errorHandler';
+import { stopAllBots } from '../utils/liveData';
 
 interface BotsStatus {
   anyRunning?: boolean;
@@ -36,18 +37,12 @@ export function BotToggleButton() {
     return () => clearInterval(interval);
   }, []);
 
-  const toggle = async () => {
+  const startAll = async () => {
     setLoading(true);
     try {
-      if (running) {
-        await api.post('/bots/stop');
-        setRunning(false);
-        flash('Bots parados com sucesso.');
-      } else {
-        await api.post('/bots/start');
-        setRunning(true);
-        flash('Bots iniciados! Acompanha as operações em tempo real.');
-      }
+      await api.post('/bots/start');
+      setRunning(true);
+      flash('Todos os bots iniciados.');
     } catch (error) {
       const err = error as { response?: { data?: { code?: string; error?: string } } };
       if (err.response?.data?.code === 'INSUFFICIENT_BALANCE') {
@@ -61,14 +56,27 @@ export function BotToggleButton() {
     }
   };
 
-  // Estado desconhecido (endpoint indisponível) — não mostrar UI partida
+  const stopAll = async () => {
+    if (!window.confirm('Parar TODOS os bots?')) return;
+    setLoading(true);
+    try {
+      await stopAllBots();
+      setRunning(false);
+      flash('Todos os bots parados.');
+    } catch (error) {
+      flash(getFriendlyError(error).message, false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (botsCount === null) return null;
 
   if (botsCount === 0) {
     return (
       <div className="bg-gold-dim border border-gold-30 p-4 font-mono text-[10px] text-gold leading-relaxed">
         ⚠ Configura pelo menos um bot antes de iniciar.{' '}
-        <button onClick={() => navigate('/bots')} className="underline hover:text-text1 transition-colors">
+        <button type="button" onClick={() => navigate('/bots')} className="underline hover:text-text1 transition-colors">
           Criar bot agora →
         </button>
       </div>
@@ -77,14 +85,24 @@ export function BotToggleButton() {
 
   return (
     <div className="space-y-2">
-      <button onClick={toggle} disabled={loading}
-        className={`w-full py-3.5 font-mono text-[11px] uppercase tracking-widest border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-          running
-            ? 'border-red-30 bg-red-dim text-red hover:bg-red/15'
-            : 'border-cyan-30 bg-cyan-dim text-cyan hover:bg-cyan/20'
-        }`}>
-        {loading ? 'A processar...' : running ? '⏹ Parar Bots' : '▶ Iniciar Operações'}
-      </button>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={startAll}
+          disabled={loading || running}
+          className="py-3 font-mono text-[11px] uppercase tracking-widest border border-cyan-30 bg-cyan-dim text-cyan hover:bg-cyan/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading && !running ? 'A processar...' : '▶ Iniciar Todos'}
+        </button>
+        <button
+          type="button"
+          onClick={stopAll}
+          disabled={loading || !running}
+          className="py-3 font-mono text-[11px] uppercase tracking-widest border border-red-30 bg-red-dim text-red hover:bg-red/15 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading && running ? 'A processar...' : '⏹ Parar Todos'}
+        </button>
+      </div>
       {msg && (
         <div className={`p-2.5 font-mono text-[10px] border ${msg.ok ? 'border-cyan-20 bg-cyan-dim text-cyan' : 'border-red-30 bg-red-dim text-red'}`}>
           {msg.text}

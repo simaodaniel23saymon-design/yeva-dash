@@ -26,6 +26,7 @@ export interface ExchangePosition {
 
 export interface LiveBot {
   id: string;
+  botId?: string;
   pair?: string;
   symbol?: string;
   market?: string;
@@ -73,10 +74,26 @@ export async function fetchExchangeStats(): Promise<ExchangeStats | null> {
 
 export async function stopAllBots(): Promise<void> {
   try {
-    await api.post('/bots/stop');
-  } catch {
     await api.post('/bots/stop-all');
+  } catch {
+    await api.post('/bots/stop');
   }
+}
+
+export async function stopBotById(botId: string): Promise<void> {
+  const id = String(botId ?? '').trim();
+  if (!id) throw new Error('ID do bot inválido.');
+  await api.post(`/bots/${encodeURIComponent(id)}/stop`);
+}
+
+export async function startBotById(botId: string): Promise<void> {
+  const id = String(botId ?? '').trim();
+  if (!id) throw new Error('ID do bot inválido.');
+  await api.post(`/bots/${encodeURIComponent(id)}/start`);
+}
+
+export function resolveBotId(bot: { id?: string; botId?: string } | null | undefined): string {
+  return String(bot?.id ?? bot?.botId ?? '').trim();
 }
 
 export function isBotRunning(status: string): boolean {

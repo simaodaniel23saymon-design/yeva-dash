@@ -13,6 +13,9 @@ import {
   fetchExchangePositions,
   fetchExchangeStats,
   stopAllBots,
+  stopBotById,
+  startBotById,
+  resolveBotId,
   isBotRunning,
   botPair,
   parseNum,
@@ -103,6 +106,44 @@ export default function DashboardPage() {
       setTimeout(() => setFlash(''), 4000);
     } catch (err: unknown) {
       setFlash(safeErrorMessage(err, 'Erro ao parar bots.'));
+      setTimeout(() => setFlash(''), 4000);
+    }
+  };
+
+  const handleStopBot = async (bot: LiveBot) => {
+    const id = resolveBotId(bot);
+    if (!id) {
+      setFlash('Bot sem ID válido.');
+      setTimeout(() => setFlash(''), 4000);
+      return;
+    }
+    if (!window.confirm(`Parar o bot ${botPair(bot)}?`)) return;
+    try {
+      await stopBotById(id);
+      await loadStats(true);
+      setFlash(`Bot ${botPair(bot)} parado.`);
+      setTimeout(() => setFlash(''), 4000);
+    } catch (err: unknown) {
+      setFlash(safeErrorMessage(err, 'Erro ao parar bot.'));
+      setTimeout(() => setFlash(''), 4000);
+    }
+  };
+
+  const handleStartBot = async (bot: LiveBot) => {
+    const id = resolveBotId(bot);
+    if (!id) {
+      setFlash('Bot sem ID válido.');
+      setTimeout(() => setFlash(''), 4000);
+      return;
+    }
+    if (!window.confirm(`Iniciar o bot ${botPair(bot)}?`)) return;
+    try {
+      await startBotById(id);
+      await loadStats(true);
+      setFlash(`Bot ${botPair(bot)} iniciado.`);
+      setTimeout(() => setFlash(''), 4000);
+    } catch (err: unknown) {
+      setFlash(safeErrorMessage(err, 'Erro ao iniciar bot.'));
       setTimeout(() => setFlash(''), 4000);
     }
   };
@@ -264,20 +305,42 @@ export default function DashboardPage() {
           {bots.length > 0 && (
             <div className="bg-bg1 border border-border1 p-4 space-y-3">
               <h3 className="text-sm font-bold text-text1">Os teus bots</h3>
-              {bots.map(bot => (
-                <div key={bot.id} className="bg-bg2 border border-border1 p-4">
-                  <div className="flex justify-between items-center mb-2">
+              {bots.map(bot => {
+                const botId = resolveBotId(bot);
+                const running = isBotRunning(bot.status);
+                return (
+                <div key={botId || botPair(bot)} className="bg-bg2 border border-border1 p-4">
+                  <div className="flex justify-between items-center mb-2 gap-3">
                     <div>
                       <span className="font-bold text-text1">{botPair(bot)}</span>
                       {bot.market && (
                         <span className="ml-2 font-mono text-[8px] uppercase text-text3">{bot.market}</span>
                       )}
                     </div>
-                    <span className={`font-mono text-[8px] uppercase px-2 py-0.5 border ${
-                      isBotRunning(bot.status) ? 'border-cyan-30 text-cyan' : 'border-border2 text-text3'
-                    }`}>
-                      {isBotRunning(bot.status) ? 'A operar' : 'Parado'}
-                    </span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`font-mono text-[8px] uppercase px-2 py-0.5 border ${
+                        running ? 'border-cyan-30 text-cyan' : 'border-border2 text-text3'
+                      }`}>
+                        {running ? 'A operar' : 'Parado'}
+                      </span>
+                      {running ? (
+                        <button
+                          type="button"
+                          onClick={() => handleStopBot(bot)}
+                          className="font-mono text-[8px] uppercase px-2 py-1 border border-red-30 text-red"
+                        >
+                          Parar Este
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleStartBot(bot)}
+                          className="font-mono text-[8px] uppercase px-2 py-1 border border-cyan-30 text-cyan"
+                        >
+                          Iniciar Este
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2 font-mono text-[10px] text-text2">
                     <span>Alavancagem: <span className="text-text1">{bot.leverage ?? '—'}x</span></span>
@@ -286,7 +349,7 @@ export default function DashboardPage() {
                     <span>Stop: <span className="text-text1">{bot.maxLossPct ?? '—'}%</span></span>
                   </div>
                 </div>
-              ))}
+              );})}
             </div>
           )}
 

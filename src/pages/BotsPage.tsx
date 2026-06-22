@@ -7,9 +7,16 @@ import { LiveOrders } from '../components/LiveOrders';
 import { useWallet } from '../hooks/useWallet';
 import { useExchange, type MarketType } from '../hooks/useExchange';
 import { getFriendlyError } from '../utils/errorHandler';
+import {
+  resolveBotId,
+  startBotById,
+  stopAllBots,
+  stopBotById,
+} from '../utils/liveData';
 
 interface Bot {
   id: string;
+  botId?: string;
   symbol?: string;
   pair?: string;
   status: string;
@@ -45,18 +52,21 @@ export default function BotsPage() {
   const [takeProfit, setTakeProfit] = useState(60);
   const [stopLoss, setStopLoss] = useState(30);
 
+  const normalizeBot = (b: Bot): Bot => ({
+    ...b,
+    id: resolveBotId(b),
+    symbol: b.symbol ?? b.pair,
+    status: b.status === 'ACTIVE' ? 'running' : b.status === 'STOPPED' ? 'stopped' : b.status,
+  });
+
   const loadBots = async () => {
     try {
       const res = await api.get<{ bots: Bot[] }>('/bots/status');
-      setBots(res.data.bots ?? []);
+      setBots((res.data.bots ?? []).map(normalizeBot));
     } catch {
       try {
         const res = await api.get<Bot[]>('/bots');
-        setBots(res.data.map(b => ({
-          ...b,
-          symbol: b.symbol ?? b.pair,
-          status: b.status === 'ACTIVE' ? 'running' : 'stopped',
-        })));
+        setBots(res.data.map(normalizeBot));
       } catch {
         setBots([]);
       }
@@ -120,9 +130,13 @@ export default function BotsPage() {
   };
 
   const stopBot = async (id: string) => {
+    if (!id) {
+      showFlash('Bot sem ID válido.');
+      return;
+    }
     if (!window.confirm('Parar este bot?')) return;
     try {
-      await api.post(`/bots/${id}/stop`);
+      await stopBotById(id);
       await loadBots();
       showFlash('Bot parado com sucesso.');
     } catch (err: unknown) {
@@ -131,9 +145,13 @@ export default function BotsPage() {
   };
 
   const startBot = async (id: string) => {
+    if (!id) {
+      showFlash('Bot sem ID válido.');
+      return;
+    }
     if (!window.confirm('Iniciar este bot?')) return;
     try {
-      await api.post(`/bots/${id}/start`);
+      await startBotById(id);
       await loadBots();
       showFlash('Bot iniciado com sucesso.');
     } catch (err: unknown) {
@@ -141,10 +159,10 @@ export default function BotsPage() {
     }
   };
 
-  const stopAllBots = async () => {
+  const stopAllBotsHandler = async () => {
     if (!window.confirm('Parar TODOS os bots?')) return;
     try {
-      await api.post('/bots/stop');
+      await stopAllBots();
       await loadBots();
       showFlash('Todos os bots parados.');
     } catch (err: unknown) {
@@ -199,7 +217,7 @@ export default function BotsPage() {
               + Novo Bot
             </button>
             {bots.length > 0 && (
-              <button onClick={stopAllBots}
+              <button type="button" onClick={stopAllBotsHandler}
                 className="font-mono text-[9px] tracking-widest uppercase px-4 py-2 border border-red-30 bg-red-dim text-red hover:bg-red/15 transition-all">
                 Parar Todos
               </button>
@@ -225,10 +243,11 @@ export default function BotsPage() {
       ) : isConnected && bots.length > 0 ? (
         <div className="space-y-3">
           {bots.map(bot => {
+            const botId = resolveBotId(bot);
             const sym = bot.symbol ?? bot.pair ?? '—';
             const running = bot.status === 'running' || bot.status === 'ACTIVE';
             return (
-              <div key={bot.id} className={`bg-bg1 border p-4 ${running ? 'border-cyan/20' : 'border-border1'}`}>
+              <div key={botId || sym} className={`bg-bg1 border p-4 ${running ? 'border-cyan/20' : 'border-border1'}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -250,18 +269,18 @@ export default function BotsPage() {
                       {bot.capitalPerSide != null && <span>Capital: ${bot.capitalPerSide}</span>}
                       {bot.entryPercent != null && <span>Entrada: {bot.entryPercent}%</span>}
                     </div>
-                    <LiveOrders botId={bot.id} active={running} />
+                    <LiveOrders botId={botId} active={running} />
                   </div>
                   <div className="flex flex-col gap-2 shrink-0">
                     {running ? (
-                      <button onClick={() => stopBot(bot.id)}
+                      <button type="button" onClick={() => stopBot(botId)}
                         className="font-mono text-[9px] uppercase px-3 py-2 border border-red-30 text-red">
-                        Parar
+                        Parar Este
                       </button>
                     ) : (
-                      <button onClick={() => startBot(bot.id)}
+                      <button type="button" onClick={() => startBot(botId)}
                         className="font-mono text-[9px] uppercase px-3 py-2 border border-cyan-30 text-cyan">
-                        Iniciar
+                        Iniciar Este
                       </button>
                     )}
                   </div>
