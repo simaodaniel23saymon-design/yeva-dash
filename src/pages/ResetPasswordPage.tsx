@@ -26,7 +26,7 @@ export default function ResetPasswordPage() {
   };
 
   if (!token) return (
-    <div className="min-h-screen bg-bg0 flex items-center justify-center p-4">
+    <div className="auth-scroll bg-bg0 flex items-center justify-center p-4 py-8">
       <div className="text-center">
         <p className="text-red font-mono text-sm">Link inválido.</p>
         <Link to="/login" className="mt-4 block font-mono text-[9px] text-cyan">← Voltar ao Login</Link>
@@ -35,7 +35,7 @@ export default function ResetPasswordPage() {
   );
 
   return (
-    <div className="min-h-screen bg-bg0 flex items-center justify-center p-4">
+    <div className="auth-scroll bg-bg0 flex items-center justify-center p-4 py-8">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <h1 className="text-xl font-bold text-text1">YEVA <span className="text-cyan">TRADE</span></h1>

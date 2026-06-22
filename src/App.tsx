@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes, useParams, useSearchParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
+import { ScrollToTop } from './components/ScrollToTop';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import BotsPage from './pages/BotsPage';
@@ -57,6 +58,7 @@ function SignupRedirect() {
 export default function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />

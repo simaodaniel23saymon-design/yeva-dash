@@ -20,7 +20,7 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-bg0 flex items-center justify-center p-4">
+    <div className="auth-scroll bg-bg0 flex items-center justify-center p-4 py-8">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <h1 className="text-xl font-bold text-text1">YEVA <span className="text-cyan">TRADE</span></h1>

@@ -95,7 +95,7 @@ export function BinancePairSelector({
           <span>Lista Binance {market === 'SPOT' ? 'Spot' : 'Futures'}</span>
           <span>{filtered.length} pares</span>
         </div>
-        <div className={`overflow-y-auto ${compact ? 'max-h-44' : 'max-h-52'}`}>
+        <div className={`scroll-area ${compact ? 'max-h-44' : 'max-h-52'}`}>
           {loading ? (
             <p className={`p-4 font-mono text-text3 ${compact ? 'text-[10px]' : 'text-[12px]'}`}>
               A carregar pares Binance...

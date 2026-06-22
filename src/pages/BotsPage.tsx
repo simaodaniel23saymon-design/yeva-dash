@@ -16,6 +16,9 @@ import {
   startBotById,
   stopAllBots,
   stopBotById,
+  deleteBotById,
+  deleteStoppedBots,
+  isBotRunning,
 } from '../utils/liveData';
 import type { ChartMarket } from '../utils/chartData';
 
@@ -49,6 +52,8 @@ export default function BotsPage() {
   const [startedBot, setStartedBot] = useState<{ pair: string; market: string } | null>(null);
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const [startPhase, setStartPhase] = useState<'idle' | 'creating' | 'starting'>('idle');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [clearingStopped, setClearingStopped] = useState(false);
 
   const [market, setMarket] = useState<MarketType>('FUTURES');
   const [pair, setPair] = useState('');
@@ -190,7 +195,51 @@ export default function BotsPage() {
     }
   };
 
-  const runningCount = bots.filter(b => b.status === 'running' || b.status === 'ACTIVE').length;
+  const deleteBot = async (bot: Bot) => {
+    const id = resolveBotId(bot);
+    const sym = bot.symbol ?? bot.pair ?? 'bot';
+    if (!id) {
+      showFlash('Bot sem ID válido.');
+      return;
+    }
+    if (isBotRunning(bot.status)) {
+      showFlash('Para o bot antes de apagar.');
+      return;
+    }
+    if (!window.confirm(`Apagar o bot ${sym}? Esta acção não pode ser desfeita.`)) return;
+    setDeletingId(id);
+    try {
+      await deleteBotById(id);
+      await loadBots();
+      showFlash(`Bot ${sym} apagado.`);
+    } catch (err: unknown) {
+      showFlash(getFriendlyError(err).message);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const clearStoppedBots = async () => {
+    const stopped = bots.filter(b => !isBotRunning(b.status));
+    if (stopped.length === 0) {
+      showFlash('Não há bots parados para limpar.');
+      return;
+    }
+    if (!window.confirm(`Apagar ${stopped.length} bot(s) parado(s)? Esta acção não pode ser desfeita.`)) return;
+    setClearingStopped(true);
+    try {
+      const deleted = await deleteStoppedBots();
+      await loadBots();
+      showFlash(deleted > 0 ? `${deleted} bot(s) parado(s) removido(s).` : `${stopped.length} bot(s) parado(s) removido(s).`);
+    } catch (err: unknown) {
+      showFlash(getFriendlyError(err).message);
+    } finally {
+      setClearingStopped(false);
+    }
+  };
+
+  const runningCount = bots.filter(b => isBotRunning(b.status)).length;
+  const stoppedCount = bots.filter(b => !isBotRunning(b.status)).length;
 
   const inputClass = 'w-full bg-bg3 border border-border2 text-text1 font-mono text-sm px-3 py-2 outline-none focus:border-cyan/35 transition-colors placeholder:text-text2';
 
@@ -250,6 +299,16 @@ export default function BotsPage() {
               className="font-mono text-[9px] tracking-widest uppercase px-4 py-2 border border-cyan-30 bg-cyan-dim text-cyan hover:bg-cyan/20 transition-all">
               + Novo Bot
             </button>
+            {stoppedCount > 0 && (
+              <button
+                type="button"
+                onClick={clearStoppedBots}
+                disabled={clearingStopped}
+                className="font-mono text-[9px] tracking-widest uppercase px-4 py-2 border border-border2 text-text2 hover:border-gold-30 hover:text-gold transition-all disabled:opacity-50"
+              >
+                {clearingStopped ? 'A limpar...' : '🧹 Limpar bots parados'}
+              </button>
+            )}
             {bots.length > 0 && (
               <button type="button" onClick={stopAllBotsHandler}
                 className="font-mono text-[9px] tracking-widest uppercase px-4 py-2 border border-red-30 bg-red-dim text-red hover:bg-red/15 transition-all">
@@ -279,7 +338,8 @@ export default function BotsPage() {
           {bots.map(bot => {
             const botId = resolveBotId(bot);
             const sym = bot.symbol ?? bot.pair ?? '—';
-            const running = bot.status === 'running' || bot.status === 'ACTIVE';
+            const running = isBotRunning(bot.status);
+            const isDeleting = deletingId === botId;
             return (
               <div key={botId || sym} className={`bg-bg1 border p-4 ${running ? 'border-cyan/20' : 'border-border1'}`}>
                 <div className="flex items-start justify-between gap-3">
@@ -312,10 +372,20 @@ export default function BotsPage() {
                         Parar Este
                       </button>
                     ) : (
-                      <button type="button" onClick={() => startBot(bot)}
-                        className="font-mono text-[9px] uppercase px-3 py-2 border border-cyan-30 text-cyan">
-                        Iniciar Este
-                      </button>
+                      <>
+                        <button type="button" onClick={() => startBot(bot)}
+                          className="font-mono text-[9px] uppercase px-3 py-2 border border-cyan-30 text-cyan">
+                          Iniciar Este
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteBot(bot)}
+                          disabled={isDeleting}
+                          className="font-mono text-[9px] uppercase px-3 py-2 border border-border2 text-text2 hover:border-red-30 hover:text-red transition-colors disabled:opacity-50"
+                        >
+                          {isDeleting ? 'A apagar...' : '🗑️ Apagar'}
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -327,7 +397,7 @@ export default function BotsPage() {
 
       {showCreate && (
         <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-          <div className="bg-bg1 border border-border1 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className="bg-bg1 border border-border1 w-full max-w-lg max-h-[90vh] scroll-area">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border1 sticky top-0 bg-bg1">
               <h3 className="text-text1 font-bold">Novo Bot</h3>
               <button onClick={() => setShowCreate(false)} className="text-text2 hover:text-text1">✕</button>

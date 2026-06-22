@@ -308,7 +308,7 @@ export function BinanceChart({ symbol, market = 'FUTURES', height = 520 }: Props
       </div>
 
       <div
-        className="px-3 py-2 flex gap-1 overflow-x-auto border-b"
+        className="px-3 py-2 flex gap-1 scroll-area-x border-b"
         style={{ borderColor: THEME.grid, background: THEME.panel }}
       >
         {INTERVALS.map(item => {

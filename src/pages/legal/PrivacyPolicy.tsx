@@ -33,7 +33,7 @@ const sections = [
 
 export default function PrivacyPolicy() {
   return (
-    <main className="min-h-screen bg-bg0 text-text1">
+    <main className="auth-scroll bg-bg0 text-text1">
       <div className="mx-auto w-full max-w-3xl px-5 py-10 sm:py-14">
         <Link to="/login" className="font-mono text-[10px] uppercase tracking-widest text-cyan hover:text-text1">
           YevaTrade

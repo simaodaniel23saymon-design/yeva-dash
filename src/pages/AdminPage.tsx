@@ -337,7 +337,7 @@ export default function AdminPage() {
             </button>
           </div>
 
-          <div className="bg-bg1 border border-border1 overflow-x-auto">
+          <div className="bg-bg1 border border-border1 scroll-area-x">
             <table className="w-full min-w-[820px]">
               <thead>
                 <tr className="border-b border-border1">
@@ -480,7 +480,7 @@ export default function AdminPage() {
                 ) : userHistory.length === 0 ? (
                   <p className="font-mono text-[9px] text-text3">Sem transacções registadas.</p>
                 ) : (
-                  <div className="divide-y divide-border1 max-h-48 overflow-y-auto">
+                  <div className="divide-y divide-border1 max-h-48 scroll-area">
                     {userHistory.map(tx => (
                       <div key={tx.id} className="flex items-center justify-between py-2 font-mono text-[9px]">
                         <div>
@@ -520,7 +520,7 @@ export default function AdminPage() {
 
       {/* ═══ TRANSACÇÕES ═══ */}
       {tab === 'transactions' && (
-        <div className="bg-bg1 border border-border1 overflow-x-auto">
+        <div className="bg-bg1 border border-border1 scroll-area-x">
           <table className="w-full min-w-[700px]">
             <thead>
               <tr className="border-b border-border1">
@@ -558,7 +558,7 @@ export default function AdminPage() {
 
       {/* ═══ BOTS ═══ */}
       {tab === 'bots' && (
-        <div className="bg-bg1 border border-border1 overflow-x-auto">
+        <div className="bg-bg1 border border-border1 scroll-area-x">
           <table className="w-full min-w-[600px]">
             <thead>
               <tr className="border-b border-border1">

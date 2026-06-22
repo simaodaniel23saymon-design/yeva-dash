@@ -97,7 +97,7 @@ export default function DepositPage() {
             <li>• <span className="text-text1">50%</span> fica no sistema (gás)</li>
             <li>• <span className="text-text1">50%</span> distribuído em 10 níveis de afiliados:</li>
           </ul>
-          <div className="mt-2 space-y-1 max-h-40 overflow-y-auto">
+          <div className="mt-2 space-y-1 max-h-40 scroll-area">
             {DISTRIBUTION_LEVELS.map(({ level, pct, label }) => (
               <div key={level} className="flex justify-between font-mono text-[9px] text-text2 border-b border-border1 py-1">
                 <span>Nível {level}{label ? ` (${label})` : ''}</span>

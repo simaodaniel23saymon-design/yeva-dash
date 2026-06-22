@@ -57,7 +57,7 @@ export default function HistoryPage() {
         </div>
       </div>
 
-      <div className="bg-bg1 border border-border1 overflow-x-auto">
+      <div className="bg-bg1 border border-border1 scroll-area-x">
         {tab === 'rounds' ? (
           !data.rounds.length ? <div className="p-10 text-center font-mono text-xs text-text2">Sem rounds registados.</div> : (
             <table className="w-full text-xs">

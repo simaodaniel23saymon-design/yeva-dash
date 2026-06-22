@@ -122,7 +122,7 @@ export default function LoginPage() {
   const inputClass = "w-full bg-bg3 border border-border2 text-text1 font-mono text-sm px-3 py-2.5 outline-none focus:border-cyan/35 transition-colors placeholder:text-text2";
 
   return (
-    <div className="min-h-screen bg-bg0 flex items-center justify-center p-4">
+    <div className="auth-scroll bg-bg0 flex items-center justify-center p-4 py-8">
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">

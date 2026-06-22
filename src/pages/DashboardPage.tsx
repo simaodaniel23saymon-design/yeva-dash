@@ -7,6 +7,7 @@ import { LiveTradingPanel } from '../components/LiveTradingPanel';
 import { LiveChart } from '../components/LiveChart';
 import { useChartSymbol } from '../hooks/useChartSymbol';
 import { AnimatedStat } from '../components/AnimatedStat';
+import { IconWallet, IconTrendUp, IconTrendDown, IconActivity } from '../components/ui/Icons';
 import { DailyPnlPanel } from '../components/DailyPnlPanel';
 import { BotLiveStatusBar } from '../components/BotLiveStatusBar';
 import { BotStartedAlert } from '../components/BotStartedAlert';
@@ -242,12 +243,14 @@ export default function DashboardPage() {
               accent="cyan"
               delay={0}
               pulse={stats.runningBotsCount > 0}
+              icon={<IconWallet size={16} />}
             />
             <AnimatedStat
               label="P&L aberto"
               value={`$${stats.totalPnl.toFixed(2)}`}
               accent={stats.totalPnl >= 0 ? 'cyan' : 'red'}
               delay={80}
+              icon={stats.totalPnl >= 0 ? <IconTrendUp size={16} /> : <IconTrendDown size={16} />}
             />
             <AnimatedStat
               label="Bots activos"
@@ -255,6 +258,7 @@ export default function DashboardPage() {
               accent="default"
               delay={160}
               pulse={stats.runningBotsCount > 0}
+              icon={<IconActivity size={16} />}
             />
           </div>
 

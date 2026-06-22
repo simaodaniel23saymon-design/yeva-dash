@@ -92,6 +92,30 @@ export async function startBotById(botId: string): Promise<void> {
   await api.post(`/bots/${encodeURIComponent(id)}/start`);
 }
 
+export async function deleteBotById(botId: string): Promise<void> {
+  const id = String(botId ?? '').trim();
+  if (!id) throw new Error('ID do bot inválido.');
+  try {
+    await api.delete(`/bots/${encodeURIComponent(id)}`);
+  } catch {
+    await api.post(`/bots/${encodeURIComponent(id)}/delete`);
+  }
+}
+
+export async function deleteStoppedBots(): Promise<number> {
+  try {
+    const res = await api.delete<{ deleted?: number; count?: number }>('/bots/stopped');
+    return res.data.deleted ?? res.data.count ?? 0;
+  } catch {
+    const res = await api.post<{ deleted?: number; count?: number }>('/bots/delete-stopped');
+    return res.data.deleted ?? res.data.count ?? 0;
+  }
+}
+
+export function isBotStopped(status: string): boolean {
+  return !isBotRunning(status);
+}
+
 export function resolveBotId(bot: { id?: string; botId?: string } | null | undefined): string {
   return String(bot?.id ?? bot?.botId ?? '').trim();
 }

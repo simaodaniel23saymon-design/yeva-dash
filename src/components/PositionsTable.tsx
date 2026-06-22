@@ -13,7 +13,7 @@ export default function PositionsTable() {
           <h3 className="font-semibold text-white">Posições Abertas</h3>
           <span className="text-velora-success font-bold">P&L: +$87.40</span>
         </div>
-        <div className="overflow-x-auto">
+        <div className="scroll-area-x">
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-slate-400 uppercase bg-slate-800/50">
               <tr>

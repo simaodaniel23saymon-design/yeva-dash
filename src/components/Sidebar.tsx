@@ -35,7 +35,7 @@ export default function Sidebar() {
       </div>
 
       {/* Nav principal */}
-      <nav className="flex-1 py-3 overflow-y-auto">
+      <nav className="flex-1 py-3 scroll-area">
         <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-widest px-5 mb-2">Principal</p>
         {nav.map(({ icon: Icon, label, path }) => {
           const active = location.pathname === path;

@@ -229,7 +229,7 @@ export default function OperationsPage() {
             <LiveOrders botId={selected} active={isRunning} />
           </div>
 
-          <div className="bg-bg1 border border-border1 overflow-x-auto">
+          <div className="bg-bg1 border border-border1 scroll-area-x">
             <div className="px-4 py-3 border-b border-border1">
               <h3 className="text-sm font-bold text-text1">Histórico de trades</h3>
             </div>

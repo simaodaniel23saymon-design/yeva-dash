@@ -96,7 +96,7 @@ export function LiveOrders({ botId, active = true }: LiveOrdersProps) {
         {orders.length === 0 ? (
           <p className="font-mono text-[9px] text-text3">Sem ordens abertas.</p>
         ) : (
-          <div className="overflow-x-auto border border-border1">
+          <div className="scroll-area-x border border-border1">
             <table className="w-full min-w-[480px]">
               <thead className="border-b border-border1 bg-bg2">
                 <tr>
@@ -128,7 +128,7 @@ export function LiveOrders({ botId, active = true }: LiveOrdersProps) {
         {positions.length === 0 ? (
           <p className="font-mono text-[9px] text-text3">Sem posições abertas.</p>
         ) : (
-          <div className="overflow-x-auto border border-border1">
+          <div className="scroll-area-x border border-border1">
             <table className="w-full min-w-[520px]">
               <thead className="border-b border-border1 bg-bg2">
                 <tr>

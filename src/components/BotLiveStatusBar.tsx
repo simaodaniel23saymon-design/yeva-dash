@@ -1,3 +1,5 @@
+import { IconActivity } from './ui/Icons';
+
 interface Props {
   runningCount: number;
   totalCount: number;
@@ -9,12 +11,15 @@ export function BotLiveStatusBar({ runningCount, totalCount, lastUpdate }: Props
 
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 bg-bg1 border border-cyan-20 px-4 py-3">
-      <div className="flex items-center gap-2">
-        <span className="relative flex h-2.5 w-2.5">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan opacity-60" />
-          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-cyan" />
-        </span>
-        <span className="font-mono text-[12px] font-bold text-cyan uppercase tracking-wider">
+      <div className="flex items-center gap-2.5">
+        <div className="w-8 h-8 bg-cyan-dim border border-cyan-20 flex items-center justify-center text-cyan relative">
+          <IconActivity size={16} />
+          <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan opacity-60" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan" />
+          </span>
+        </div>
+        <span className="font-mono text-[11px] font-bold text-cyan uppercase tracking-wider">
           Sistema activo
         </span>
       </div>
@@ -23,7 +28,7 @@ export function BotLiveStatusBar({ runningCount, totalCount, lastUpdate }: Props
       </span>
       {lastUpdate && (
         <span className="font-mono text-[10px] text-text3 ml-auto">
-          Sync: {lastUpdate.toLocaleTimeString('pt-PT')}
+          Sync · {lastUpdate.toLocaleTimeString('pt-PT')}
         </span>
       )}
     </div>

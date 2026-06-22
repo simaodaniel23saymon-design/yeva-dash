@@ -82,7 +82,7 @@ export function ChartPairPicker({
           className="w-full bg-bg3 border border-border2 text-text1 font-mono text-[13px] px-4 py-2.5 outline-none focus:border-cyan/35 placeholder:text-text2"
         />
         {showList && (
-          <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-bg2 border border-border1 max-h-56 overflow-y-auto shadow-lg">
+          <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-bg2 border border-border1 max-h-56 scroll-area shadow-lg">
             {loading ? (
               <p className="p-3 font-mono text-[12px] text-text3">A carregar pares Binance...</p>
             ) : filtered.length === 0 ? (
@@ -118,7 +118,7 @@ export function ChartPairPicker({
         />
       )}
 
-      <div className="flex gap-2 overflow-x-auto pb-1 snap-x snap-mandatory touch-pan-x">
+      <div className="flex gap-2 scroll-area-x pb-1 snap-x snap-mandatory touch-pan-x">
         {quickPairs.map(pair => {
           const active = pair === selected;
           return (

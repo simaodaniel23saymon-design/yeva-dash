@@ -78,7 +78,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto p-3">
+      <nav className="flex-1 scroll-area p-3">
         <span className="font-mono text-[8px] tracking-[2.5px] uppercase text-text3 px-2 mb-2 block">Principal</span>
         <NavLink to="/dashboard" className={navLinkClass} onClick={close}><IconGrid /><span>Dashboard</span></NavLink>
         <NavLink to="/bots"      className={navLinkClass} onClick={close}><IconBot /><span>Bots</span></NavLink>
@@ -191,8 +191,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      {/* Conteúdo — scroll nativo do browser, sem contentor interno */}
-      <main className="pb-[72px] lg:pb-6 p-3 sm:p-4 md:p-5">
+      {/* Conteúdo — scroll nativo do browser com padding para nav inferior */}
+      <main className="page-scroll p-3 sm:p-4 md:p-5">
         {children}
       </main>
 

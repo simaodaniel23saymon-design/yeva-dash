@@ -33,7 +33,7 @@ export default function PositionsPage() {
         <h2 className="text-text1 font-bold text-lg">Operações</h2>
         <p className="font-mono text-[9px] text-text2 uppercase tracking-wider mt-0.5">Ordens abertas e pendentes</p>
       </div>
-      <div className="bg-bg1 border border-border1 overflow-x-auto">
+      <div className="bg-bg1 border border-border1 scroll-area-x">
         {!positions.length ? (
           <div className="p-10 text-center font-mono text-xs text-text2">Sem operações abertas.</div>
         ) : (

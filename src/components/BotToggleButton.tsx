@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { getFriendlyError } from '../utils/errorHandler';
 import { stopAllBots } from '../utils/liveData';
+import { IconActivity } from './ui/Icons';
 
 interface BotsStatus {
   anyRunning?: boolean;
@@ -74,11 +75,16 @@ export function BotToggleButton() {
 
   if (botsCount === 0) {
     return (
-      <div className="bg-gold-dim border border-gold-30 p-4 font-mono text-[10px] text-gold leading-relaxed">
-        ⚠ Configura pelo menos um bot antes de iniciar.{' '}
-        <button type="button" onClick={() => navigate('/bots')} className="underline hover:text-text1 transition-colors">
-          Criar bot agora →
-        </button>
+      <div className="flex items-start gap-3 bg-gold-dim border border-gold-30 p-4 font-mono text-[10px] text-gold leading-relaxed">
+        <span className="w-8 h-8 bg-bg1/50 border border-gold-30 flex items-center justify-center shrink-0 text-gold">
+          !
+        </span>
+        <p>
+          Configura pelo menos um bot antes de iniciar.{' '}
+          <button type="button" onClick={() => navigate('/bots')} className="underline hover:text-text1 transition-colors">
+            Criar bot agora →
+          </button>
+        </p>
       </div>
     );
   }
@@ -86,8 +92,11 @@ export function BotToggleButton() {
   return (
     <div className="space-y-2">
       {running && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-cyan-dim border border-cyan-20 font-mono text-[11px] text-cyan">
-          <span className="w-2 h-2 rounded-full bg-cyan animate-pulse" />
+        <div className="flex items-center gap-2.5 px-3 py-2.5 bg-cyan-dim border border-cyan-20 font-mono text-[11px] text-cyan">
+          <span className="w-7 h-7 bg-bg1/50 border border-cyan-20 flex items-center justify-center shrink-0 relative">
+            <IconActivity size={14} />
+            <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-cyan animate-pulse" />
+          </span>
           Sistema vivo · bots a operar
         </div>
       )}
