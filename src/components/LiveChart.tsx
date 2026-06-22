@@ -1,8 +1,7 @@
-import { useMediaQuery } from '../hooks/useMediaQuery';
+import { useState } from 'react';
+import { BinanceChart } from './BinanceChart';
 import { ChartPairPicker } from './ChartPairPicker';
-import { MobilePriceChart } from './MobilePriceChart';
-import { TradingViewWidget } from './TradingViewWidget';
-import { formatPairLabel } from '../utils/chartData';
+import { formatPairLabel, type ChartMarket } from '../utils/chartData';
 
 interface Props {
   symbol: string;
@@ -20,15 +19,15 @@ export function LiveChart({
   onSymbolChange,
   autoSymbol,
   onFollowAuto,
-  height = 400,
+  height = 480,
   title,
 }: Props) {
-  const isMobile = useMediaQuery('(max-width: 1023px)');
+  const [market, setMarket] = useState<ChartMarket>('FUTURES');
 
   return (
     <div className="space-y-3">
       {title && (
-        <h3 className="text-sm font-bold text-text1">
+        <h3 className="text-base font-bold text-text1">
           {title} · {formatPairLabel(symbol)}
         </h3>
       )}
@@ -37,15 +36,13 @@ export function LiveChart({
         pairs={pairs}
         selected={symbol}
         onChange={onSymbolChange}
+        market={market}
+        onMarketChange={setMarket}
         autoSymbol={autoSymbol}
         onFollowAuto={onFollowAuto}
       />
 
-      {isMobile ? (
-        <MobilePriceChart symbol={symbol} height={Math.max(height, 340)} />
-      ) : (
-        <TradingViewWidget symbol={symbol} interval="60" height={height} locked />
-      )}
+      <BinanceChart symbol={symbol} market={market} height={height} />
     </div>
   );
 }

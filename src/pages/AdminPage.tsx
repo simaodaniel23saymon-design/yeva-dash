@@ -104,11 +104,28 @@ export default function AdminPage() {
   }, [])
 
   const loadUsers = useCallback(async (page = 1, q = search) => {
-    const params = new URLSearchParams({ page: String(page), limit: '25' })
-    if (q) params.set('search', q)
-    const res = await api.get<{ users: AdminUser[]; total: number }>(`/admin/users?${params}`)
-    setUsers(res.data.users)
-    setUserTotal(res.data.total)
+    try {
+      const params = new URLSearchParams({ page: String(page), limit: '25' })
+      if (q) params.set('search', q)
+      const res = await api.get<{ users?: AdminUser[]; total?: number } | AdminUser[]>(`/admin/users?${params}`)
+      const data = res.data
+      const list = Array.isArray(data) ? data : (data.users ?? [])
+      const total = Array.isArray(data) ? data.length : (data.total ?? list.length)
+      setUsers(list)
+      setUserTotal(total)
+    } catch {
+      try {
+        const res = await api.get<{ users?: AdminUser[] } | AdminUser[]>('/admin/users')
+        const data = res.data
+        const list = Array.isArray(data) ? data : (data.users ?? [])
+        setUsers(list)
+        setUserTotal(list.length)
+      } catch (err) {
+        console.error('Erro ao carregar utilizadores:', err)
+        setUsers([])
+        setUserTotal(0)
+      }
+    }
   }, [search])
 
   const loadTxs = useCallback(async () => {

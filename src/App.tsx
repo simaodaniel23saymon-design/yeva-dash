@@ -17,6 +17,7 @@ import AffiliateHub from './components/AffiliateHub';
 import AdminPage from './pages/AdminPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import CreateBotPage from './pages/CreateBotPage';
 import ApiGuidePage from './pages/ApiGuidePage';
 
 function ProtectedRoute({ children, requireAdmin = false }: { children: React.ReactNode; requireAdmin?: boolean }) {
@@ -67,6 +68,7 @@ export default function App() {
           <Route path="/legal/privacy" element={<PrivacyPolicy />} />
           <Route path="/dashboard" element={<AppRoute element={<DashboardPage />} />} />
           <Route path="/bots" element={<AppRoute element={<BotsPage />} />} />
+          <Route path="/create-bot" element={<AppRoute element={<CreateBotPage />} />} />
           <Route path="/exchanges" element={<AppRoute element={<ExchangesPage />} />} />
           <Route path="/exchange" element={<AppRoute element={<ExchangesPage />} />} />
           <Route path="/api-guide" element={<AppRoute element={<ApiGuidePage />} />} />

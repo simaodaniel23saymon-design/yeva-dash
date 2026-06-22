@@ -52,14 +52,55 @@ export function resolveAutoChartSymbol(
   return fallback;
 }
 
+export type ChartMarket = 'FUTURES' | 'SPOT';
+
+const BINANCE_FUTURES = 'https://fapi.binance.com';
+const BINANCE_SPOT = 'https://api.binance.com';
+
+let futuresSymbolsCache: string[] | null = null;
+let spotSymbolsCache: string[] | null = null;
+
+function normalizeSymbol(symbol: string): string {
+  const sym = symbol.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return sym.endsWith('USDT') ? sym : `${sym}USDT`;
+}
+
+function marketBase(market: ChartMarket): string {
+  return market === 'SPOT' ? BINANCE_SPOT : BINANCE_FUTURES;
+}
+
+export async function fetchBinanceSymbolList(market: ChartMarket): Promise<string[]> {
+  if (market === 'FUTURES' && futuresSymbolsCache) return futuresSymbolsCache;
+  if (market === 'SPOT' && spotSymbolsCache) return spotSymbolsCache;
+
+  const base = marketBase(market);
+  const path = market === 'SPOT' ? '/api/v3/exchangeInfo' : '/fapi/v1/exchangeInfo';
+  const res = await fetch(`${base}${path}`);
+  if (!res.ok) throw new Error('Não foi possível carregar pares Binance.');
+
+  const data = await res.json() as { symbols: Array<{ symbol: string; status: string; quoteAsset: string }> };
+  const list = data.symbols
+    .filter(s => s.status === 'TRADING' && s.quoteAsset === 'USDT')
+    .map(s => s.symbol)
+    .sort();
+
+  if (market === 'FUTURES') futuresSymbolsCache = list;
+  else spotSymbolsCache = list;
+
+  return list;
+}
+
 export async function fetchBinanceKlines(
   symbol: string,
   interval = '1h',
   limit = 72,
+  market: ChartMarket = 'FUTURES',
 ): Promise<KlinePoint[]> {
-  const sym = symbol.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const sym = normalizeSymbol(symbol);
+  const base = marketBase(market);
+  const path = market === 'SPOT' ? '/api/v3/klines' : '/fapi/v1/klines';
   const res = await fetch(
-    `https://fapi.binance.com/fapi/v1/klines?symbol=${sym}&interval=${interval}&limit=${limit}`,
+    `${base}${path}?symbol=${sym}&interval=${interval}&limit=${limit}`,
   );
   if (!res.ok) throw new Error('Não foi possível carregar o gráfico.');
   const raw: number[][] = await res.json();
@@ -73,10 +114,15 @@ export async function fetchBinanceKlines(
   }));
 }
 
-export async function fetchBinanceTicker(symbol: string): Promise<TickerSnapshot | null> {
-  const sym = symbol.toUpperCase().replace(/[^A-Z0-9]/g, '');
+export async function fetchBinanceTicker(
+  symbol: string,
+  market: ChartMarket = 'FUTURES',
+): Promise<TickerSnapshot | null> {
+  const sym = normalizeSymbol(symbol);
   try {
-    const res = await fetch(`https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=${sym}`);
+    const base = marketBase(market);
+    const path = market === 'SPOT' ? '/api/v3/ticker/24hr' : '/fapi/v1/ticker/24hr';
+    const res = await fetch(`${base}${path}?symbol=${sym}`);
     if (!res.ok) return null;
     const t = await res.json();
     return {

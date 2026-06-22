@@ -73,9 +73,9 @@ export async function fetchExchangeStats(): Promise<ExchangeStats | null> {
 
 export async function stopAllBots(): Promise<void> {
   try {
-    await api.post('/bots/stop-all');
-  } catch {
     await api.post('/bots/stop');
+  } catch {
+    await api.post('/bots/stop-all');
   }
 }
 

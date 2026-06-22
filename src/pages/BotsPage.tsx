@@ -14,6 +14,8 @@ interface Bot {
   pair?: string;
   status: string;
   market?: string;
+  mode?: string;
+  riskMode?: string;
   leverage?: number;
   capitalPerSide?: number;
   entryPercent?: number;
@@ -37,6 +39,7 @@ export default function BotsPage() {
   const [pair, setPair] = useState('');
   const [leverage, setLeverage] = useState(10);
   const [capitalPerSide, setCapitalPerSide] = useState(14);
+  const [riskMode, setRiskMode] = useState('MODERATE');
   const [useLegacyMode, setUseLegacyMode] = useState(false);
   const [entryPercent, setEntryPercent] = useState(10);
   const [takeProfit, setTakeProfit] = useState(60);
@@ -91,6 +94,7 @@ export default function BotsPage() {
           leverage,
           capitalPerSide,
           mode: 'Hedge Pro',
+          riskMode,
           tpDailyPct: 2,
           maxLossPct: 5,
         };
@@ -116,10 +120,33 @@ export default function BotsPage() {
   };
 
   const stopBot = async (id: string) => {
+    if (!window.confirm('Parar este bot?')) return;
     try {
-      await api.post('/bots/stop', { botId: id });
+      await api.post(`/bots/${id}/stop`);
       await loadBots();
-      showFlash('Bot parado.');
+      showFlash('Bot parado com sucesso.');
+    } catch (err: unknown) {
+      showFlash(getFriendlyError(err).message);
+    }
+  };
+
+  const startBot = async (id: string) => {
+    if (!window.confirm('Iniciar este bot?')) return;
+    try {
+      await api.post(`/bots/${id}/start`);
+      await loadBots();
+      showFlash('Bot iniciado com sucesso.');
+    } catch (err: unknown) {
+      showFlash(getFriendlyError(err).message);
+    }
+  };
+
+  const stopAllBots = async () => {
+    if (!window.confirm('Parar TODOS os bots?')) return;
+    try {
+      await api.post('/bots/stop');
+      await loadBots();
+      showFlash('Todos os bots parados.');
     } catch (err: unknown) {
       showFlash(getFriendlyError(err).message);
     }
@@ -171,6 +198,12 @@ export default function BotsPage() {
               className="font-mono text-[9px] tracking-widest uppercase px-4 py-2 border border-cyan-30 bg-cyan-dim text-cyan hover:bg-cyan/20 transition-all">
               + Novo Bot
             </button>
+            {bots.length > 0 && (
+              <button onClick={stopAllBots}
+                className="font-mono text-[9px] tracking-widest uppercase px-4 py-2 border border-red-30 bg-red-dim text-red hover:bg-red/15 transition-all">
+                Parar Todos
+              </button>
+            )}
           </div>
 
           <BotToggleButton />
@@ -210,19 +243,28 @@ export default function BotsPage() {
                         {running ? 'A operar' : 'Parado'}
                       </span>
                     </div>
-                    <div className="flex gap-4 font-mono text-[10px] text-text2">
+                    <div className="flex gap-4 font-mono text-[10px] text-text2 flex-wrap">
+                      {bot.mode && <span>Modo: {bot.mode}</span>}
+                      {bot.riskMode && <span>Risco: {bot.riskMode}</span>}
                       {bot.leverage != null && <span>Alavancagem: {bot.leverage}x</span>}
                       {bot.capitalPerSide != null && <span>Capital: ${bot.capitalPerSide}</span>}
                       {bot.entryPercent != null && <span>Entrada: {bot.entryPercent}%</span>}
                     </div>
                     <LiveOrders botId={bot.id} active={running} />
                   </div>
-                  {running && (
-                    <button onClick={() => stopBot(bot.id)}
-                      className="font-mono text-[8px] uppercase px-2 py-1 border border-red-30 text-red shrink-0">
-                      Parar
-                    </button>
-                  )}
+                  <div className="flex flex-col gap-2 shrink-0">
+                    {running ? (
+                      <button onClick={() => stopBot(bot.id)}
+                        className="font-mono text-[9px] uppercase px-3 py-2 border border-red-30 text-red">
+                        Parar
+                      </button>
+                    ) : (
+                      <button onClick={() => startBot(bot.id)}
+                        className="font-mono text-[9px] uppercase px-3 py-2 border border-cyan-30 text-cyan">
+                        Iniciar
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );
@@ -267,6 +309,21 @@ export default function BotsPage() {
 
               {!useLegacyMode ? (
                 <>
+                  <div>
+                    <label className="font-mono text-[9px] uppercase tracking-wider text-text2 mb-1.5 block">Modo de Risco</label>
+                    <select value={riskMode} onChange={e => {
+                      setRiskMode(e.target.value);
+                      if (e.target.value === 'CONSERVATIVE') setLeverage(5);
+                      else if (e.target.value === 'MODERATE') setLeverage(10);
+                      else if (e.target.value === 'AGGRESSIVE') setLeverage(20);
+                    }}
+                      className={inputClass}>
+                      <option value="CONSERVATIVE">Conservador (5x)</option>
+                      <option value="MODERATE">Moderado (10x)</option>
+                      <option value="AGGRESSIVE">Agressivo (20x)</option>
+                    </select>
+                  </div>
+
                   <div>
                     <label className="font-mono text-[9px] uppercase tracking-wider text-text2 mb-1.5 block">
                       Alavancagem: {leverage}x
