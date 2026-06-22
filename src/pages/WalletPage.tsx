@@ -205,7 +205,6 @@ export default function WalletPage() {
           <li>• <strong className="text-text1">Gás do sistema</strong>: {`depósito mínimo $${MIN_DEPOSIT} USDT para usar os bots`}</li>
           <li>• <strong className="text-text1">Saldo Binance</strong>: capital real na exchange</li>
           <li>• <strong className="text-text1">Performance fee</strong>: 30% sobre lucros descontado do gás</li>
-          <li>• <strong className="text-text1">Afiliados</strong>: 50% do depósito distribuído em 10 níveis</li>
         </ul>
       </div>
 

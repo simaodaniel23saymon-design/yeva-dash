@@ -4,6 +4,9 @@ import { api } from '../lib/api';
 import { QuickGuide } from '../components/QuickGuide';
 import { BotToggleButton } from '../components/BotToggleButton';
 import { BinancePairSelector } from '../components/BinancePairSelector';
+import { BotStartedAlert } from '../components/BotStartedAlert';
+import { BotLiveStatusBar } from '../components/BotLiveStatusBar';
+import { DailyPnlPanel } from '../components/DailyPnlPanel';
 import { LiveOrders } from '../components/LiveOrders';
 import { useWallet } from '../hooks/useWallet';
 import { useExchange, type MarketType } from '../hooks/useExchange';
@@ -43,6 +46,9 @@ export default function BotsPage() {
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState('');
   const [flash, setFlash] = useState('');
+  const [startedBot, setStartedBot] = useState<{ pair: string; market: string } | null>(null);
+  const [lastSync, setLastSync] = useState<Date | null>(null);
+  const [startPhase, setStartPhase] = useState<'idle' | 'creating' | 'starting'>('idle');
 
   const [market, setMarket] = useState<MarketType>('FUTURES');
   const [pair, setPair] = useState('');
@@ -65,10 +71,12 @@ export default function BotsPage() {
     try {
       const res = await api.get<{ bots: Bot[] }>('/bots/status');
       setBots((res.data.bots ?? []).map(normalizeBot));
+      setLastSync(new Date());
     } catch {
       try {
         const res = await api.get<Bot[]>('/bots');
         setBots(res.data.map(normalizeBot));
+        setLastSync(new Date());
       } catch {
         setBots([]);
       }
@@ -90,10 +98,12 @@ export default function BotsPage() {
     if (!pair.trim()) { setError('Escreve o par (ex: BTCUSDT, HYPEUSDT).'); return; }
     setCreating(true);
     setError('');
+    setStartPhase('creating');
 
+    const pairUpper = pair.toUpperCase();
     const body = useLegacyMode
       ? {
-          pair: pair.toUpperCase(),
+          pair: pairUpper,
           market,
           mode: 'GRID',
           entryPercent,
@@ -101,7 +111,7 @@ export default function BotsPage() {
           stopLossPercent: stopLoss,
         }
       : {
-          pair: pair.toUpperCase(),
+          pair: pairUpper,
           market,
           leverage,
           capitalPerSide,
@@ -113,7 +123,7 @@ export default function BotsPage() {
 
     try {
       await api.post('/bots/create', body);
-      setStarting(true);
+      setStartPhase('starting');
       try {
         await api.post('/bots/start');
       } catch {
@@ -121,13 +131,16 @@ export default function BotsPage() {
       }
       setShowCreate(false);
       setPair('');
+      setStarting(true);
       await loadBots();
-      showFlash(`Bot ${pair.toUpperCase()} criado e iniciado.`);
+      setStartedBot({ pair: pairUpper, market });
+      showFlash(`Bot ${pairUpper} criado e a operar.`);
     } catch (err: unknown) {
       setError(getFriendlyError(err).message);
     } finally {
       setCreating(false);
       setStarting(false);
+      setStartPhase('idle');
     }
   };
 
@@ -146,7 +159,8 @@ export default function BotsPage() {
     }
   };
 
-  const startBot = async (id: string) => {
+  const startBot = async (bot: Bot) => {
+    const id = resolveBotId(bot);
     if (!id) {
       showFlash('Bot sem ID válido.');
       return;
@@ -155,7 +169,11 @@ export default function BotsPage() {
     try {
       await startBotById(id);
       await loadBots();
-      showFlash('Bot iniciado com sucesso.');
+      setStartedBot({
+        pair: bot.symbol ?? bot.pair ?? 'Bot',
+        market: bot.market ?? 'FUTURES',
+      });
+      showFlash('Bot iniciado — sistema activo.');
     } catch (err: unknown) {
       showFlash(getFriendlyError(err).message);
     }
@@ -171,6 +189,8 @@ export default function BotsPage() {
       showFlash(getFriendlyError(err).message);
     }
   };
+
+  const runningCount = bots.filter(b => b.status === 'running' || b.status === 'ACTIVE').length;
 
   const inputClass = 'w-full bg-bg3 border border-border2 text-text1 font-mono text-sm px-3 py-2 outline-none focus:border-cyan/35 transition-colors placeholder:text-text2';
 
@@ -201,6 +221,22 @@ export default function BotsPage() {
         </div>
       ) : (
         <>
+          <DailyPnlPanel compact />
+
+          {startedBot && (
+            <BotStartedAlert
+              pair={startedBot.pair}
+              market={startedBot.market}
+              onDismiss={() => setStartedBot(null)}
+            />
+          )}
+
+          <BotLiveStatusBar
+            runningCount={runningCount}
+            totalCount={bots.length}
+            lastUpdate={lastSync}
+          />
+
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
               <h2 className="text-text1 font-bold text-lg">Configurar Robô</h2>
@@ -276,7 +312,7 @@ export default function BotsPage() {
                         Parar Este
                       </button>
                     ) : (
-                      <button type="button" onClick={() => startBot(botId)}
+                      <button type="button" onClick={() => startBot(bot)}
                         className="font-mono text-[9px] uppercase px-3 py-2 border border-cyan-30 text-cyan">
                         Iniciar Este
                       </button>
@@ -317,6 +353,15 @@ export default function BotsPage() {
 
               {!useLegacyMode ? (
                 <>
+                  {pair && (
+                    <div className="bg-bg2 border border-border1 p-3 font-mono text-[10px] space-y-1">
+                      <p className="text-text3 uppercase text-[9px] tracking-wider mb-2">Resumo da configuração</p>
+                      <p className="text-text2">Par: <span className="text-text1 font-bold">{pair}</span> · {market}</p>
+                      <p className="text-text2">Risco: <span className="text-text1">{riskMode}</span> · Alavancagem: <span className="text-text1">{leverage}x</span></p>
+                      <p className="text-text2">Capital/ordem: <span className="text-cyan">${capitalPerSide}</span> · Modo: Hedge Pro</p>
+                    </div>
+                  )}
+
                   <div>
                     <label className="font-mono text-[9px] uppercase tracking-wider text-text2 mb-1.5 block">Modo de Risco</label>
                     <select value={riskMode} onChange={e => {
@@ -378,12 +423,24 @@ export default function BotsPage() {
 
               {error && <p className="text-red font-mono text-[10px] bg-red-dim border border-red-30 p-3">{error}</p>}
 
+              {(creating || starting) && (
+                <div className="bg-cyan-dim border border-cyan-20 p-3 font-mono text-[11px] text-cyan space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 border-2 border-cyan border-t-transparent rounded-full animate-spin" />
+                    {startPhase === 'creating' ? 'A configurar o bot...' : 'A iniciar motor de trading...'}
+                  </div>
+                  <p className="text-text2 text-[10px]">O sistema vai ficar activo em segundos. Aguarda a confirmação.</p>
+                </div>
+              )}
+
               <div className="flex gap-3">
                 <button type="button" onClick={() => setShowCreate(false)}
                   className="flex-1 py-2.5 border border-border2 text-text2 font-mono text-[9px] uppercase">Cancelar</button>
                 <button type="submit" disabled={creating || starting || !pair}
                   className="flex-1 py-2.5 border border-cyan-30 bg-cyan-dim text-cyan font-mono text-[9px] uppercase disabled:opacity-50">
-                  {creating || starting ? 'A iniciar...' : 'Iniciar Bot'}
+                  {creating || starting
+                    ? (startPhase === 'creating' ? 'A configurar...' : 'A iniciar...')
+                    : 'Iniciar Bot'}
                 </button>
               </div>
             </form>

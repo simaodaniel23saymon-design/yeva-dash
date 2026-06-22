@@ -7,6 +7,9 @@ import { LiveTradingPanel } from '../components/LiveTradingPanel';
 import { LiveChart } from '../components/LiveChart';
 import { useChartSymbol } from '../hooks/useChartSymbol';
 import { AnimatedStat } from '../components/AnimatedStat';
+import { DailyPnlPanel } from '../components/DailyPnlPanel';
+import { BotLiveStatusBar } from '../components/BotLiveStatusBar';
+import { BotStartedAlert } from '../components/BotStartedAlert';
 import { useWallet } from '../hooks/useWallet';
 import {
   fetchBotsList,
@@ -47,6 +50,7 @@ export default function DashboardPage() {
   const [positions, setPositions] = useState<ExchangePosition[]>([]);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [flash, setFlash] = useState('');
+  const [startedBot, setStartedBot] = useState<{ pair: string; market: string } | null>(null);
 
   const loadStats = useCallback(async (silent = false) => {
     if (!silent) setRefreshing(true);
@@ -140,7 +144,8 @@ export default function DashboardPage() {
     try {
       await startBotById(id);
       await loadStats(true);
-      setFlash(`Bot ${botPair(bot)} iniciado.`);
+      setStartedBot({ pair: botPair(bot), market: bot.market ?? 'FUTURES' });
+      setFlash(`Bot ${botPair(bot)} iniciado — sistema activo.`);
       setTimeout(() => setFlash(''), 4000);
     } catch (err: unknown) {
       setFlash(safeErrorMessage(err, 'Erro ao iniciar bot.'));
@@ -195,6 +200,14 @@ export default function DashboardPage() {
         <div className="bg-cyan-dim border border-cyan-20 p-3 font-mono text-[10px] text-cyan">{flash}</div>
       )}
 
+      {startedBot && (
+        <BotStartedAlert
+          pair={startedBot.pair}
+          market={startedBot.market}
+          onDismiss={() => setStartedBot(null)}
+        />
+      )}
+
       <BotToggleButton />
 
       <LiveTradingPanel />
@@ -213,6 +226,14 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
+          <BotLiveStatusBar
+            runningCount={stats.runningBotsCount}
+            totalCount={stats.botsCount}
+            lastUpdate={lastUpdate}
+          />
+
+          <DailyPnlPanel />
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <AnimatedStat
               label="Saldo disponível"

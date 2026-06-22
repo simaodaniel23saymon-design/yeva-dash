@@ -42,7 +42,7 @@ export function BotToggleButton() {
     try {
       await api.post('/bots/start');
       setRunning(true);
-      flash('Todos os bots iniciados.');
+      flash('Todos os bots iniciados — sistema activo e a monitorizar mercados.');
     } catch (error) {
       const err = error as { response?: { data?: { code?: string; error?: string } } };
       if (err.response?.data?.code === 'INSUFFICIENT_BALANCE') {
@@ -85,6 +85,12 @@ export function BotToggleButton() {
 
   return (
     <div className="space-y-2">
+      {running && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-cyan-dim border border-cyan-20 font-mono text-[11px] text-cyan">
+          <span className="w-2 h-2 rounded-full bg-cyan animate-pulse" />
+          Sistema vivo · bots a operar
+        </div>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <button
           type="button"
