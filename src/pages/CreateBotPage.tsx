@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { QuickGuide } from '../components/QuickGuide';
+import { BinancePairSelector } from '../components/BinancePairSelector';
 import { useWallet } from '../hooks/useWallet';
 import { useExchange, type MarketType } from '../hooks/useExchange';
 import { getFriendlyError } from '../utils/errorHandler';
 import { MIN_DEPOSIT } from '../utils/constants';
+import type { ChartMarket } from '../utils/chartData';
 
 export default function CreateBotPage() {
   const navigate = useNavigate();
@@ -26,10 +28,6 @@ export default function CreateBotPage() {
   const availableBalance = balance - marginUsed;
 
   const inputClass = 'w-full bg-bg3 border border-border2 text-text1 font-mono text-[13px] px-4 py-2.5 outline-none focus:border-cyan/35 transition-colors placeholder:text-text2';
-  const tabClass = (active: boolean) =>
-    `flex-1 py-2.5 font-mono text-[12px] uppercase tracking-wider border transition-all ${
-      active ? 'bg-cyan-dim border-cyan-30 text-cyan' : 'border-border2 text-text2 hover:border-border1'
-    }`;
 
   const createBot = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,25 +95,14 @@ export default function CreateBotPage() {
 
       <form onSubmit={createBot} className="bg-bg1 border border-border1 p-5 space-y-4">
         <div>
-          <label className="font-mono text-[12px] uppercase tracking-wider text-text2 mb-2 block">Mercado</label>
-          <div className="flex gap-2">
-            {(['FUTURES', 'SPOT'] as const).map(m => (
-              <button key={m} type="button" onClick={() => setMarket(m)} className={tabClass(market === m)}>
-                {m === 'FUTURES' ? 'Futures' : 'Spot'}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <label className="font-mono text-[12px] uppercase tracking-wider text-text2 mb-2 block">Par de Trading</label>
-          <input
-            type="text"
-            value={pair}
-            onChange={e => setPair(e.target.value.toUpperCase())}
-            placeholder="Ex: BTCUSDT"
-            className={inputClass}
-            required
+          <BinancePairSelector
+            selected={pair}
+            onChange={setPair}
+            market={market as ChartMarket}
+            onMarketChange={m => {
+              setMarket(m as MarketType);
+              setPair('');
+            }}
           />
         </div>
 
@@ -183,7 +170,7 @@ export default function CreateBotPage() {
 
         <button
           type="submit"
-          disabled={loading || !isConnected}
+          disabled={loading || !isConnected || !pair}
           className="w-full bg-cyan-dim border border-cyan-30 text-cyan py-3 font-mono text-[12px] uppercase tracking-widest disabled:opacity-50"
         >
           {loading ? 'A criar...' : 'Criar Bot'}

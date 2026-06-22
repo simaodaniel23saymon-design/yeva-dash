@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { QuickGuide } from '../components/QuickGuide';
 import { BotToggleButton } from '../components/BotToggleButton';
+import { BinancePairSelector } from '../components/BinancePairSelector';
 import { LiveOrders } from '../components/LiveOrders';
 import { useWallet } from '../hooks/useWallet';
 import { useExchange, type MarketType } from '../hooks/useExchange';
@@ -13,6 +14,7 @@ import {
   stopAllBots,
   stopBotById,
 } from '../utils/liveData';
+import type { ChartMarket } from '../utils/chartData';
 
 interface Bot {
   id: string;
@@ -171,10 +173,6 @@ export default function BotsPage() {
   };
 
   const inputClass = 'w-full bg-bg3 border border-border2 text-text1 font-mono text-sm px-3 py-2 outline-none focus:border-cyan/35 transition-colors placeholder:text-text2';
-  const tabClass = (active: boolean) =>
-    `flex-1 py-2 font-mono text-[9px] uppercase tracking-wider border transition-all ${
-      active ? 'bg-cyan-dim border-cyan-30 text-cyan' : 'border-border2 text-text2 hover:border-border1'
-    }`;
 
   if (loading || exchangeLoading) {
     return (
@@ -300,25 +298,16 @@ export default function BotsPage() {
             </div>
 
             <form onSubmit={createAndStart} className="p-5 space-y-4">
-              <div>
-                <label className="font-mono text-[9px] uppercase tracking-wider text-text2 mb-1.5 block">Mercado</label>
-                <div className="flex gap-2">
-                  {(['FUTURES', 'SPOT'] as const).map(m => (
-                    <button key={m} type="button" onClick={() => setMarket(m)} className={tabClass(market === m)}>
-                      {m === 'FUTURES' ? 'Futures' : 'Spot'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="font-mono text-[9px] uppercase tracking-wider text-text2 mb-1.5 block">Par de moedas</label>
-                <input type="text" value={pair}
-                  onChange={e => setPair(e.target.value.toUpperCase())}
-                  placeholder="Ex: BTCUSDT, HYPEUSDT, BNBUSDT"
-                  className={inputClass} required />
-                <p className="font-mono text-[9px] text-text3 mt-1">Escreve qualquer par disponível na exchange.</p>
-              </div>
+              <BinancePairSelector
+                compact
+                selected={pair}
+                onChange={setPair}
+                market={market as ChartMarket}
+                onMarketChange={m => {
+                  setMarket(m as MarketType);
+                  setPair('');
+                }}
+              />
 
               <div className="flex items-center gap-2">
                 <input type="checkbox" id="legacy" checked={useLegacyMode}
