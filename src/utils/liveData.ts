@@ -27,10 +27,14 @@ export interface ExchangePosition {
 export interface LiveBot {
   id: string;
   botId?: string;
+  _id?: string;
   pair?: string;
   symbol?: string;
   market?: string;
   status: string;
+  isRunning?: boolean;
+  running?: boolean;
+  isActive?: boolean;
   leverage?: number;
   capitalPerSide?: number;
   tpDailyPct?: number;
@@ -38,16 +42,62 @@ export interface LiveBot {
   mode?: string;
 }
 
+type BotLike = {
+  id?: string;
+  botId?: string;
+  _id?: string;
+  status?: unknown;
+  isRunning?: boolean;
+  running?: boolean;
+  isActive?: boolean;
+  active?: boolean;
+};
+
+const RUNNING_STATUSES = new Set(['running', 'active', 'started', 'live', 'on', 'true', '1']);
+const STOPPED_STATUSES = new Set([
+  'stopped', 'stop', 'paused', 'inactive', 'idle', 'off', 'false', '0',
+  'created', 'configured', 'ready', 'disabled',
+]);
+
+export function normalizeBotStatus(
+  status: unknown,
+  extras?: Pick<BotLike, 'isRunning' | 'running' | 'isActive' | 'active'>,
+): 'running' | 'stopped' {
+  if (extras?.isRunning === true || extras?.running === true) return 'running';
+  if (extras?.isRunning === false || extras?.running === false) return 'stopped';
+  if (extras?.isActive === true || extras?.active === true) return 'running';
+  if (extras?.isActive === false || extras?.active === false) return 'stopped';
+
+  const s = String(status ?? '').trim().toLowerCase();
+  if (!s) return 'stopped';
+  if (RUNNING_STATUSES.has(s)) return 'running';
+  if (STOPPED_STATUSES.has(s)) return 'stopped';
+  if (s.includes('stop') || s.includes('pause') || s.includes('idle') || s.includes('off')) return 'stopped';
+  if (s.includes('run') || s.includes('activ') || s.includes('live')) return 'running';
+  return 'stopped';
+}
+
+export function normalizeLiveBot<T extends LiveBot>(bot: T): T {
+  const raw = bot as T & BotLike;
+  return {
+    ...bot,
+    id: resolveBotId(raw),
+    symbol: bot.symbol ?? bot.pair,
+    pair: bot.pair ?? bot.symbol,
+    status: normalizeBotStatus(raw.status, raw),
+  };
+}
+
 export async function fetchBotsList(): Promise<LiveBot[]> {
   try {
     const res = await api.get<{ bots?: LiveBot[] } | LiveBot[]>('/bots');
     const data = res.data;
-    if (Array.isArray(data)) return data;
-    return data.bots ?? [];
+    const list = Array.isArray(data) ? data : (data.bots ?? []);
+    return list.map(normalizeLiveBot);
   } catch {
     try {
       const res = await api.get<{ bots: LiveBot[] }>('/bots/status');
-      return res.data.bots ?? [];
+      return (res.data.bots ?? []).map(normalizeLiveBot);
     } catch {
       return [];
     }
@@ -107,8 +157,13 @@ export async function deleteStoppedBots(): Promise<number> {
     const res = await api.delete<{ deleted?: number; count?: number }>('/bots/stopped');
     return res.data.deleted ?? res.data.count ?? 0;
   } catch {
-    const res = await api.post<{ deleted?: number; count?: number }>('/bots/delete-stopped');
-    return res.data.deleted ?? res.data.count ?? 0;
+    try {
+      const res = await api.post<{ deleted?: number; count?: number }>('/bots/delete-stopped');
+      return res.data.deleted ?? res.data.count ?? 0;
+    } catch {
+      const res = await api.post<{ deleted?: number; count?: number }>('/bots/cleanup');
+      return res.data.deleted ?? res.data.count ?? 0;
+    }
   }
 }
 
@@ -116,12 +171,12 @@ export function isBotStopped(status: string): boolean {
   return !isBotRunning(status);
 }
 
-export function resolveBotId(bot: { id?: string; botId?: string } | null | undefined): string {
-  return String(bot?.id ?? bot?.botId ?? '').trim();
+export function resolveBotId(bot: { id?: string; botId?: string; _id?: string } | null | undefined): string {
+  return String(bot?.id ?? bot?.botId ?? bot?._id ?? '').trim();
 }
 
 export function isBotRunning(status: string): boolean {
-  return status === 'running' || status === 'ACTIVE';
+  return normalizeBotStatus(status) === 'running';
 }
 
 export function botPair(bot?: Pick<LiveBot, 'pair' | 'symbol'> | null, fallback = 'BTCUSDT'): string {

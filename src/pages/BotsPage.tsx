@@ -19,15 +19,20 @@ import {
   deleteBotById,
   deleteStoppedBots,
   isBotRunning,
+  normalizeLiveBot,
 } from '../utils/liveData';
 import type { ChartMarket } from '../utils/chartData';
 
 interface Bot {
   id: string;
   botId?: string;
+  _id?: string;
   symbol?: string;
   pair?: string;
   status: string;
+  isRunning?: boolean;
+  running?: boolean;
+  isActive?: boolean;
   market?: string;
   mode?: string;
   riskMode?: string;
@@ -65,12 +70,7 @@ export default function BotsPage() {
   const [takeProfit, setTakeProfit] = useState(60);
   const [stopLoss, setStopLoss] = useState(30);
 
-  const normalizeBot = (b: Bot): Bot => ({
-    ...b,
-    id: resolveBotId(b),
-    symbol: b.symbol ?? b.pair,
-    status: b.status === 'ACTIVE' ? 'running' : b.status === 'STOPPED' ? 'stopped' : b.status,
-  });
+  const normalizeBot = (b: Bot): Bot => normalizeLiveBot(b);
 
   const loadBots = async () => {
     try {
@@ -202,13 +202,14 @@ export default function BotsPage() {
       showFlash('Bot sem ID válido.');
       return;
     }
-    if (isBotRunning(bot.status)) {
-      showFlash('Para o bot antes de apagar.');
-      return;
-    }
-    if (!window.confirm(`Apagar o bot ${sym}? Esta acção não pode ser desfeita.`)) return;
+    const running = isBotRunning(bot.status);
+    const msg = running
+      ? `O bot ${sym} está a operar. Parar e apagar? Esta acção não pode ser desfeita.`
+      : `Apagar o bot ${sym}? Esta acção não pode ser desfeita.`;
+    if (!window.confirm(msg)) return;
     setDeletingId(id);
     try {
+      if (running) await stopBotById(id);
       await deleteBotById(id);
       await loadBots();
       showFlash(`Bot ${sym} apagado.`);
@@ -304,9 +305,9 @@ export default function BotsPage() {
                 type="button"
                 onClick={clearStoppedBots}
                 disabled={clearingStopped}
-                className="font-mono text-[9px] tracking-widest uppercase px-4 py-2 border border-border2 text-text2 hover:border-gold-30 hover:text-gold transition-all disabled:opacity-50"
+                className="font-mono text-[9px] tracking-widest uppercase px-4 py-2 border border-gold-30 bg-gold-dim text-gold hover:bg-gold/15 transition-all disabled:opacity-50"
               >
-                {clearingStopped ? 'A limpar...' : '🧹 Limpar bots parados'}
+                {clearingStopped ? 'A limpar...' : `🧹 Limpar parados (${stoppedCount})`}
               </button>
             )}
             {bots.length > 0 && (
@@ -365,28 +366,27 @@ export default function BotsPage() {
                     </div>
                     <LiveOrders botId={botId} active={running} />
                   </div>
-                  <div className="flex flex-col gap-2 shrink-0">
+                  <div className="flex flex-col sm:flex-row gap-2 shrink-0 min-w-[7.5rem]">
                     {running ? (
                       <button type="button" onClick={() => stopBot(botId)}
-                        className="font-mono text-[9px] uppercase px-3 py-2 border border-red-30 text-red">
+                        className="font-mono text-[9px] uppercase px-3 py-2 border border-red-30 text-red whitespace-nowrap">
                         Parar Este
                       </button>
                     ) : (
-                      <>
-                        <button type="button" onClick={() => startBot(bot)}
-                          className="font-mono text-[9px] uppercase px-3 py-2 border border-cyan-30 text-cyan">
-                          Iniciar Este
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => deleteBot(bot)}
-                          disabled={isDeleting}
-                          className="font-mono text-[9px] uppercase px-3 py-2 border border-border2 text-text2 hover:border-red-30 hover:text-red transition-colors disabled:opacity-50"
-                        >
-                          {isDeleting ? 'A apagar...' : '🗑️ Apagar'}
-                        </button>
-                      </>
+                      <button type="button" onClick={() => startBot(bot)}
+                        className="font-mono text-[9px] uppercase px-3 py-2 border border-cyan-30 text-cyan whitespace-nowrap">
+                        Iniciar Este
+                      </button>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => deleteBot(bot)}
+                      disabled={isDeleting}
+                      title={running ? 'Parar e apagar bot' : 'Apagar bot'}
+                      className="font-mono text-[9px] uppercase px-3 py-2 border border-red-30 bg-red-dim/40 text-red hover:bg-red/15 transition-colors disabled:opacity-50 whitespace-nowrap"
+                    >
+                      {isDeleting ? 'A apagar...' : '🗑️ Apagar'}
+                    </button>
                   </div>
                 </div>
               </div>
