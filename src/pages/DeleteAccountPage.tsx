@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { YevaTradeLoader } from '../components/YevaTradeLoader';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
@@ -99,7 +100,7 @@ export default function DeleteAccountPage() {
         >
           {loading ? (
             <>
-              <span className="w-4 h-4 border border-red border-t-transparent rounded-full animate-spin" />
+              <YevaTradeLoader size="xs" />
               A eliminar...
             </>
           ) : (

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { YevaTradeLoader } from '../components/YevaTradeLoader';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { QuickGuide } from '../components/QuickGuide';
@@ -113,7 +114,7 @@ export default function DepositPage() {
           className="w-full py-3 border border-cyan-30 bg-cyan-dim text-cyan font-mono text-[10px] uppercase tracking-widest hover:bg-cyan/20 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
         >
           {loading ? (
-            <><span className="w-3 h-3 border border-cyan border-t-transparent rounded-full animate-spin" /> A processar...</>
+            <><YevaTradeLoader size="xs" /> A processar...</>
           ) : (
             `Depositar $${amount || MIN_DEPOSIT} USDT`
           )}

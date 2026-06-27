@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { PageLoader, YevaTradeLoader } from '../components/YevaTradeLoader';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { QuickGuide } from '../components/QuickGuide';
@@ -78,9 +79,7 @@ export default function CreateBotPage() {
 
   if (exchangeLoading) {
     return (
-      <div className="flex items-center justify-center py-32">
-        <div className="w-8 h-8 border-2 border-cyan border-t-transparent rounded-full animate-spin" />
-      </div>
+      <PageLoader />
     );
   }
 
@@ -203,7 +202,7 @@ export default function CreateBotPage() {
 
         {loading && (
           <div className="bg-cyan-dim border border-cyan-20 p-3 font-mono text-[12px] text-cyan flex items-center gap-2">
-            <span className="w-3 h-3 border-2 border-cyan border-t-transparent rounded-full animate-spin" />
+            <YevaTradeLoader size="xs" />
             {startPhase === 'creating' ? 'A criar e activar bot...' : 'A processar...'}
           </div>
         )}

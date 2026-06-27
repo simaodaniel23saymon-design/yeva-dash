@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { PageLoader } from '../components/YevaTradeLoader';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { QuickGuide } from '../components/QuickGuide';
@@ -225,9 +226,7 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-32">
-        <div className="w-8 h-8 border-2 border-cyan border-t-transparent rounded-full animate-spin" />
-      </div>
+      <PageLoader />
     );
   }
 

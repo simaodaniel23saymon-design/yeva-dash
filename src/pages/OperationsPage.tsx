@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { PageLoader, YevaTradeLoader } from '../components/YevaTradeLoader';
 import { Link } from 'react-router-dom';
 import { QuickGuide } from '../components/QuickGuide';
 import { LiveOrders } from '../components/LiveOrders';
@@ -99,9 +100,7 @@ export default function OperationsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-32">
-        <div className="w-8 h-8 border-2 border-cyan border-t-transparent rounded-full animate-spin" />
-      </div>
+      <PageLoader />
     );
   }
 
@@ -257,7 +256,7 @@ export default function OperationsPage() {
             </div>
             {tradesLoading ? (
               <div className="p-8 flex justify-center">
-                <div className="w-6 h-6 border-2 border-cyan border-t-transparent rounded-full animate-spin" />
+                <YevaTradeLoader size="sm" />
               </div>
             ) : trades.length === 0 ? (
               <div className="p-10 text-center font-mono text-xs text-text2">Sem trades registados.</div>

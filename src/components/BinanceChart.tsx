@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { YevaTradeLoader } from './YevaTradeLoader';
 import {
   CandlestickSeries,
   ColorType,
@@ -333,7 +334,7 @@ export function BinanceChart({ symbol, market = 'FUTURES', height = 520 }: Props
       <div ref={chartContainerRef} style={{ height: `${chartHeight}px`, background: THEME.bg }} className="relative">
         {loading && klines.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center z-10" style={{ background: THEME.bg }}>
-            <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: THEME.yellow, borderTopColor: 'transparent' }} />
+            <YevaTradeLoader size="md" label="A carregar gráfico..." />
           </div>
         )}
         {error && (

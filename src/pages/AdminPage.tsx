@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { YevaTradeLoader } from '../components/YevaTradeLoader';
 import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
@@ -256,7 +257,7 @@ export default function AdminPage() {
 
   if (loading) return (
     <div className="flex justify-center py-32">
-      <div className="w-8 h-8 border-2 border-cyan border-t-transparent rounded-full animate-spin" />
+      <YevaTradeLoader size="md" />
     </div>
   )
 

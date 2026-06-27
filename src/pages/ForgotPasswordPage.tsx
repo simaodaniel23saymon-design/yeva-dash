@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { YevaTradeLoader } from '../components/YevaTradeLoader';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 
@@ -57,7 +58,7 @@ export default function ForgotPasswordPage() {
               {error && <p className="font-mono text-[10px] text-red bg-red-dim border border-red-30 p-3">{error}</p>}
               <button type="submit" disabled={loading}
                 className="w-full py-3 border border-cyan-30 bg-cyan-dim text-cyan font-mono text-[10px] uppercase tracking-widest hover:bg-cyan/20 disabled:opacity-50 transition-all flex items-center justify-center gap-2">
-                {loading ? <><span className="w-4 h-4 border border-cyan border-t-transparent rounded-full animate-spin" />A enviar...</> : 'Enviar Link de Recuperação'}
+                {loading ? <><YevaTradeLoader size="xs" />A enviar...</> : 'Enviar Link de Recuperação'}
               </button>
               <Link to="/login" className="block text-center font-mono text-[9px] text-text3 hover:text-cyan transition-colors uppercase tracking-wider">
                 ← Voltar ao Login

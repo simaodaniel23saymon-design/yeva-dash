@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { YevaTradeLoader } from './YevaTradeLoader';
 import {
   Area,
   AreaChart,
@@ -104,7 +105,7 @@ export function MobilePriceChart({ symbol, height = 320, interval = '1h' }: Prop
       <div style={{ height: `${height - 88}px` }} className="px-1 py-2">
         {loading && klines.length === 0 ? (
           <div className="h-full flex items-center justify-center">
-            <div className="w-7 h-7 border-2 border-cyan border-t-transparent rounded-full animate-spin" />
+            <YevaTradeLoader size="sm" />
           </div>
         ) : error ? (
           <div className="h-full flex items-center justify-center px-4">

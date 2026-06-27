@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes, useParams, useSearchParams } from 'react-router-dom';
+import { YevaTradeLoader } from './components/YevaTradeLoader';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import { ScrollToTop } from './components/ScrollToTop';
@@ -28,7 +29,7 @@ function ProtectedRoute({ children, requireAdmin = false }: { children: React.Re
   if (loading) {
     return (
       <div className="min-h-screen bg-bg0 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-cyan border-t-transparent rounded-full animate-spin" />
+        <YevaTradeLoader size="lg" label="A carregar..." />
       </div>
     );
   }

@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { YevaTradeLoader } from '../components/YevaTradeLoader';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { QuickGuide } from '../components/QuickGuide';
@@ -149,7 +150,7 @@ export default function WalletPage() {
 
   if (loading || walletLoading || balancesLoading) return (
     <div className="py-32 flex justify-center">
-      <div className="w-8 h-8 border-2 border-cyan border-t-transparent rounded-full animate-spin" />
+      <YevaTradeLoader size="md" />
     </div>
   );
 
@@ -262,7 +263,7 @@ export default function WalletPage() {
               </div>
               <button onClick={startDeposit} disabled={busy}
                 className="w-full py-3 border border-cyan-30 bg-cyan-dim text-cyan font-mono text-[10px] uppercase tracking-widest hover:bg-cyan/20 disabled:opacity-50 transition-all flex items-center justify-center gap-2">
-                {busy ? <><span className="w-3 h-3 border border-cyan border-t-transparent rounded-full animate-spin" />A gerar...</> : '⬇ Gerar Endereço de Pagamento'}
+                {busy ? <><YevaTradeLoader size="xs" />A gerar...</> : '⬇ Gerar Endereço de Pagamento'}
               </button>
             </div>
           ) : (
@@ -362,7 +363,7 @@ export default function WalletPage() {
               </div>
               <button onClick={sendWithdrawCode} disabled={busy || !withdrawAmount || !withdrawAddress}
                 className="w-full py-3 border border-gold-30 bg-gold-dim text-gold font-mono text-[10px] uppercase tracking-widest hover:bg-gold/15 disabled:opacity-40 transition-all flex items-center justify-center gap-2">
-                {busy ? <><span className="w-3 h-3 border border-gold border-t-transparent rounded-full animate-spin" />A processar...</> : '⬆ Solicitar Saque'}
+                {busy ? <><YevaTradeLoader size="xs" />A processar...</> : '⬆ Solicitar Saque'}
               </button>
             </div>
           ) : (

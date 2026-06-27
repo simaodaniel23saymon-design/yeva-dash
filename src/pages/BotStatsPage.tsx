@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { YevaTradeLoader } from '../components/YevaTradeLoader';
 import { QuickGuide } from '../components/QuickGuide';
 import { GridVisual } from '../components/pro/GridVisual';
 import { ProStrategyCardsDefaults } from '../components/pro/ProStrategyCards';
@@ -57,7 +58,7 @@ export default function BotStatsPage() {
 
       {loading ? (
         <div className="flex justify-center py-12">
-          <div className="w-8 h-8 border-2 border-cyan border-t-transparent rounded-full animate-spin" />
+          <YevaTradeLoader size="md" />
         </div>
       ) : (
         <>

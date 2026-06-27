@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { YevaTradeLoader } from './YevaTradeLoader';
 import { api } from '../lib/api';
 import { buildReferralLink } from '../utils/referral';
 import { formatMoney, toUSDT } from '../utils/format';
@@ -97,8 +98,7 @@ export default function AffiliateHub() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3">
-        <div className="w-9 h-9 border-2 border-gold border-t-transparent rounded-full animate-spin" />
-        <p className="font-mono text-[10px] uppercase tracking-wider text-text3">A carregar rede...</p>
+        <YevaTradeLoader size="md" label="A carregar rede..." />
       </div>
     );
   }

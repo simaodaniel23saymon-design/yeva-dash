@@ -1,4 +1,5 @@
 import type { ProNotification, ProNotificationType } from '../../types/trading';
+import { YevaTradeLoader } from '../YevaTradeLoader';
 
 const META: Record<ProNotificationType, { icon: string; color: string }> = {
   trend_detected: { icon: '📈', color: 'border-pro-green/30 bg-pro-green/10 text-pro-green' },
@@ -21,7 +22,7 @@ export function ProNotifications({ items, loading, compact = false, maxItems = 8
   if (loading) {
     return (
       <div className="bg-bg1 border border-border1 p-4 flex justify-center">
-        <div className="w-6 h-6 border-2 border-cyan border-t-transparent rounded-full animate-spin" />
+        <YevaTradeLoader size="sm" />
       </div>
     );
   }

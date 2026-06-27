@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { YevaTradeLoader } from './YevaTradeLoader';
 import { api } from '../lib/api';
 
 interface OpenOrder {
@@ -73,7 +74,7 @@ export function LiveOrders({ botId, active = true }: LiveOrdersProps) {
   if (loading) {
     return (
       <div className="mt-3 pt-3 border-t border-border1 flex items-center gap-2 font-mono text-[9px] text-text3">
-        <span className="w-3 h-3 border border-cyan border-t-transparent rounded-full animate-spin" />
+        <YevaTradeLoader size="xs" />
         A carregar ordens e posições...
       </div>
     );

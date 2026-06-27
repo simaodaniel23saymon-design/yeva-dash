@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { PageLoader } from '../components/YevaTradeLoader';
 import { api } from '../lib/api';
 
 interface Position {
@@ -25,7 +26,7 @@ export default function PositionsPage() {
     api.get<Position[]>('/positions').then(res => setPositions(res.data)).finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="py-32 flex justify-center"><div className="w-8 h-8 border-2 border-cyan border-t-transparent rounded-full animate-spin" /></div>;
+  if (loading) return <PageLoader />;
 
   return (
     <div className="space-y-4">

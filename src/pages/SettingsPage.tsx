@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { YevaTradeLoader } from '../components/YevaTradeLoader';
 import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import { buildReferralLink } from '../utils/referral'
@@ -34,7 +35,7 @@ const Btn = ({
   return (
     <button onClick={onClick} disabled={loading || disabled}
       className={`px-4 py-2 border font-mono text-[9px] uppercase tracking-wider transition-all disabled:opacity-50 flex items-center gap-1.5 ${cls}`}>
-      {loading && <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />}
+      {loading && <YevaTradeLoader size="xs" />}
       {children}
     </button>
   )
@@ -179,7 +180,7 @@ export default function SettingsPage() {
 
   if (loading) return (
     <div className="py-32 flex justify-center">
-      <div className="w-8 h-8 border-2 border-cyan border-t-transparent rounded-full animate-spin" />
+      <YevaTradeLoader size="md" />
     </div>
   )
 
@@ -322,7 +323,7 @@ export default function SettingsPage() {
             <TotpInput onComplete={handle2FAEnable} />
             {twofaLoading && (
               <div className="flex justify-center">
-                <span className="w-5 h-5 border-2 border-cyan border-t-transparent rounded-full animate-spin" />
+                <YevaTradeLoader size="sm" />
               </div>
             )}
           </div>
@@ -333,7 +334,7 @@ export default function SettingsPage() {
       {modal2FA === 'setup' && (
         <Modal title="A preparar 2FA..." onClose={() => setModal2FA(null)}>
           <div className="flex justify-center py-8">
-            <span className="w-8 h-8 border-2 border-cyan border-t-transparent rounded-full animate-spin" />
+            <YevaTradeLoader size="md" label="A preparar 2FA..." />
           </div>
         </Modal>
       )}
@@ -351,7 +352,7 @@ export default function SettingsPage() {
             <TotpInput onComplete={handle2FADisable} />
             {twofaLoading && (
               <div className="flex justify-center">
-                <span className="w-5 h-5 border-2 border-red border-t-transparent rounded-full animate-spin" />
+                <YevaTradeLoader size="sm" />
               </div>
             )}
           </div>

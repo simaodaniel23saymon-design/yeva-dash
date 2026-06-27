@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { YevaTradeLoader } from '../components/YevaTradeLoader';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { getFriendlyError } from '../utils/errorHandler';
@@ -58,7 +59,7 @@ export default function ResetPasswordPage() {
             {error && <p className="font-mono text-[10px] text-red bg-red-dim border border-red-30 p-3">{error}</p>}
             <button type="submit" disabled={loading}
               className="w-full py-3 border border-cyan-30 bg-cyan-dim text-cyan font-mono text-[10px] uppercase tracking-widest hover:bg-cyan/20 disabled:opacity-50 transition-all flex items-center justify-center gap-2">
-              {loading ? <><span className="w-4 h-4 border border-cyan border-t-transparent rounded-full animate-spin" />A guardar...</> : 'Guardar Nova Password'}
+              {loading ? <><YevaTradeLoader size="xs" />A guardar...</> : 'Guardar Nova Password'}
             </button>
           </form>
         </div>

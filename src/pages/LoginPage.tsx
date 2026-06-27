@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { YevaTradeLoader } from '../components/YevaTradeLoader';
 import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getFriendlyError } from '../utils/errorHandler';
@@ -207,7 +208,7 @@ export default function LoginPage() {
               <button onClick={handleSubmit as any} disabled={loading || totpCode.length < 6}
                 className="w-full py-3 border border-cyan-30 bg-cyan-dim text-cyan font-mono text-[10px] tracking-widest uppercase hover:bg-cyan/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                 {loading
-                  ? <><span className="w-4 h-4 border border-cyan border-t-transparent rounded-full animate-spin" /> A verificar...</>
+                  ? <><YevaTradeLoader size="xs" /> A verificar...</>
                   : 'Verificar Código'
                 }
               </button>
@@ -271,7 +272,7 @@ export default function LoginPage() {
               <button type="submit" disabled={loading}
                 className="w-full py-3 border border-cyan-30 bg-cyan-dim text-cyan font-mono text-[10px] tracking-widest uppercase hover:bg-cyan/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2">
                 {loading
-                  ? <><span className="w-4 h-4 border border-cyan border-t-transparent rounded-full animate-spin" /> A processar...</>
+                  ? <><YevaTradeLoader size="xs" /> A processar...</>
                   : tab === 'login' ? 'Entrar na Plataforma' : 'Criar Conta Grátis'
                 }
               </button>

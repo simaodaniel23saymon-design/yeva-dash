@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { PageLoader, YevaTradeLoader } from '../components/YevaTradeLoader';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { QuickGuide } from '../components/QuickGuide';
@@ -252,9 +253,7 @@ export default function BotsPage() {
 
   if (loading || exchangeLoading) {
     return (
-      <div className="flex items-center justify-center py-32">
-        <div className="w-8 h-8 border-2 border-cyan border-t-transparent rounded-full animate-spin" />
-      </div>
+      <PageLoader />
     );
   }
 
@@ -510,7 +509,7 @@ export default function BotsPage() {
               {(creating || starting) && (
                 <div className="bg-cyan-dim border border-cyan-20 p-3 font-mono text-[11px] text-cyan space-y-2">
                   <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 border-2 border-cyan border-t-transparent rounded-full animate-spin" />
+                    <YevaTradeLoader size="xs" />
                     {startPhase === 'creating' ? 'A configurar o bot...' : 'A iniciar motor de trading...'}
                   </div>
                   <p className="text-text2 text-[10px]">O sistema vai ficar activo em segundos. Aguarda a confirmação.</p>

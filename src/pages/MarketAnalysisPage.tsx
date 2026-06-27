@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { YevaTradeLoader } from '../components/YevaTradeLoader';
 import { Link } from 'react-router-dom';
 import { QuickGuide } from '../components/QuickGuide';
 import { MarketStatusCard } from '../components/pro/MarketStatusCard';
@@ -45,7 +46,7 @@ export default function MarketAnalysisPage() {
 
       {loading ? (
         <div className="flex justify-center py-20">
-          <div className="w-8 h-8 border-2 border-cyan border-t-transparent rounded-full animate-spin" />
+          <YevaTradeLoader size="md" />
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

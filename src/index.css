@@ -189,6 +189,34 @@ body {
   animation: livePulse 2.5s ease-in-out infinite;
 }
 
+/* YevaTrade loader SVG */
+.yeva-loader-ring {
+  animation: yevaLoaderSpin 1.4s linear infinite;
+  transform-origin: center;
+}
+
+.yeva-loader-orbit {
+  animation: yevaLoaderSpin 2s linear infinite reverse;
+}
+
+.yeva-loader-mark {
+  animation: yevaLoaderPulse 1.8s ease-in-out infinite;
+}
+
+.yeva-loader-pulse {
+  animation: yevaLoaderPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes yevaLoaderSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes yevaLoaderPulse {
+  0%, 100% { opacity: 0.45; transform: scale(0.92); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
 .stat-value {
   transition: color 0.3s ease, transform 0.3s ease;
 }
