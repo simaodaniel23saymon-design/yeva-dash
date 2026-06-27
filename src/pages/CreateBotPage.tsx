@@ -10,6 +10,10 @@ import { useExchange, type MarketType } from '../hooks/useExchange';
 import { getFriendlyError } from '../utils/errorHandler';
 import { MIN_DEPOSIT } from '../utils/constants';
 import type { ChartMarket } from '../utils/chartData';
+import type { BotConfig } from '../types/trading';
+import { DEFAULT_PRO_CONFIG } from '../types/trading';
+import { ProBotConfigFields } from '../components/pro/ProBotConfigFields';
+import { buildProPayload } from '../utils/proTrading';
 
 export default function CreateBotPage() {
   const navigate = useNavigate();
@@ -26,6 +30,7 @@ export default function CreateBotPage() {
   const [error, setError] = useState('');
   const [startPhase, setStartPhase] = useState<'idle' | 'creating'>('idle');
   const [startedBot, setStartedBot] = useState<{ pair: string; market: string } | null>(null);
+  const [proConfig, setProConfig] = useState<BotConfig>({ ...DEFAULT_PRO_CONFIG });
 
   const balance = exchangeBalance ?? 0;
   const marginUsed = market === 'FUTURES' ? capitalPerSide / leverage : capitalPerSide;
@@ -53,6 +58,7 @@ export default function CreateBotPage() {
         riskMode,
         leverage: parseInt(String(leverage), 10),
         capitalPerSide: parseFloat(String(capitalPerSide)),
+        ...buildProPayload(proConfig),
       });
 
       setStartedBot({ pair: pairUpper, market });
@@ -123,8 +129,15 @@ export default function CreateBotPage() {
             <p className="text-text3 uppercase text-[11px] tracking-wider mb-2">Resumo</p>
             <p className="text-text2">Par: <span className="text-text1 font-bold">{pair}</span> · {market}</p>
             <p className="text-text2">Risco: {riskMode} · Alavancagem: {leverage}x · Capital: ${capitalPerSide}</p>
+            <p className="text-text2">Grid: {proConfig.maxLongPositions ?? 15}L+{proConfig.maxShortPositions ?? 15}S · Spacing {proConfig.gridSpacing ?? 0.8}%</p>
           </div>
         )}
+
+        <ProBotConfigFields
+          config={proConfig}
+          onChange={patch => setProConfig(prev => ({ ...prev, ...patch }))}
+          inputClass={inputClass}
+        />
 
         <div>
           <label className="font-mono text-[12px] uppercase tracking-wider text-text2 mb-2 block">Estratégia</label>

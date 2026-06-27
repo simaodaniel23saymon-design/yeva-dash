@@ -3,6 +3,10 @@ import { Link } from 'react-router-dom';
 import { QuickGuide } from '../components/QuickGuide';
 import { LiveOrders } from '../components/LiveOrders';
 import { LiveChart } from '../components/LiveChart';
+import { ProPositionDetails } from '../components/pro/ProPositionDetails';
+import { ProNotifications } from '../components/pro/ProNotifications';
+import { useProTrading } from '../hooks/useProTrading';
+import { enrichPosition } from '../utils/proTrading';
 import { useChartSymbol } from '../hooks/useChartSymbol';
 import {
   fetchBotsList,
@@ -88,6 +92,11 @@ export default function OperationsPage() {
     positions,
   );
 
+  const { notifications, loading: proLoading } = useProTrading(
+    bots.map(b => botPair(b)),
+    30000,
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-32">
@@ -115,6 +124,8 @@ export default function OperationsPage() {
         </div>
       </div>
 
+      <ProNotifications items={notifications} loading={proLoading} compact maxItems={3} />
+
       <div className="bg-bg1 border border-border1 p-4 animate-fade-in-up">
         <LiveChart
           symbol={chartSymbol}
@@ -137,10 +148,20 @@ export default function OperationsPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {runningBots.map(bot => {
+          {runningBots.map((bot, botIdx) => {
             const pair = botPair(bot);
             const hasPosition = positions.find(p => p.symbol === pair);
             const pnl = hasPosition ? parseNum(hasPosition.unrealizedProfit) : 0;
+            const enriched = hasPosition
+              ? enrichPosition(
+                  {
+                    symbol: hasPosition.symbol,
+                    positionSide: hasPosition.positionSide,
+                    unrealizedProfit: hasPosition.unrealizedProfit,
+                  },
+                  botIdx,
+                )
+              : null;
 
             return (
               <div
@@ -186,6 +207,7 @@ export default function OperationsPage() {
                       <span>Actual: <span className="text-text1">${parseNum(hasPosition.markPrice).toFixed(2)}</span></span>
                       <span>P&L: <span className={pnl >= 0 ? 'text-cyan font-bold' : 'text-red font-bold'}>${pnl.toFixed(2)}</span></span>
                     </div>
+                    {enriched && <ProPositionDetails position={enriched} pnl={pnl} />}
                   </div>
                 )}
               </div>

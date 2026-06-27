@@ -11,6 +11,11 @@ import { IconWallet, IconTrendUp, IconTrendDown, IconActivity } from '../compone
 import { DailyPnlPanel } from '../components/DailyPnlPanel';
 import { BotLiveStatusBar } from '../components/BotLiveStatusBar';
 import { BotStartedAlert } from '../components/BotStartedAlert';
+import { ProStrategyCardsDefaults } from '../components/pro/ProStrategyCards';
+import { ProNotifications } from '../components/pro/ProNotifications';
+import { ProPositionDetails } from '../components/pro/ProPositionDetails';
+import { useProTrading } from '../hooks/useProTrading';
+import { enrichPosition } from '../utils/proTrading';
 import { useWallet } from '../hooks/useWallet';
 import {
   fetchBotsList,
@@ -206,6 +211,11 @@ export default function DashboardPage() {
 
   const stoppedBotsCount = bots.filter(b => !isBotRunning(b.status)).length;
 
+  const { notifications, loading: proLoading } = useProTrading(
+    bots.map(b => botPair(b)),
+    30000,
+  );
+
   const marginPct = stats.balance > 0 ? Math.min(100, (stats.usedMargin / stats.balance) * 100) : 0;
 
   const { symbol: chartSymbol, pairs, autoSymbol, selectSymbol, followAuto } = useChartSymbol(
@@ -287,6 +297,10 @@ export default function DashboardPage() {
 
           <DailyPnlPanel />
 
+          <ProStrategyCardsDefaults />
+
+          <ProNotifications items={notifications} loading={proLoading} compact maxItems={4} />
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <AnimatedStat
               label="Saldo disponível"
@@ -350,6 +364,14 @@ export default function DashboardPage() {
               </h3>
               {positions.map((pos, idx) => {
                 const pnl = parseNum(pos.unrealizedProfit);
+                const enriched = enrichPosition(
+                  {
+                    symbol: pos.symbol,
+                    positionSide: pos.positionSide,
+                    unrealizedProfit: pos.unrealizedProfit,
+                  },
+                  idx,
+                );
                 return (
                   <div
                     key={`${pos.symbol}-${idx}`}
@@ -373,6 +395,7 @@ export default function DashboardPage() {
                       <span>Margem: <span className="text-text1">${parseNum(pos.initialMargin).toFixed(2)}</span></span>
                       <span>Alavancagem: <span className="text-text1">{pos.leverage}x</span></span>
                     </div>
+                    <ProPositionDetails position={enriched} pnl={pnl} />
                   </div>
                 );
               })}

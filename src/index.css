@@ -197,6 +197,25 @@ body {
   animation: tickerFlash 0.6s ease-out;
 }
 
+/* Cores PRO (estratégia) */
+.text-pro-green { color: #10B981; }
+.text-pro-red { color: #EF4444; }
+.text-pro-yellow { color: #F59E0B; }
+.text-pro-blue { color: #3B82F6; }
+.bg-pro-green { background-color: rgba(16, 185, 129, 0.15); }
+.bg-pro-red { background-color: rgba(239, 68, 68, 0.12); }
+.bg-pro-yellow { background-color: rgba(245, 158, 11, 0.12); }
+.bg-pro-blue { background-color: rgba(59, 130, 246, 0.12); }
+.border-pro-green\/30 { border-color: rgba(16, 185, 129, 0.3); }
+.border-pro-green\/40 { border-color: rgba(16, 185, 129, 0.4); }
+.border-pro-red\/30 { border-color: rgba(239, 68, 68, 0.3); }
+.border-pro-red\/40 { border-color: rgba(239, 68, 68, 0.4); }
+.border-pro-yellow\/30 { border-color: rgba(245, 158, 11, 0.3); }
+.border-pro-blue\/30 { border-color: rgba(59, 130, 246, 0.3); }
+.bg-pro-green\/10 { background-color: rgba(16, 185, 129, 0.1); }
+.bg-pro-red\/10 { background-color: rgba(239, 68, 68, 0.1); }
+.bg-pro-blue\/10 { background-color: rgba(59, 130, 246, 0.1); }
+
 /* Cartões com hover subtil */
 .surface-card {
   background-color: #0b100d;

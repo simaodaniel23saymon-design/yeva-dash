@@ -22,6 +22,10 @@ import {
   normalizeLiveBot,
 } from '../utils/liveData';
 import type { ChartMarket } from '../utils/chartData';
+import type { BotConfig } from '../types/trading';
+import { DEFAULT_PRO_CONFIG } from '../types/trading';
+import { ProBotConfigFields } from '../components/pro/ProBotConfigFields';
+import { buildProPayload } from '../utils/proTrading';
 
 interface Bot {
   id: string;
@@ -69,6 +73,7 @@ export default function BotsPage() {
   const [entryPercent, setEntryPercent] = useState(10);
   const [takeProfit, setTakeProfit] = useState(60);
   const [stopLoss, setStopLoss] = useState(30);
+  const [proConfig, setProConfig] = useState<BotConfig>({ ...DEFAULT_PRO_CONFIG });
 
   const normalizeBot = (b: Bot): Bot => normalizeLiveBot(b);
 
@@ -124,6 +129,7 @@ export default function BotsPage() {
           riskMode,
           tpDailyPct: 2,
           maxLossPct: 5,
+          ...buildProPayload(proConfig),
         };
 
     try {
@@ -429,8 +435,16 @@ export default function BotsPage() {
                       <p className="text-text2">Par: <span className="text-text1 font-bold">{pair}</span> · {market}</p>
                       <p className="text-text2">Risco: <span className="text-text1">{riskMode}</span> · Alavancagem: <span className="text-text1">{leverage}x</span></p>
                       <p className="text-text2">Capital/ordem: <span className="text-cyan">${capitalPerSide}</span> · Modo: Hedge Pro</p>
+                      <p className="text-text2">Grid PRO: {proConfig.maxLongPositions ?? 15}L+{proConfig.maxShortPositions ?? 15}S · {proConfig.gridSpacing ?? 0.8}%</p>
                     </div>
                   )}
+
+                  <ProBotConfigFields
+                    compact
+                    config={proConfig}
+                    onChange={patch => setProConfig(prev => ({ ...prev, ...patch }))}
+                    inputClass={inputClass}
+                  />
 
                   <div>
                     <label className="font-mono text-[9px] uppercase tracking-wider text-text2 mb-1.5 block">Modo de Risco</label>

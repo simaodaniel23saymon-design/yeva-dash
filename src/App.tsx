@@ -20,6 +20,8 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import CreateBotPage from './pages/CreateBotPage';
 import ApiGuidePage from './pages/ApiGuidePage';
+import MarketAnalysisPage from './pages/MarketAnalysisPage';
+import BotStatsPage from './pages/BotStatsPage';
 
 function ProtectedRoute({ children, requireAdmin = false }: { children: React.ReactNode; requireAdmin?: boolean }) {
   const { user, loading } = useAuth();
@@ -76,6 +78,8 @@ export default function App() {
           <Route path="/api-guide" element={<AppRoute element={<ApiGuidePage />} />} />
           <Route path="/operations" element={<AppRoute element={<OperationsPage />} />} />
           <Route path="/positions" element={<AppRoute element={<OperationsPage />} />} />
+          <Route path="/market-analysis" element={<AppRoute element={<MarketAnalysisPage />} />} />
+          <Route path="/bot-stats" element={<AppRoute element={<BotStatsPage />} />} />
           <Route path="/history" element={<AppRoute element={<HistoryPage />} />} />
           <Route path="/wallet" element={<AppRoute element={<WalletPage />} />} />
           <Route path="/deposit" element={<AppRoute element={<DepositPage />} />} />
