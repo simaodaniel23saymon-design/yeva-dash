@@ -9,7 +9,6 @@ import { LiveChart } from '../components/LiveChart';
 import { useChartSymbol } from '../hooks/useChartSymbol';
 import { AnimatedStat } from '../components/AnimatedStat';
 import { IconWallet, IconTrendUp, IconTrendDown, IconActivity } from '../components/ui/Icons';
-import { DailyPnlPanel } from '../components/DailyPnlPanel';
 import { BotLiveStatusBar } from '../components/BotLiveStatusBar';
 import { BotStartedAlert } from '../components/BotStartedAlert';
 import { ProStrategyCardsDefaults } from '../components/pro/ProStrategyCards';
@@ -18,10 +17,12 @@ import { ProPositionDetails } from '../components/pro/ProPositionDetails';
 import { useProTrading } from '../hooks/useProTrading';
 import { enrichPosition } from '../utils/proTrading';
 import { useWallet } from '../hooks/useWallet';
+import { formatMoney } from '../utils/format';
 import {
   fetchBotsList,
   fetchExchangePositions,
   fetchExchangeStats,
+  fetchWalletRealStats,
   stopAllBots,
   stopBotById,
   startBotById,
@@ -35,7 +36,15 @@ import {
   type ExchangeStats,
   type ExchangePosition,
   type LiveBot,
+  type RealWalletStats,
 } from '../utils/liveData';
+
+const emptyRealStats: RealWalletStats = {
+  availableBalance: 0,
+  unrealizedPnL: 0,
+  dailyPnL: 0,
+  netBalance: 0,
+};
 
 const emptyStats: ExchangeStats = {
   balance: 0,
@@ -55,6 +64,7 @@ export default function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [stats, setStats] = useState<ExchangeStats>(emptyStats);
+  const [realStats, setRealStats] = useState<RealWalletStats>(emptyRealStats);
   const [bots, setBots] = useState<LiveBot[]>([]);
   const [positions, setPositions] = useState<ExchangePosition[]>([]);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
@@ -71,16 +81,24 @@ export default function DashboardPage() {
 
       if (!exchangeRes.data.connected) {
         setStats(emptyStats);
+        setRealStats(emptyRealStats);
         setBots([]);
         setPositions([]);
         return;
       }
 
-      const [statsData, botsList, posList] = await Promise.all([
+      const [statsData, realStatsData, botsList, posList] = await Promise.all([
         fetchExchangeStats(),
+        fetchWalletRealStats(),
         fetchBotsList(),
         fetchExchangePositions(),
       ]);
+
+      if (realStatsData) {
+        setRealStats(realStatsData);
+      } else {
+        setRealStats(emptyRealStats);
+      }
 
       if (statsData) {
         setStats(statsData);
@@ -217,7 +235,14 @@ export default function DashboardPage() {
     30000,
   );
 
-  const marginPct = stats.balance > 0 ? Math.min(100, (stats.usedMargin / stats.balance) * 100) : 0;
+  const marginPct = realStats.availableBalance > 0
+    ? Math.min(100, (stats.usedMargin / realStats.availableBalance) * 100)
+    : stats.balance > 0
+      ? Math.min(100, (stats.usedMargin / stats.balance) * 100)
+      : 0;
+
+  const pnlAccent = (n: number): 'cyan' | 'red' => (n >= 0 ? 'cyan' : 'red');
+  const fmtSignedPnl = (n: number) => `${n >= 0 ? '+' : ''}${formatMoney(n)}`;
 
   const { symbol: chartSymbol, pairs, autoSymbol, selectSymbol, followAuto } = useChartSymbol(
     bots,
@@ -233,8 +258,8 @@ export default function DashboardPage() {
   return (
     <div className="space-y-4">
       <QuickGuide title="Painel em tempo real" steps={[
-        'Saldo e margem actualizados a cada 10 segundos',
-        'Posições abertas e P&L directamente da exchange',
+        'Saldo e P&L reais da Binance actualizados a cada 10 segundos',
+        'Posições abertas directamente da exchange',
         'Controlo rápido dos bots activos',
       ]} />
 
@@ -294,34 +319,42 @@ export default function DashboardPage() {
             lastUpdate={lastUpdate}
           />
 
-          <DailyPnlPanel />
-
           <ProStrategyCardsDefaults />
 
           <ProNotifications items={notifications} loading={proLoading} compact maxItems={4} />
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <AnimatedStat
-              label="Saldo disponível"
-              value={`$${stats.balance.toFixed(2)}`}
-              sub={`${stats.accountType === 'demo' ? 'Demo' : 'Real'}${stats.exchange ? ` · ${stats.exchange}` : ''}`}
-              accent="cyan"
+              label="Saldo Disponível"
+              value={formatMoney(realStats.availableBalance)}
+              sub={`Binance${stats.exchange ? ` · ${stats.exchange}` : ''}${stats.accountType === 'demo' ? ' · Demo' : ''}`}
+              accent={pnlAccent(realStats.availableBalance)}
               delay={0}
               pulse={stats.runningBotsCount > 0}
               icon={<IconWallet size={16} />}
             />
             <AnimatedStat
-              label="P&L aberto"
-              value={`$${stats.totalPnl.toFixed(2)}`}
-              accent={stats.totalPnl >= 0 ? 'cyan' : 'red'}
+              label="P&L Aberto"
+              value={fmtSignedPnl(realStats.unrealizedPnL)}
+              sub="Posições actuais"
+              accent={pnlAccent(realStats.unrealizedPnL)}
               delay={80}
-              icon={stats.totalPnl >= 0 ? <IconTrendUp size={16} /> : <IconTrendDown size={16} />}
+              icon={realStats.unrealizedPnL >= 0 ? <IconTrendUp size={16} /> : <IconTrendDown size={16} />}
             />
             <AnimatedStat
-              label="Bots activos"
-              value={`${stats.runningBotsCount}/${stats.botsCount}`}
-              accent="default"
+              label="Resultado de Hoje"
+              value={fmtSignedPnl(realStats.dailyPnL)}
+              sub="Realizado + funding − comissões (24h)"
+              accent={pnlAccent(realStats.dailyPnL)}
               delay={160}
+              icon={realStats.dailyPnL >= 0 ? <IconTrendUp size={16} /> : <IconTrendDown size={16} />}
+            />
+            <AnimatedStat
+              label="Saldo Líquido Total"
+              value={formatMoney(realStats.netBalance)}
+              sub="Saldo + P&L aberto"
+              accent={pnlAccent(realStats.netBalance)}
+              delay={240}
               pulse={stats.runningBotsCount > 0}
               icon={<IconActivity size={16} />}
             />

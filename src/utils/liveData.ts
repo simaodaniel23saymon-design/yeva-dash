@@ -122,6 +122,43 @@ export async function fetchExchangeStats(): Promise<ExchangeStats | null> {
   }
 }
 
+export interface RealWalletStats {
+  availableBalance: number;
+  unrealizedPnL: number;
+  dailyPnL: number;
+  netBalance: number;
+}
+
+type RealWalletStatsRaw = Record<string, unknown>;
+
+function pickNum(raw: RealWalletStatsRaw, ...keys: string[]): number {
+  for (const key of keys) {
+    const value = raw[key];
+    if (value !== undefined && value !== null) {
+      return parseNum(value as string | number);
+    }
+  }
+  return 0;
+}
+
+export function normalizeRealWalletStats(raw: RealWalletStatsRaw): RealWalletStats {
+  return {
+    availableBalance: pickNum(raw, 'availableBalance', 'available_balance'),
+    unrealizedPnL: pickNum(raw, 'unrealizedPnL', 'unrealizedPnl', 'unrealized_pnl'),
+    dailyPnL: pickNum(raw, 'dailyPnL', 'dailyPnl', 'daily_pnl'),
+    netBalance: pickNum(raw, 'netBalance', 'net_balance'),
+  };
+}
+
+export async function fetchWalletRealStats(): Promise<RealWalletStats | null> {
+  try {
+    const res = await api.get<RealWalletStatsRaw>('/wallet/real-stats');
+    return normalizeRealWalletStats(res.data);
+  } catch {
+    return null;
+  }
+}
+
 export async function stopAllBots(): Promise<void> {
   try {
     await api.post('/bots/stop-all');
