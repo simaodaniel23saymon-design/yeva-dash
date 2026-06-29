@@ -27,7 +27,8 @@ function normalizeExchange(name: string): ExchangeName {
   return name.toUpperCase().includes('BYBIT') ? 'Bybit' : 'Binance';
 }
 
-export function useExchange(pollMs = 0) {
+export function useExchange(pollMs = 0, options?: { fetchBalance?: boolean }) {
+  const shouldFetchBalance = options?.fetchBalance !== false;
   const [status, setStatus] = useState<ExchangeStatusData>({ connected: false });
   const [exchangeBalance, setExchangeBalance] = useState<number | null>(null);
   const [serverIp, setServerIp] = useState('134.209.81.127');
@@ -107,8 +108,8 @@ export function useExchange(pollMs = 0) {
   }, [fetchServerIp, refreshStatus, pollMs]);
 
   useEffect(() => {
-    if (status.connected) refreshBalance();
-  }, [status.connected, status.exchange?.exchange]);
+    if (status.connected && shouldFetchBalance) refreshBalance();
+  }, [status.connected, status.exchange?.exchange, shouldFetchBalance, refreshBalance]);
 
   return {
     status,

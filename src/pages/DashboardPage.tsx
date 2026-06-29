@@ -10,7 +10,6 @@ import { useChartSymbol } from '../hooks/useChartSymbol';
 import { AnimatedStat } from '../components/AnimatedStat';
 import { IconWallet, IconTrendUp, IconTrendDown, IconActivity } from '../components/ui/Icons';
 import { BotLiveStatusBar } from '../components/BotLiveStatusBar';
-import { BotStartedAlert } from '../components/BotStartedAlert';
 import { ProStrategyCardsDefaults } from '../components/pro/ProStrategyCards';
 import { ProNotifications } from '../components/pro/ProNotifications';
 import { ProPositionDetails } from '../components/pro/ProPositionDetails';
@@ -24,11 +23,6 @@ import {
   fetchExchangeStats,
   fetchWalletRealStats,
   stopAllBots,
-  stopBotById,
-  startBotById,
-  deleteBotById,
-  deleteStoppedBots,
-  resolveBotId,
   isBotRunning,
   botPair,
   parseNum,
@@ -69,9 +63,6 @@ export default function DashboardPage() {
   const [positions, setPositions] = useState<ExchangePosition[]>([]);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [flash, setFlash] = useState('');
-  const [startedBot, setStartedBot] = useState<{ pair: string; market: string } | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [clearingStopped, setClearingStopped] = useState(false);
 
   const loadStats = useCallback(async (silent = false) => {
     if (!silent) setRefreshing(true);
@@ -143,93 +134,6 @@ export default function DashboardPage() {
     }
   };
 
-  const handleStopBot = async (bot: LiveBot) => {
-    const id = resolveBotId(bot);
-    if (!id) {
-      setFlash('Bot sem ID válido.');
-      setTimeout(() => setFlash(''), 4000);
-      return;
-    }
-    if (!window.confirm(`Parar o bot ${botPair(bot)}?`)) return;
-    try {
-      await stopBotById(id);
-      await loadStats(true);
-      setFlash(`Bot ${botPair(bot)} parado.`);
-      setTimeout(() => setFlash(''), 4000);
-    } catch (err: unknown) {
-      setFlash(safeErrorMessage(err, 'Erro ao parar bot.'));
-      setTimeout(() => setFlash(''), 4000);
-    }
-  };
-
-  const handleStartBot = async (bot: LiveBot) => {
-    const id = resolveBotId(bot);
-    if (!id) {
-      setFlash('Bot sem ID válido.');
-      setTimeout(() => setFlash(''), 4000);
-      return;
-    }
-    if (!window.confirm(`Iniciar o bot ${botPair(bot)}?`)) return;
-    try {
-      await startBotById(id);
-      await loadStats(true);
-      setStartedBot({ pair: botPair(bot), market: bot.market ?? 'FUTURES' });
-      setFlash(`Bot ${botPair(bot)} iniciado — sistema activo.`);
-      setTimeout(() => setFlash(''), 4000);
-    } catch (err: unknown) {
-      setFlash(safeErrorMessage(err, 'Erro ao iniciar bot.'));
-      setTimeout(() => setFlash(''), 4000);
-    }
-  };
-
-  const handleDeleteBot = async (bot: LiveBot) => {
-    const id = resolveBotId(bot);
-    const sym = botPair(bot);
-    if (!id) {
-      setFlash('Bot sem ID válido.');
-      setTimeout(() => setFlash(''), 4000);
-      return;
-    }
-    const running = isBotRunning(bot.status);
-    const msg = running
-      ? `O bot ${sym} está a operar. Parar e apagar?`
-      : `Apagar o bot ${sym}?`;
-    if (!window.confirm(msg)) return;
-    setDeletingId(id);
-    try {
-      if (running) await stopBotById(id);
-      await deleteBotById(id);
-      await loadStats(true);
-      setFlash(`Bot ${sym} apagado.`);
-      setTimeout(() => setFlash(''), 4000);
-    } catch (err: unknown) {
-      setFlash(safeErrorMessage(err, 'Erro ao apagar bot.'));
-      setTimeout(() => setFlash(''), 4000);
-    } finally {
-      setDeletingId(null);
-    }
-  };
-
-  const handleClearStopped = async () => {
-    const stopped = bots.filter(b => !isBotRunning(b.status));
-    if (stopped.length === 0) return;
-    if (!window.confirm(`Apagar ${stopped.length} bot(s) parado(s)?`)) return;
-    setClearingStopped(true);
-    try {
-      const deleted = await deleteStoppedBots();
-      await loadStats(true);
-      setFlash(`${deleted || stopped.length} bot(s) parado(s) removido(s).`);
-      setTimeout(() => setFlash(''), 4000);
-    } catch (err: unknown) {
-      setFlash(safeErrorMessage(err, 'Erro ao limpar bots parados.'));
-      setTimeout(() => setFlash(''), 4000);
-    } finally {
-      setClearingStopped(false);
-    }
-  };
-
-  const stoppedBotsCount = bots.filter(b => !isBotRunning(b.status)).length;
-
   const { notifications, loading: proLoading } = useProTrading(
     bots.map(b => botPair(b)),
     30000,
@@ -260,7 +164,7 @@ export default function DashboardPage() {
       <QuickGuide title="Painel em tempo real" steps={[
         'Saldo e P&L reais da Binance actualizados a cada 10 segundos',
         'Posições abertas directamente da exchange',
-        'Controlo rápido dos bots activos',
+        'Gestão completa dos bots na página Robôs',
       ]} />
 
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -285,14 +189,6 @@ export default function DashboardPage() {
 
       {flash && (
         <div className="bg-cyan-dim border border-cyan-20 p-3 font-mono text-[10px] text-cyan">{flash}</div>
-      )}
-
-      {startedBot && (
-        <BotStartedAlert
-          pair={startedBot.pair}
-          market={startedBot.market}
-          onDismiss={() => setStartedBot(null)}
-        />
       )}
 
       <BotToggleButton />
@@ -431,78 +327,6 @@ export default function DashboardPage() {
                   </div>
                 );
               })}
-            </div>
-          )}
-
-          {bots.length > 0 && (
-            <div className="bg-bg1 border border-border1 p-4 space-y-3">
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <h3 className="text-sm font-bold text-text1">Os teus bots</h3>
-                {stoppedBotsCount > 0 && (
-                  <button
-                    type="button"
-                    onClick={handleClearStopped}
-                    disabled={clearingStopped}
-                    className="font-mono text-[8px] uppercase px-3 py-1.5 border border-gold-30 bg-gold-dim text-gold disabled:opacity-50"
-                  >
-                    {clearingStopped ? 'A limpar...' : `🧹 Limpar parados (${stoppedBotsCount})`}
-                  </button>
-                )}
-              </div>
-              {bots.map(bot => {
-                const botId = resolveBotId(bot);
-                const running = isBotRunning(bot.status);
-                const isDeleting = deletingId === botId;
-                return (
-                <div key={botId || botPair(bot)} className="bg-bg2 border border-border1 p-4">
-                  <div className="flex justify-between items-start mb-2 gap-3 flex-wrap">
-                    <div>
-                      <span className="font-bold text-text1">{botPair(bot)}</span>
-                      {bot.market && (
-                        <span className="ml-2 font-mono text-[8px] uppercase text-text3">{bot.market}</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                      <span className={`font-mono text-[8px] uppercase px-2 py-0.5 border ${
-                        running ? 'border-cyan-30 text-cyan' : 'border-border2 text-text3'
-                      }`}>
-                        {running ? 'A operar' : 'Parado'}
-                      </span>
-                      {running ? (
-                        <button
-                          type="button"
-                          onClick={() => handleStopBot(bot)}
-                          className="font-mono text-[8px] uppercase px-2 py-1 border border-red-30 text-red"
-                        >
-                          Parar Este
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleStartBot(bot)}
-                          className="font-mono text-[8px] uppercase px-2 py-1 border border-cyan-30 text-cyan"
-                        >
-                          Iniciar Este
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteBot(bot)}
-                        disabled={isDeleting}
-                        className="font-mono text-[8px] uppercase px-2 py-1 border border-red-30 bg-red-dim/40 text-red disabled:opacity-50"
-                      >
-                        {isDeleting ? '...' : '🗑️ Apagar'}
-                      </button>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 font-mono text-[10px] text-text2">
-                    <span>Alavancagem: <span className="text-text1">{bot.leverage ?? '—'}x</span></span>
-                    <span>Capital: <span className="text-text1">${bot.capitalPerSide ?? '—'}</span></span>
-                    <span>TP diário: <span className="text-text1">{bot.tpDailyPct ?? '—'}%</span></span>
-                    <span>Stop: <span className="text-text1">{bot.maxLossPct ?? '—'}%</span></span>
-                  </div>
-                </div>
-              );})}
             </div>
           )}
 

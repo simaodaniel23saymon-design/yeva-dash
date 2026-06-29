@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
-import { formatMoney } from '../utils/format';
 
 interface BotStatus {
   id: string;
@@ -71,29 +71,9 @@ export function LiveTradingPanel() {
   }
 
   const bots = status.bots ?? [];
-  const activeCount = bots.filter(b => b.status === 'running').length;
 
   return (
     <div className="space-y-3 animate-fade-in">
-      {/* Saldo + estado */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <div className="bg-bg1 border border-cyan-20 p-4">
-          <div className="font-mono text-[8px] uppercase tracking-[2px] text-text3 mb-1.5">Saldo Disponível</div>
-          <div className="text-xl font-bold text-cyan">{formatMoney(status.wallet?.balance)}</div>
-        </div>
-        <div className="bg-bg1 border border-border1 p-4">
-          <div className="font-mono text-[8px] uppercase tracking-[2px] text-text3 mb-1.5">Bots Activos</div>
-          <div className="text-xl font-bold text-text1">{activeCount}/{status.botsCount ?? bots.length}</div>
-        </div>
-        <div className="bg-bg1 border border-border1 p-4 col-span-2 sm:col-span-1">
-          <div className="font-mono text-[8px] uppercase tracking-[2px] text-text3 mb-1.5">Estado</div>
-          <div className={`text-xl font-bold ${status.anyRunning ? 'text-cyan' : 'text-text3'}`}>
-            {status.anyRunning ? '● Activo' : '○ Parado'}
-          </div>
-        </div>
-      </div>
-
-      {/* Preços em tempo real */}
       {tickers.length > 0 && (
         <div className="bg-bg1 border border-border1 p-4">
           <h3 className="font-mono text-[9px] uppercase tracking-wider text-text2 mb-3">Preços em Tempo Real</h3>
@@ -118,7 +98,12 @@ export function LiveTradingPanel() {
       {/* Lista de bots */}
       {bots.length > 0 && (
         <div className="bg-bg1 border border-border1 p-4">
-          <h3 className="font-mono text-[9px] uppercase tracking-wider text-text2 mb-3">Os Meus Bots</h3>
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <h3 className="font-mono text-[9px] uppercase tracking-wider text-text2">Os Meus Bots</h3>
+            <Link to="/bots" className="font-mono text-[8px] uppercase text-cyan hover:underline">
+              Gerir →
+            </Link>
+          </div>
           <div className="divide-y divide-border1">
             {bots.map(bot => (
               <div key={bot.id} className="flex justify-between items-center py-2.5">

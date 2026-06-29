@@ -1,45 +1,92 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
-import { MIN_DEPOSIT } from '../utils/constants';
 import { formatMoney, toUSDT } from '../utils/format';
-import { fetchWalletRealStats } from '../utils/liveData';
 
-export function isDemoPlan(plan?: string | null): boolean {
-  return String(plan ?? '').trim().toUpperCase() === 'DEMO';
+export interface BotEligibilityData {
+  eligible: boolean;
+  balance: number;
+  isDemo: boolean;
+  message: string;
 }
 
-async function fetchDemoWalletBalance(): Promise<number> {
+type BotEligibilityRaw = Record<string, unknown>;
+
+function pickBool(raw: BotEligibilityRaw, ...keys: string[]): boolean {
+  for (const key of keys) {
+    const value = raw[key];
+    if (value !== undefined && value !== null) return Boolean(value);
+  }
+  return false;
+}
+
+function pickNum(raw: BotEligibilityRaw, ...keys: string[]): number {
+  for (const key of keys) {
+    const value = raw[key];
+    if (value !== undefined && value !== null) {
+      const n = Number(value);
+      return Number.isFinite(n) ? toUSDT(n) : 0;
+    }
+  }
+  return 0;
+}
+
+function pickStr(raw: BotEligibilityRaw, ...keys: string[]): string {
+  for (const key of keys) {
+    const value = raw[key];
+    if (value !== undefined && value !== null) return String(value);
+  }
+  return '';
+}
+
+export function normalizeBotEligibility(raw: BotEligibilityRaw): BotEligibilityData {
+  const isDemo = pickBool(raw, 'isDemo', 'is_demo');
+  const eligible = pickBool(raw, 'eligible');
+
+  return {
+    eligible: isDemo || eligible,
+    balance: pickNum(raw, 'balance'),
+    isDemo,
+    message: pickStr(raw, 'message'),
+  };
+}
+
+export async function fetchBotEligibility(): Promise<BotEligibilityData | null> {
   try {
-    const res = await api.get<{ balance: number }>('/wallet/balance');
-    return toUSDT(res.data.balance ?? 0);
+    const res = await api.get<BotEligibilityRaw>('/bots/check-eligibility');
+    return normalizeBotEligibility(res.data);
   } catch {
-    const res = await api.get<{ balance: number }>('/wallet');
-    return toUSDT(res.data.balance ?? 0);
+    return null;
   }
 }
 
-async function fetchRealExchangeBalance(): Promise<number> {
-  const stats = await fetchWalletRealStats();
-  return stats?.availableBalance ?? 0;
-}
-
 export function useBotCreationBalance(pollMs = 30000) {
-  const { user } = useAuth();
-  const isDemo = isDemoPlan(user?.plan);
+  const [isEligible, setIsEligible] = useState(false);
   const [balance, setBalance] = useState(0);
+  const [isDemo, setIsDemo] = useState(false);
+  const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     try {
-      const value = isDemo ? await fetchDemoWalletBalance() : await fetchRealExchangeBalance();
-      setBalance(value);
+      const data = await fetchBotEligibility();
+      if (data) {
+        setIsEligible(data.eligible);
+        setBalance(data.balance);
+        setIsDemo(data.isDemo);
+        setMessage(data.eligible ? '' : data.message);
+      } else {
+        setIsEligible(false);
+        setBalance(0);
+        setIsDemo(false);
+        setMessage('Não foi possível verificar elegibilidade para criar bots.');
+      }
     } catch {
-      setBalance(0);
+      setIsEligible(false);
+      setMessage('Não foi possível verificar elegibilidade para criar bots.');
     } finally {
       setLoading(false);
     }
-  }, [isDemo]);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -52,21 +99,19 @@ export function useBotCreationBalance(pollMs = 30000) {
     return () => { active = false; clearInterval(id); };
   }, [refresh, pollMs]);
 
-  const hasInsufficientBalance = !isDemo && balance < MIN_DEPOSIT;
-
   const balanceLabel = isDemo
-    ? `Saldo Demo: ${formatMoney(balance)} (Fictício)`
-    : `Saldo Binance: ${formatMoney(balance)} (Real)`;
+    ? `Conta Demo - Saldo: ${formatMoney(balance)}`
+    : `Saldo Carteira: ${formatMoney(balance)}`;
 
   return {
+    isEligible,
     isDemo,
     balance,
+    message,
     loading,
     refresh,
-    hasInsufficientBalance,
     balanceLabel,
-    insufficientMessage: hasInsufficientBalance
-      ? `Saldo insuficiente. Mínimo ${MIN_DEPOSIT} USDT.`
-      : '',
+    hasInsufficientBalance: !isEligible,
+    insufficientMessage: message,
   };
 }

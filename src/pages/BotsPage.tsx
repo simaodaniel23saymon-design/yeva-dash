@@ -51,14 +51,15 @@ interface Bot {
 
 export default function BotsPage() {
   const { wallet, formatUSDT } = useWallet(30000);
-  const { isConnected, loading: exchangeLoading } = useExchange(30000);
+  const { isConnected, loading: exchangeLoading } = useExchange(30000, { fetchBalance: false });
   const {
     isDemo,
+    isEligible,
     balance,
     loading: balanceLoading,
-    hasInsufficientBalance,
+    message: eligibilityMessage,
     balanceLabel,
-    insufficientMessage,
+    refresh: refreshEligibility,
   } = useBotCreationBalance(30000);
 
   const [bots, setBots] = useState<Bot[]>([]);
@@ -107,16 +108,20 @@ export default function BotsPage() {
     loadBots().finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    if (showCreate) refreshEligibility();
+  }, [showCreate, refreshEligibility]);
+
   const showFlash = (text: string) => { setFlash(text); setTimeout(() => setFlash(''), 4000); };
 
   const marginUsed = market === 'FUTURES' ? capitalPerSide / leverage : capitalPerSide;
   const availableBalance = balance - marginUsed;
-  const canSubmit = !!pair.trim() && !hasInsufficientBalance;
+  const canSubmit = !!pair.trim() && isEligible;
 
   const createAndStart = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pair.trim()) { setError('Escreve o par (ex: BTCUSDT, HYPEUSDT).'); return; }
-    if (hasInsufficientBalance) { setError(insufficientMessage); return; }
+    if (!isEligible) { setError(eligibilityMessage || 'Saldo insuficiente para criar bots.'); return; }
     setCreating(true);
     setError('');
     setStartPhase('creating');
@@ -494,8 +499,8 @@ export default function BotsPage() {
                     <p className="text-text2">Disponível: <span className="text-cyan">${availableBalance.toFixed(2)}</span></p>
                   </div>
 
-                  {hasInsufficientBalance && (
-                    <p className="text-red font-mono text-[10px] bg-red-dim border border-red-30 p-3">{insufficientMessage}</p>
+                  {!isEligible && eligibilityMessage && (
+                    <p className="text-red font-mono text-[10px] bg-red-dim border border-red-30 p-3">{eligibilityMessage}</p>
                   )}
                 </>
               ) : (
