@@ -423,7 +423,7 @@ export default function BotsPage() {
               <button onClick={() => setShowCreate(false)} className="text-text2 hover:text-text1">✕</button>
             </div>
 
-            <form onSubmit={createAndStart} className="p-5 space-y-4">
+            <form onSubmit={createAndStart} className="p-5 pb-8 space-y-4">
               <BinancePairSelector
                 compact
                 selected={pair}

@@ -154,7 +154,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   ];
 
   return (
-    <div className="min-h-screen bg-bg0 text-text1">
+    <div className="app-shell bg-bg0 text-text1">
       {/* Overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/75 z-[299] backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
@@ -163,7 +163,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Topbar */}
-      <header className="h-[52px] bg-bg0/95 border-b border-border1 sticky top-0 z-[100] flex items-center px-4 gap-3 backdrop-blur-xl">
+      <header className="h-[52px] flex-shrink-0 bg-bg0/95 border-b border-border1 z-[100] flex items-center px-4 gap-3 backdrop-blur-xl">
         <button onClick={() => setSidebarOpen(!sidebarOpen)}
           className="w-[34px] h-[34px] border border-border2 flex items-center justify-center text-text2 hover:border-cyan hover:text-cyan transition-all flex-shrink-0">
           <svg width="16" height="12" viewBox="0 0 16 12" fill="none">
@@ -193,13 +193,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      {/* Conteúdo — scroll nativo do browser com padding para nav inferior */}
-      <main className="page-scroll p-3 sm:p-4 md:p-5">
+      {/* Conteúdo scrollável entre header e nav inferior */}
+      <main id="app-main" className="app-main page-scroll p-3 sm:p-4 md:p-5">
         {children}
       </main>
 
       {/* Bottom Nav — mobile e tablet (hidden só em desktop lg+) */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-bg1 border-t border-border1 flex lg:hidden z-[200]"
+      <nav className="flex-shrink-0 w-full bg-bg1 border-t border-border1 flex lg:hidden z-[200]"
            style={{ height: 'calc(56px + env(safe-area-inset-bottom))', paddingBottom: 'env(safe-area-inset-bottom)' }}>
         {bottomNav.map(({ label, path, icon }) => {
           const active = location.pathname === path || (path !== '/dashboard' && location.pathname.startsWith(path));

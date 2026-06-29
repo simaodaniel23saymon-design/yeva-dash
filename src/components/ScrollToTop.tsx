@@ -12,6 +12,7 @@ export function ScrollToTop() {
     window.scrollTo(0, 0);
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
+    document.getElementById('app-main')?.scrollTo(0, 0);
   }, [pathname]);
 
   return null;

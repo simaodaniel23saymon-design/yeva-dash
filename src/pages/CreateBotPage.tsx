@@ -97,7 +97,7 @@ export default function CreateBotPage() {
   }
 
   return (
-    <div className="space-y-4 max-w-lg">
+    <div className="space-y-4 max-w-lg pb-6">
       <QuickGuide title="Criar novo bot" steps={[
         'Escolhe Spot ou Futures e o par de moedas',
         'Define modo de risco, alavancagem e capital',
