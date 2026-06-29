@@ -8,9 +8,9 @@ import { BotStartedAlert } from '../components/BotStartedAlert';
 import { DailyPnlPanel } from '../components/DailyPnlPanel';
 import { useWallet } from '../hooks/useWallet';
 import { useExchange, type MarketType } from '../hooks/useExchange';
-import { useBotCreationBalance } from '../hooks/useBotCreationBalance';
+import { useBotEligibility } from '../hooks/useBotCreationBalance';
 import { getFriendlyError } from '../utils/errorHandler';
-import { MIN_DEPOSIT } from '../utils/constants';
+import { formatMoney } from '../utils/format';
 import type { ChartMarket } from '../utils/chartData';
 import type { BotConfig } from '../types/trading';
 import { DEFAULT_PRO_CONFIG } from '../types/trading';
@@ -25,10 +25,12 @@ export default function CreateBotPage() {
     isDemo,
     isEligible,
     balance,
+    minimumRequired,
     loading: balanceLoading,
     message: eligibilityMessage,
     balanceLabel,
-  } = useBotCreationBalance(30000);
+    refresh: refreshEligibility,
+  } = useBotEligibility(30000);
 
   const [pair, setPair] = useState('');
   const [market, setMarket] = useState<MarketType>('FUTURES');
@@ -54,8 +56,10 @@ export default function CreateBotPage() {
       setError('Informe o par de trading.');
       return;
     }
-    if (!isEligible) {
-      setError(eligibilityMessage || 'Saldo insuficiente para criar bots.');
+
+    const eligibility = await refreshEligibility();
+    if (!eligibility?.eligible) {
+      setError(eligibility?.message || eligibilityMessage || 'Saldo insuficiente para criar bots.');
       return;
     }
 
@@ -78,9 +82,10 @@ export default function CreateBotPage() {
       setStartedBot({ pair: pairUpper, market });
       setTimeout(() => navigate('/bots'), 2500);
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { status?: number; data?: { error?: string } } };
+      const axiosErr = err as { response?: { status?: number; data?: { error?: string; message?: string } } };
       if (axiosErr.response?.status === 403) {
-        setError(`Depósito mínimo de $${MIN_DEPOSIT} USDT necessário. Adiciona fundos na página de Depósitos.`);
+        const latest = await refreshEligibility();
+        setError(latest?.message || axiosErr.response?.data?.message || axiosErr.response?.data?.error || 'Saldo insuficiente para criar bots.');
       } else {
         setError(getFriendlyError(err).message);
       }
@@ -101,7 +106,7 @@ export default function CreateBotPage() {
       <QuickGuide title="Criar novo bot" steps={[
         'Escolhe Spot ou Futures e o par de moedas',
         'Define modo de risco, alavancagem e capital',
-        isDemo ? 'Conta demo: saldo fictício disponível' : 'Saldo mínimo de $17 USDT na carteira interna',
+        isDemo ? 'Conta demo: saldo fictício disponível' : `Mínimo de ${formatMoney(minimumRequired || 17)} na carteira interna`,
       ]} />
 
       <div>
@@ -232,10 +237,10 @@ export default function CreateBotPage() {
           {loading ? 'A criar...' : 'Criar e Iniciar Bot'}
         </button>
 
-        {!isDemo && (
+        {!isDemo && minimumRequired > 0 && (
           <div className="bg-gold-dim border border-gold-30 p-4">
             <p className="text-[12px] text-text2 leading-relaxed">
-              {`É necessário um saldo mínimo de $${MIN_DEPOSIT} USDT na carteira interna para criar bots.`}
+              {`É necessário um saldo mínimo de ${formatMoney(minimumRequired)} na carteira interna para criar bots.`}
             </p>
           </div>
         )}

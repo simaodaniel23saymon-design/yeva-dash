@@ -6,6 +6,7 @@ export interface BotEligibilityData {
   eligible: boolean;
   balance: number;
   isDemo: boolean;
+  minimumRequired: number;
   message: string;
 }
 
@@ -46,6 +47,7 @@ export function normalizeBotEligibility(raw: BotEligibilityRaw): BotEligibilityD
     eligible: isDemo || eligible,
     balance: pickNum(raw, 'balance'),
     isDemo,
+    minimumRequired: pickNum(raw, 'minimumRequired', 'minimum_required'),
     message: pickStr(raw, 'message'),
   };
 }
@@ -59,34 +61,43 @@ export async function fetchBotEligibility(): Promise<BotEligibilityData | null> 
   }
 }
 
-export function useBotCreationBalance(pollMs = 30000) {
+export function useBotEligibility(pollMs = 30000) {
   const [isEligible, setIsEligible] = useState(false);
   const [balance, setBalance] = useState(0);
   const [isDemo, setIsDemo] = useState(false);
+  const [minimumRequired, setMinimumRequired] = useState(0);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
 
-  const refresh = useCallback(async () => {
+  const applyEligibility = useCallback((data: BotEligibilityData | null) => {
+    if (data) {
+      setIsEligible(data.eligible);
+      setBalance(data.balance);
+      setIsDemo(data.isDemo);
+      setMinimumRequired(data.minimumRequired);
+      setMessage(data.eligible ? '' : (data.message || 'Saldo insuficiente para criar bots.'));
+      return data;
+    }
+
+    setIsEligible(false);
+    setBalance(0);
+    setIsDemo(false);
+    setMinimumRequired(0);
+    setMessage('Não foi possível verificar elegibilidade para criar bots.');
+    return null;
+  }, []);
+
+  const refresh = useCallback(async (): Promise<BotEligibilityData | null> => {
     try {
       const data = await fetchBotEligibility();
-      if (data) {
-        setIsEligible(data.eligible);
-        setBalance(data.balance);
-        setIsDemo(data.isDemo);
-        setMessage(data.eligible ? '' : data.message);
-      } else {
-        setIsEligible(false);
-        setBalance(0);
-        setIsDemo(false);
-        setMessage('Não foi possível verificar elegibilidade para criar bots.');
-      }
+      return applyEligibility(data);
     } catch {
-      setIsEligible(false);
-      setMessage('Não foi possível verificar elegibilidade para criar bots.');
+      applyEligibility(null);
+      return null;
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [applyEligibility]);
 
   useEffect(() => {
     let active = true;
@@ -107,6 +118,7 @@ export function useBotCreationBalance(pollMs = 30000) {
     isEligible,
     isDemo,
     balance,
+    minimumRequired,
     message,
     loading,
     refresh,
@@ -115,3 +127,6 @@ export function useBotCreationBalance(pollMs = 30000) {
     insufficientMessage: message,
   };
 }
+
+/** @deprecated Usar useBotEligibility */
+export const useBotCreationBalance = useBotEligibility;

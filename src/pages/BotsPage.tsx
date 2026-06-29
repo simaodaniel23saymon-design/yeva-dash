@@ -11,7 +11,7 @@ import { DailyPnlPanel } from '../components/DailyPnlPanel';
 import { LiveOrders } from '../components/LiveOrders';
 import { useWallet } from '../hooks/useWallet';
 import { useExchange, type MarketType } from '../hooks/useExchange';
-import { useBotCreationBalance } from '../hooks/useBotCreationBalance';
+import { useBotEligibility } from '../hooks/useBotCreationBalance';
 import { getFriendlyError } from '../utils/errorHandler';
 import {
   resolveBotId,
@@ -60,7 +60,7 @@ export default function BotsPage() {
     message: eligibilityMessage,
     balanceLabel,
     refresh: refreshEligibility,
-  } = useBotCreationBalance(30000);
+  } = useBotEligibility(30000);
 
   const [bots, setBots] = useState<Bot[]>([]);
   const [loading, setLoading] = useState(true);
@@ -121,7 +121,11 @@ export default function BotsPage() {
   const createAndStart = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pair.trim()) { setError('Escreve o par (ex: BTCUSDT, HYPEUSDT).'); return; }
-    if (!isEligible) { setError(eligibilityMessage || 'Saldo insuficiente para criar bots.'); return; }
+    const eligibility = await refreshEligibility();
+    if (!eligibility?.eligible) {
+      setError(eligibility?.message || eligibilityMessage || 'Saldo insuficiente para criar bots.');
+      return;
+    }
     setCreating(true);
     setError('');
     setStartPhase('creating');
