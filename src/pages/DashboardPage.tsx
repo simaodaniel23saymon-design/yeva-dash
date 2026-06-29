@@ -3,17 +3,12 @@ import { PageLoader } from '../components/YevaTradeLoader';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { QuickGuide } from '../components/QuickGuide';
-import { BotToggleButton } from '../components/BotToggleButton';
-import { LiveTradingPanel } from '../components/LiveTradingPanel';
 import { LiveChart } from '../components/LiveChart';
 import { useChartSymbol } from '../hooks/useChartSymbol';
 import { AnimatedStat } from '../components/AnimatedStat';
 import { IconWallet, IconTrendUp, IconTrendDown, IconActivity } from '../components/ui/Icons';
-import { BotLiveStatusBar } from '../components/BotLiveStatusBar';
 import { ProStrategyCardsDefaults } from '../components/pro/ProStrategyCards';
-import { ProNotifications } from '../components/pro/ProNotifications';
 import { ProPositionDetails } from '../components/pro/ProPositionDetails';
-import { useProTrading } from '../hooks/useProTrading';
 import { enrichPosition } from '../utils/proTrading';
 import { useWallet } from '../hooks/useWallet';
 import { formatMoney } from '../utils/format';
@@ -22,11 +17,8 @@ import {
   fetchExchangePositions,
   fetchExchangeStats,
   fetchWalletRealStats,
-  stopAllBots,
   isBotRunning,
-  botPair,
   parseNum,
-  safeErrorMessage,
   type ExchangeStats,
   type ExchangePosition,
   type LiveBot,
@@ -62,7 +54,6 @@ export default function DashboardPage() {
   const [bots, setBots] = useState<LiveBot[]>([]);
   const [positions, setPositions] = useState<ExchangePosition[]>([]);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
-  const [flash, setFlash] = useState('');
 
   const loadStats = useCallback(async (silent = false) => {
     if (!silent) setRefreshing(true);
@@ -121,24 +112,6 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, [loadStats]);
 
-  const handleStopAll = async () => {
-    if (!window.confirm('Parar todos os bots?')) return;
-    try {
-      await stopAllBots();
-      await loadStats(true);
-      setFlash('Todos os bots foram parados.');
-      setTimeout(() => setFlash(''), 4000);
-    } catch (err: unknown) {
-      setFlash(safeErrorMessage(err, 'Erro ao parar bots.'));
-      setTimeout(() => setFlash(''), 4000);
-    }
-  };
-
-  const { notifications, loading: proLoading } = useProTrading(
-    bots.map(b => botPair(b)),
-    30000,
-  );
-
   const marginPct = realStats.availableBalance > 0
     ? Math.min(100, (stats.usedMargin / realStats.availableBalance) * 100)
     : stats.balance > 0
@@ -163,8 +136,8 @@ export default function DashboardPage() {
     <div className="space-y-4">
       <QuickGuide title="Painel em tempo real" steps={[
         'Saldo e P&L reais da Binance actualizados a cada 10 segundos',
-        'Posições abertas directamente da exchange',
-        'Gestão completa dos bots na página Robôs',
+        'Gráfico e posições abertas da exchange',
+        'Gerir bots na página Robôs',
       ]} />
 
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -187,14 +160,6 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {flash && (
-        <div className="bg-cyan-dim border border-cyan-20 p-3 font-mono text-[10px] text-cyan">{flash}</div>
-      )}
-
-      <BotToggleButton />
-
-      <LiveTradingPanel />
-
       {!isConnected ? (
         <div className="bg-gold-dim border border-gold-30 p-6 text-center">
           <p className="font-mono text-[11px] text-gold mb-4">Nenhuma exchange conectada</p>
@@ -209,16 +174,6 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
-          <BotLiveStatusBar
-            runningCount={stats.runningBotsCount}
-            totalCount={stats.botsCount}
-            lastUpdate={lastUpdate}
-          />
-
-          <ProStrategyCardsDefaults />
-
-          <ProNotifications items={notifications} loading={proLoading} compact maxItems={4} />
-
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <AnimatedStat
               label="Saldo Disponível"
@@ -255,6 +210,8 @@ export default function DashboardPage() {
               icon={<IconActivity size={16} />}
             />
           </div>
+
+          <ProStrategyCardsDefaults />
 
           <div className="bg-bg1 border border-border1 p-4 animate-fade-in-up" style={{ animationDelay: '200ms' }}>
             <LiveChart
@@ -328,16 +285,6 @@ export default function DashboardPage() {
                 );
               })}
             </div>
-          )}
-
-          {stats.runningBotsCount > 0 && (
-            <button
-              type="button"
-              onClick={handleStopAll}
-              className="w-full py-3 border border-red-30 bg-red-dim text-red font-mono text-[10px] uppercase tracking-widest"
-            >
-              Parar todos os bots
-            </button>
           )}
         </>
       )}
