@@ -8,6 +8,7 @@ import { BotStartedAlert } from '../components/BotStartedAlert';
 import { DailyPnlPanel } from '../components/DailyPnlPanel';
 import { useWallet } from '../hooks/useWallet';
 import { useExchange, type MarketType } from '../hooks/useExchange';
+import { useBotCreationBalance } from '../hooks/useBotCreationBalance';
 import { getFriendlyError } from '../utils/errorHandler';
 import { MIN_DEPOSIT } from '../utils/constants';
 import type { ChartMarket } from '../utils/chartData';
@@ -19,7 +20,15 @@ import { buildProPayload } from '../utils/proTrading';
 export default function CreateBotPage() {
   const navigate = useNavigate();
   const { wallet, formatUSDT } = useWallet(30000);
-  const { isConnected, exchangeBalance, loading: exchangeLoading } = useExchange(30000);
+  const { isConnected, loading: exchangeLoading } = useExchange(30000);
+  const {
+    isDemo,
+    balance,
+    loading: balanceLoading,
+    hasInsufficientBalance,
+    balanceLabel,
+    insufficientMessage,
+  } = useBotCreationBalance(30000);
 
   const [pair, setPair] = useState('');
   const [market, setMarket] = useState<MarketType>('FUTURES');
@@ -33,9 +42,9 @@ export default function CreateBotPage() {
   const [startedBot, setStartedBot] = useState<{ pair: string; market: string } | null>(null);
   const [proConfig, setProConfig] = useState<BotConfig>({ ...DEFAULT_PRO_CONFIG });
 
-  const balance = exchangeBalance ?? 0;
   const marginUsed = market === 'FUTURES' ? capitalPerSide / leverage : capitalPerSide;
   const availableBalance = balance - marginUsed;
+  const canSubmit = isConnected && !!pair.trim() && !hasInsufficientBalance;
 
   const inputClass = 'w-full bg-bg3 border border-border2 text-text1 font-mono text-[13px] px-4 py-2.5 outline-none focus:border-cyan/35 transition-colors placeholder:text-text2';
 
@@ -43,6 +52,10 @@ export default function CreateBotPage() {
     e.preventDefault();
     if (!pair.trim()) {
       setError('Informe o par de trading.');
+      return;
+    }
+    if (hasInsufficientBalance) {
+      setError(insufficientMessage);
       return;
     }
 
@@ -77,7 +90,7 @@ export default function CreateBotPage() {
     }
   };
 
-  if (exchangeLoading) {
+  if (exchangeLoading || balanceLoading) {
     return (
       <PageLoader />
     );
@@ -88,7 +101,7 @@ export default function CreateBotPage() {
       <QuickGuide title="Criar novo bot" steps={[
         'Escolhe Spot ou Futures e o par de moedas',
         'Define modo de risco, alavancagem e capital',
-        `Depósito mínimo de $${MIN_DEPOSIT} USDT necessário`,
+        isDemo ? 'Conta demo: saldo fictício de $10,000 USDT' : `Depósito mínimo de $${MIN_DEPOSIT} USDT na Binance`,
       ]} />
 
       <div>
@@ -96,7 +109,7 @@ export default function CreateBotPage() {
         <p className="font-mono text-[12px] text-text2 uppercase tracking-wider mt-1">
           Gás: <span className="text-gold">${formatUSDT(wallet?.balance)}</span>
           {' · '}
-          Exchange: <span className="text-cyan">${balance.toFixed(2)} USDT</span>
+          <span className={isDemo ? 'text-gold' : 'text-cyan'}>{balanceLabel}</span>
         </p>
       </div>
 
@@ -191,10 +204,14 @@ export default function CreateBotPage() {
         </div>
 
         <div className="bg-cyan-dim border border-cyan-20 p-3 font-mono text-[12px] space-y-1">
-          <p className="text-text2">Saldo exchange: <span className="text-cyan">${balance.toFixed(2)}</span></p>
+          <p className="text-text2">{balanceLabel}</p>
           <p className="text-text2">Margem usada: <span className="text-gold">${marginUsed.toFixed(2)}</span></p>
           <p className="text-text2">Disponível: <span className="text-cyan">${availableBalance.toFixed(2)}</span></p>
         </div>
+
+        {hasInsufficientBalance && (
+          <p className="text-red font-mono text-[12px] bg-red-dim border border-red-30 p-3">{insufficientMessage}</p>
+        )}
 
         {error && (
           <p className="text-red font-mono text-[12px] bg-red-dim border border-red-30 p-3">{error}</p>
@@ -209,17 +226,19 @@ export default function CreateBotPage() {
 
         <button
           type="submit"
-          disabled={loading || !isConnected || !pair}
+          disabled={loading || !canSubmit}
           className="w-full bg-cyan-dim border border-cyan-30 text-cyan py-3 font-mono text-[12px] uppercase tracking-widest disabled:opacity-50"
         >
           {loading ? 'A criar...' : 'Criar e Iniciar Bot'}
         </button>
 
-        <div className="bg-gold-dim border border-gold-30 p-4">
-          <p className="text-[12px] text-text2 leading-relaxed">
-            {`É necessário um depósito mínimo de $${MIN_DEPOSIT} USDT para criar bots.`}
-          </p>
-        </div>
+        {!isDemo && (
+          <div className="bg-gold-dim border border-gold-30 p-4">
+            <p className="text-[12px] text-text2 leading-relaxed">
+              {`É necessário um saldo mínimo de $${MIN_DEPOSIT} USDT na Binance para criar bots.`}
+            </p>
+          </div>
+        )}
       </form>
       )}
     </div>

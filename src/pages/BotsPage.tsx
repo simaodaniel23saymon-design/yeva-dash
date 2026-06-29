@@ -11,6 +11,7 @@ import { DailyPnlPanel } from '../components/DailyPnlPanel';
 import { LiveOrders } from '../components/LiveOrders';
 import { useWallet } from '../hooks/useWallet';
 import { useExchange, type MarketType } from '../hooks/useExchange';
+import { useBotCreationBalance } from '../hooks/useBotCreationBalance';
 import { getFriendlyError } from '../utils/errorHandler';
 import {
   resolveBotId,
@@ -50,7 +51,15 @@ interface Bot {
 
 export default function BotsPage() {
   const { wallet, formatUSDT } = useWallet(30000);
-  const { isConnected, exchangeBalance, loading: exchangeLoading } = useExchange(30000);
+  const { isConnected, loading: exchangeLoading } = useExchange(30000);
+  const {
+    isDemo,
+    balance,
+    loading: balanceLoading,
+    hasInsufficientBalance,
+    balanceLabel,
+    insufficientMessage,
+  } = useBotCreationBalance(30000);
 
   const [bots, setBots] = useState<Bot[]>([]);
   const [loading, setLoading] = useState(true);
@@ -100,13 +109,14 @@ export default function BotsPage() {
 
   const showFlash = (text: string) => { setFlash(text); setTimeout(() => setFlash(''), 4000); };
 
-  const balance = exchangeBalance ?? 0;
   const marginUsed = market === 'FUTURES' ? capitalPerSide / leverage : capitalPerSide;
   const availableBalance = balance - marginUsed;
+  const canSubmit = !!pair.trim() && !hasInsufficientBalance;
 
   const createAndStart = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pair.trim()) { setError('Escreve o par (ex: BTCUSDT, HYPEUSDT).'); return; }
+    if (hasInsufficientBalance) { setError(insufficientMessage); return; }
     setCreating(true);
     setError('');
     setStartPhase('creating');
@@ -251,7 +261,7 @@ export default function BotsPage() {
 
   const inputClass = 'w-full bg-bg3 border border-border2 text-text1 font-mono text-sm px-3 py-2 outline-none focus:border-cyan/35 transition-colors placeholder:text-text2';
 
-  if (loading || exchangeLoading) {
+  if (loading || exchangeLoading || balanceLoading) {
     return (
       <PageLoader />
     );
@@ -298,7 +308,7 @@ export default function BotsPage() {
               <p className="font-mono text-[9px] text-text2 uppercase tracking-wider mt-0.5">
                 Gás: <span className="text-gold">${formatUSDT(wallet?.balance)}</span>
                 {' · '}
-                Exchange: <span className="text-cyan">${balance.toFixed(2)} USDT</span>
+                <span className={isDemo ? 'text-gold' : 'text-cyan'}>{balanceLabel}</span>
               </p>
             </div>
             <button onClick={() => setShowCreate(true)}
@@ -479,10 +489,14 @@ export default function BotsPage() {
                   </div>
 
                   <div className="bg-cyan-dim border border-cyan-20 p-3 font-mono text-[10px] space-y-1">
-                    <p className="text-text2">Saldo exchange: <span className="text-cyan">${balance.toFixed(2)}</span></p>
+                    <p className="text-text2">{balanceLabel}</p>
                     <p className="text-text2">Margem usada: <span className="text-gold">${marginUsed.toFixed(2)}</span></p>
                     <p className="text-text2">Disponível: <span className="text-cyan">${availableBalance.toFixed(2)}</span></p>
                   </div>
+
+                  {hasInsufficientBalance && (
+                    <p className="text-red font-mono text-[10px] bg-red-dim border border-red-30 p-3">{insufficientMessage}</p>
+                  )}
                 </>
               ) : (
                 <div className="grid grid-cols-3 gap-3">
@@ -519,7 +533,7 @@ export default function BotsPage() {
               <div className="flex gap-3">
                 <button type="button" onClick={() => setShowCreate(false)}
                   className="flex-1 py-2.5 border border-border2 text-text2 font-mono text-[9px] uppercase">Cancelar</button>
-                <button type="submit" disabled={creating || starting || !pair}
+                <button type="submit" disabled={creating || starting || !canSubmit}
                   className="flex-1 py-2.5 border border-cyan-30 bg-cyan-dim text-cyan font-mono text-[9px] uppercase disabled:opacity-50">
                   {creating || starting
                     ? (startPhase === 'creating' ? 'A configurar...' : 'A iniciar...')
