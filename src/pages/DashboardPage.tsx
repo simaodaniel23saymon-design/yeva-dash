@@ -222,6 +222,7 @@ export default function DashboardPage() {
               onFollowAuto={followAuto}
               height={560}
               title="Gráfico"
+              drawings
             />
           </div>
 

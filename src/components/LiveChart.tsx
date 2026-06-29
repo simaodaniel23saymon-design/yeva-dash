@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { BinanceChart } from './BinanceChart';
+import { TradingViewWidget } from './TradingViewWidget';
 import { ChartPairPicker } from './ChartPairPicker';
 import { formatPairLabel, type ChartMarket } from '../utils/chartData';
 
@@ -11,6 +12,8 @@ interface Props {
   onFollowAuto?: () => void;
   height?: number;
   title?: string;
+  /** Activa barra lateral TradingView com linhas, raios, Fibonacci, etc. */
+  drawings?: boolean;
 }
 
 export function LiveChart({
@@ -21,6 +24,7 @@ export function LiveChart({
   onFollowAuto,
   height = 560,
   title,
+  drawings = false,
 }: Props) {
   const [market, setMarket] = useState<ChartMarket>('FUTURES');
 
@@ -42,7 +46,16 @@ export function LiveChart({
         onFollowAuto={onFollowAuto}
       />
 
-      <BinanceChart symbol={symbol} market={market} height={height} />
+      {drawings ? (
+        <TradingViewWidget
+          symbol={symbol}
+          market={market}
+          height={height}
+          drawings
+        />
+      ) : (
+        <BinanceChart symbol={symbol} market={market} height={height} />
+      )}
     </div>
   );
 }

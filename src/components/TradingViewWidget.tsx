@@ -1,12 +1,16 @@
 import { useEffect, useId, useRef } from 'react';
+import type { ChartMarket } from '../utils/chartData';
 
 interface Props {
   symbol: string;
   interval?: string;
   height?: number;
   exchange?: 'BINANCE' | 'BYBIT';
+  market?: ChartMarket;
   /** Bloqueia pesquisa de símbolo — par controlado pela app */
   locked?: boolean;
+  /** Barra de desenho (linhas, raios, zonas, Fibonacci) */
+  drawings?: boolean;
 }
 
 const TV_SCRIPT = 'https://s3.tradingview.com/tv.js';
@@ -41,16 +45,25 @@ function normalizeSymbol(symbol: string): string {
   return s.endsWith('USDT') ? s : `${s}USDT`;
 }
 
+function buildTvSymbol(symbol: string, exchange: 'BINANCE' | 'BYBIT', market: ChartMarket): string {
+  const base = normalizeSymbol(symbol);
+  if (market === 'FUTURES') return `${exchange}:${base}.P`;
+  return `${exchange}:${base}`;
+}
+
 export function TradingViewWidget({
   symbol,
   interval = '60',
   height = 480,
   exchange = 'BINANCE',
+  market = 'FUTURES',
   locked = false,
+  drawings = false,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const uid = useId().replace(/:/g, '');
   const containerId = `tradingview_${uid}`;
+  const toolbarLocked = locked && !drawings;
 
   useEffect(() => {
     const el = containerRef.current;
@@ -71,7 +84,7 @@ export function TradingViewWidget({
 
         new window.TradingView.widget({
           autosize: true,
-          symbol: `${exchange}:${normalizeSymbol(symbol)}`,
+          symbol: buildTvSymbol(symbol, exchange, market),
           interval,
           timezone: 'Etc/UTC',
           theme: 'dark',
@@ -81,16 +94,25 @@ export function TradingViewWidget({
           backgroundColor: '#0b100d',
           gridColor: '#1e2b1f',
           enable_publishing: false,
-          hide_top_toolbar: locked,
-          hide_side_toolbar: locked,
+          hide_top_toolbar: toolbarLocked,
+          hide_side_toolbar: toolbarLocked,
           hide_legend: false,
-          save_image: false,
+          save_image: !toolbarLocked,
           container_id: containerId,
-          studies: locked ? [] : ['MASimple@tv-basicstudies', 'RSI@tv-basicstudies'],
-          show_popup_button: !locked,
+          studies: toolbarLocked ? [] : ['MASimple@tv-basicstudies', 'RSI@tv-basicstudies'],
+          show_popup_button: !toolbarLocked,
           popup_width: '1000',
           popup_height: '650',
-          ...(locked
+          ...(drawings
+            ? {
+                enabled_features: [
+                  'study_templates',
+                  'side_toolbar_in_fullscreen_mode',
+                  'header_in_fullscreen_mode',
+                ],
+              }
+            : {}),
+          ...(toolbarLocked
             ? {
                 disabled_features: [
                   'header_symbol_search',
@@ -114,7 +136,7 @@ export function TradingViewWidget({
       cancelled = true;
       if (containerRef.current) containerRef.current.innerHTML = '';
     };
-  }, [symbol, interval, exchange, containerId, locked]);
+  }, [symbol, interval, exchange, market, containerId, toolbarLocked, drawings]);
 
   return (
     <div

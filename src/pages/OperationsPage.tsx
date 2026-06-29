@@ -5,8 +5,6 @@ import { QuickGuide } from '../components/QuickGuide';
 import { LiveOrders } from '../components/LiveOrders';
 import { LiveChart } from '../components/LiveChart';
 import { ProPositionDetails } from '../components/pro/ProPositionDetails';
-import { ProNotifications } from '../components/pro/ProNotifications';
-import { useProTrading } from '../hooks/useProTrading';
 import { enrichPosition } from '../utils/proTrading';
 import { useChartSymbol } from '../hooks/useChartSymbol';
 import {
@@ -93,11 +91,6 @@ export default function OperationsPage() {
     positions,
   );
 
-  const { notifications, loading: proLoading } = useProTrading(
-    bots.map(b => botPair(b)),
-    30000,
-  );
-
   if (loading) {
     return (
       <PageLoader />
@@ -123,8 +116,6 @@ export default function OperationsPage() {
         </div>
       </div>
 
-      <ProNotifications items={notifications} loading={proLoading} compact maxItems={3} />
-
       <div className="bg-bg1 border border-border1 p-4 animate-fade-in-up">
         <LiveChart
           symbol={chartSymbol}
@@ -134,6 +125,7 @@ export default function OperationsPage() {
           onFollowAuto={followAuto}
           height={560}
           title="Gráfico"
+          drawings
         />
       </div>
 
