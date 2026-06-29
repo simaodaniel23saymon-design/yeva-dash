@@ -153,7 +153,7 @@ export default function BotsPage() {
         };
 
     try {
-      await api.post('/bots/create', body);
+      await api.post('/bots', body);
       setStartPhase('starting');
       try {
         await api.post('/bots/start');
