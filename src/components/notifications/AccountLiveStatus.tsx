@@ -92,17 +92,10 @@ export function AccountLiveStatusPanel({
         <Metric
           label="Saldo líquido total"
           value={data.exchangeConnected ? formatMoney(netBalance) : '—'}
-          sub={`Saldo + P&L · ${data.activeBots} bot(s) activo(s)`}
+          sub="Saldo + P&L aberto"
           valueClass={data.exchangeConnected ? pnlTone(netBalance) : 'text-text2'}
         />
       </div>
-
-      {data.exchangeConnected && data.margin > 0 && (
-        <div className="px-4 py-3 border-t border-border1 font-mono text-[10px]">
-          <span className="text-text3 text-[8px] uppercase tracking-wider block mb-0.5">Margem em uso</span>
-          <span className="text-gold">${data.margin.toFixed(2)}</span>
-        </div>
-      )}
     </div>
   );
 }

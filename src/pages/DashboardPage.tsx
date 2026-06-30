@@ -7,7 +7,6 @@ import { useChartSymbol } from '../hooks/useChartSymbol';
 import { ProStrategyCardsDefaults } from '../components/pro/ProStrategyCards';
 import { ProPositionDetails } from '../components/pro/ProPositionDetails';
 import { enrichPosition } from '../utils/proTrading';
-import { formatMoney } from '../utils/format';
 import { useAccountLiveStatus } from '../hooks/useAccountLiveStatus';
 import { AccountLiveStatusPanel } from '../components/notifications/AccountLiveStatus';
 import {
@@ -52,10 +51,6 @@ export default function DashboardPage() {
     return () => clearInterval(id);
   }, [loadChartData, live.exchangeConnected]);
 
-  const marginPct = live.binanceBalance > 0
-    ? Math.min(100, (live.margin / live.binanceBalance) * 100)
-    : 0;
-
   const { symbol: chartSymbol, pairs, autoSymbol, selectSymbol, followAuto } = useChartSymbol(
     bots,
     positions,
@@ -73,9 +68,9 @@ export default function DashboardPage() {
   return (
     <div className="space-y-4">
       <QuickGuide title="Painel em tempo real" steps={[
-        'Saldo e P&L da tua conta Binance (actualização a cada 10s)',
+        'Saldo disponível, P&L aberto, resultado de hoje e saldo líquido (Binance)',
+        'Actualização automática a cada 10 segundos',
         'Gráfico e posições abertas na exchange',
-        'Gás interno: consulta em Carteira ou Admin (sistema)',
       ]} />
 
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -133,23 +128,6 @@ export default function DashboardPage() {
               title="Gráfico"
               drawings
             />
-          </div>
-
-          <div className="bg-bg1 border border-border1 p-4">
-            <h3 className="font-mono text-[9px] uppercase tracking-wider text-text2 mb-3">Margem</h3>
-            <div className="grid grid-cols-2 gap-4 mb-3">
-              <div>
-                <p className="font-mono text-[9px] text-text3">Disponível</p>
-                <p className="text-lg font-bold text-cyan">{formatMoney(live.binanceBalance - live.margin)}</p>
-              </div>
-              <div>
-                <p className="font-mono text-[9px] text-text3">Em uso</p>
-                <p className="text-lg font-bold text-gold">${live.margin.toFixed(2)}</p>
-              </div>
-            </div>
-            <div className="w-full bg-bg3 h-2">
-              <div className="bg-cyan h-2 transition-all" style={{ width: `${marginPct}%` }} />
-            </div>
           </div>
 
           {positions.length > 0 && (
