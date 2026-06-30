@@ -4,11 +4,13 @@ import { Link } from 'react-router-dom';
 import { QuickGuide } from '../components/QuickGuide';
 import { LiveChart } from '../components/LiveChart';
 import { useChartSymbol } from '../hooks/useChartSymbol';
+import { AnimatedStat } from '../components/AnimatedStat';
+import { IconWallet, IconTrendUp, IconTrendDown, IconActivity } from '../components/ui/Icons';
 import { ProStrategyCardsDefaults } from '../components/pro/ProStrategyCards';
 import { ProPositionDetails } from '../components/pro/ProPositionDetails';
 import { enrichPosition } from '../utils/proTrading';
+import { formatMoney } from '../utils/format';
 import { useAccountLiveStatus } from '../hooks/useAccountLiveStatus';
-import { AccountLiveStatusPanel } from '../components/notifications/AccountLiveStatus';
 import {
   fetchBotsList,
   fetchExchangePositions,
@@ -61,6 +63,10 @@ export default function DashboardPage() {
     loadChartData();
   };
 
+  const pnlAccent = (n: number): 'cyan' | 'red' => (n >= 0 ? 'cyan' : 'red');
+  const fmtSignedPnl = (n: number) => `${n >= 0 ? '+' : ''}${formatMoney(n)}`;
+  const netBalance = live.binanceBalance + live.openPnl;
+
   if (liveLoading && positionsLoading) {
     return <PageLoader />;
   }
@@ -93,14 +99,6 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      <AccountLiveStatusPanel
-        data={live}
-        loading={liveLoading}
-        refreshing={refreshing}
-        lastUpdate={lastUpdate}
-        onRefresh={handleRefresh}
-      />
-
       {!live.exchangeConnected ? (
         <div className="bg-gold-dim border border-gold-30 p-6 text-center">
           <p className="font-mono text-[11px] text-gold mb-4">Nenhuma exchange conectada</p>
@@ -115,6 +113,43 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <AnimatedStat
+              label="Saldo Disponível"
+              value={formatMoney(live.binanceBalance)}
+              sub="Binance · exchange"
+              accent={pnlAccent(live.binanceBalance)}
+              delay={0}
+              pulse={live.activeBots > 0}
+              icon={<IconWallet size={16} />}
+            />
+            <AnimatedStat
+              label="P&L Aberto"
+              value={fmtSignedPnl(live.openPnl)}
+              sub="Posições actuais"
+              accent={pnlAccent(live.openPnl)}
+              delay={80}
+              icon={live.openPnl >= 0 ? <IconTrendUp size={16} /> : <IconTrendDown size={16} />}
+            />
+            <AnimatedStat
+              label="Resultado de Hoje"
+              value={fmtSignedPnl(live.todayResult)}
+              sub="Realizado + funding − comissões (24h)"
+              accent={pnlAccent(live.todayResult)}
+              delay={160}
+              icon={live.todayResult >= 0 ? <IconTrendUp size={16} /> : <IconTrendDown size={16} />}
+            />
+            <AnimatedStat
+              label="Saldo Líquido Total"
+              value={formatMoney(netBalance)}
+              sub="Saldo + P&L aberto"
+              accent={pnlAccent(netBalance)}
+              delay={240}
+              pulse={live.activeBots > 0}
+              icon={<IconActivity size={16} />}
+            />
+          </div>
+
           <ProStrategyCardsDefaults />
 
           <div className="bg-bg1 border border-border1 p-4 animate-fade-in-up">

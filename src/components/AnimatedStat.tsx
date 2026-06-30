@@ -44,8 +44,8 @@ export function AnimatedStat({ label, value, sub, accent = 'default', delay = 0,
           </div>
         )}
         <div className="min-w-0 flex-1">
-          <p className="font-mono text-[8px] uppercase tracking-wider text-text2 mb-1">{label}</p>
-          <p className={`text-2xl font-bold ${valueMap[accent]} stat-value`}>{value}</p>
+          <p className="font-mono text-[9px] uppercase tracking-wider text-text2 mb-1">{label}</p>
+          <p className={`text-xl sm:text-2xl font-bold ${valueMap[accent]} stat-value`}>{value}</p>
           {sub && <p className="font-mono text-[9px] text-text3 mt-1">{sub}</p>}
         </div>
       </div>

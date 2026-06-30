@@ -42,12 +42,12 @@ export function ProStrategyCards({ config }: Props) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <h3 className="text-sm font-bold text-text1">Estratégia PRO</h3>
-        <span className="font-mono text-[8px] uppercase tracking-widest text-cyan border border-cyan-20 px-2 py-0.5">
+        <h3 className="text-base font-bold text-text1">Estratégia PRO</h3>
+        <span className="font-mono text-[9px] uppercase tracking-widest text-cyan border border-cyan-20 px-2 py-0.5">
           Hedge Pro
         </span>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {cards(c).map((card, i) => (
           <div
             key={card.title}
@@ -55,11 +55,11 @@ export function ProStrategyCards({ config }: Props) {
             style={{ animationDelay: `${i * 60}ms` }}
           >
             <div className="flex items-start gap-2 mb-2">
-              <span className="text-base leading-none">{card.icon}</span>
-              <p className="font-mono text-[9px] uppercase tracking-wider text-text2">{card.title}</p>
+              <span className="text-lg leading-none">{card.icon}</span>
+              <p className="font-mono text-[10px] uppercase tracking-wider text-text2">{card.title}</p>
             </div>
-            <p className="font-bold text-text1 text-sm leading-snug">{card.value}</p>
-            <p className="font-mono text-[9px] text-text3 mt-1">{card.sub}</p>
+            <p className="font-bold text-text1 text-base leading-snug">{card.value}</p>
+            <p className="font-mono text-[10px] text-text3 mt-1">{card.sub}</p>
           </div>
         ))}
       </div>
