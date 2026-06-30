@@ -99,8 +99,9 @@ export default function AdminPage() {
 
   // Verificar se é admin
   useEffect(() => {
-    if (!user?.isAdmin) navigate('/dashboard', { replace: true })
-  }, [user])
+    if (loading) return;
+    if (!user?.isAdmin) navigate('/dashboard', { replace: true });
+  }, [user, loading, navigate]);
 
   const loadStats = useCallback(async () => {
     const res = await api.get<Stats>('/admin/stats')

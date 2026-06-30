@@ -18,7 +18,7 @@ function buildBaseUrl(raw: string): string {
 
 export const api = axios.create({
   baseURL: buildBaseUrl(RAW_API_URL),
-  withCredentials: false,
+  withCredentials: true,
   timeout: 15000,
   headers: { 'Content-Type': 'application/json' },
 });
@@ -31,18 +31,21 @@ function isAuthRequest(url: string): boolean {
 
 type RetryConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
+/** Bearer só para sessões legacy em localStorage; cookies HttpOnly não são legíveis via JS */
 api.interceptors.request.use((config) => {
   const token = getAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  } else if (config.headers.Authorization) {
+    delete config.headers.Authorization;
   }
   return config;
 });
 
 let isRefreshing = false;
-let refreshSubscribers: Array<(token: string) => void> = [];
+let refreshSubscribers: Array<(token: string | null) => void> = [];
 
-function onRefreshed(token: string): void {
+function onRefreshed(token: string | null): void {
   refreshSubscribers.forEach((cb) => cb(token));
   refreshSubscribers = [];
 }
@@ -51,6 +54,15 @@ function redirectToLogin(expired = false): void {
   if (typeof window === 'undefined' || window.location.pathname.startsWith('/login')) return;
   clearAuthStorage();
   window.location.href = expired ? '/login?expired=true' : '/login';
+}
+
+async function tryRefreshSession(): Promise<string | null> {
+  const refreshToken = getRefreshToken();
+  const response = await api.post(
+    '/auth/refresh',
+    refreshToken ? { refreshToken } : {},
+  );
+  return persistTokens(response.data);
 }
 
 api.interceptors.response.use(
@@ -71,8 +83,12 @@ api.interceptors.response.use(
     if (status === 401 && !isAuthRequest(requestUrl) && !originalRequest._retry) {
       if (isRefreshing) {
         return new Promise((resolve) => {
-          refreshSubscribers.push((token: string) => {
-            originalRequest.headers.Authorization = `Bearer ${token}`;
+          refreshSubscribers.push((token) => {
+            if (token) {
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+            } else {
+              delete originalRequest.headers.Authorization;
+            }
             resolve(api(originalRequest));
           });
         });
@@ -81,24 +97,14 @@ api.interceptors.response.use(
       originalRequest._retry = true;
       isRefreshing = true;
 
-      const refreshToken = getRefreshToken();
-      if (!refreshToken) {
-        redirectToLogin(true);
-        return Promise.reject(error);
-      }
-
       try {
-        const response = await axios.post(
-          `${api.defaults.baseURL}/auth/refresh`,
-          { refreshToken },
-          { headers: { 'Content-Type': 'application/json' } }
-        );
-
-        const newToken = persistTokens(response.data);
-        if (!newToken) throw new Error('Refresh sem token');
-
+        const newToken = await tryRefreshSession();
         onRefreshed(newToken);
-        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        if (newToken) {
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        } else {
+          delete originalRequest.headers.Authorization;
+        }
         return api(originalRequest);
       } catch (refreshError) {
         redirectToLogin(true);
@@ -115,5 +121,5 @@ api.interceptors.response.use(
     }
 
     return Promise.reject(error);
-  }
+  },
 );

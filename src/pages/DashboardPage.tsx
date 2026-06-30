@@ -1,141 +1,79 @@
 import { useCallback, useEffect, useState } from 'react';
 import { PageLoader } from '../components/YevaTradeLoader';
 import { Link } from 'react-router-dom';
-import { api } from '../lib/api';
 import { QuickGuide } from '../components/QuickGuide';
 import { LiveChart } from '../components/LiveChart';
 import { useChartSymbol } from '../hooks/useChartSymbol';
-import { AnimatedStat } from '../components/AnimatedStat';
-import { IconWallet, IconTrendUp, IconTrendDown, IconActivity } from '../components/ui/Icons';
 import { ProStrategyCardsDefaults } from '../components/pro/ProStrategyCards';
 import { ProPositionDetails } from '../components/pro/ProPositionDetails';
 import { enrichPosition } from '../utils/proTrading';
-import { useWallet } from '../hooks/useWallet';
 import { formatMoney } from '../utils/format';
+import { useAccountLiveStatus } from '../hooks/useAccountLiveStatus';
+import { AccountLiveStatusPanel } from '../components/notifications/AccountLiveStatus';
 import {
   fetchBotsList,
   fetchExchangePositions,
-  fetchExchangeStats,
-  fetchWalletRealStats,
-  isBotRunning,
   parseNum,
-  type ExchangeStats,
   type ExchangePosition,
   type LiveBot,
-  type RealWalletStats,
 } from '../utils/liveData';
 
-const emptyRealStats: RealWalletStats = {
-  availableBalance: 0,
-  unrealizedPnL: 0,
-  dailyPnL: 0,
-  netBalance: 0,
-};
-
-const emptyStats: ExchangeStats = {
-  balance: 0,
-  availableMargin: 0,
-  usedMargin: 0,
-  totalPnl: 0,
-  botsCount: 0,
-  runningBotsCount: 0,
-  positionsCount: 0,
-  exchange: null,
-  accountType: null,
-};
-
 export default function DashboardPage() {
-  const { wallet, formatUSDT } = useWallet(30000);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [isConnected, setIsConnected] = useState(false);
-  const [stats, setStats] = useState<ExchangeStats>(emptyStats);
-  const [realStats, setRealStats] = useState<RealWalletStats>(emptyRealStats);
+  const { data: live, loading: liveLoading, refreshing, lastUpdate, refresh } = useAccountLiveStatus(10000);
+  const [positionsLoading, setPositionsLoading] = useState(true);
   const [bots, setBots] = useState<LiveBot[]>([]);
   const [positions, setPositions] = useState<ExchangePosition[]>([]);
-  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
-  const loadStats = useCallback(async (silent = false) => {
-    if (!silent) setRefreshing(true);
+  const loadChartData = useCallback(async () => {
+    if (!live.exchangeConnected) {
+      setBots([]);
+      setPositions([]);
+      setPositionsLoading(false);
+      return;
+    }
     try {
-      const exchangeRes = await api.get<{ connected: boolean }>('/exchange/status');
-      setIsConnected(exchangeRes.data.connected);
-
-      if (!exchangeRes.data.connected) {
-        setStats(emptyStats);
-        setRealStats(emptyRealStats);
-        setBots([]);
-        setPositions([]);
-        return;
-      }
-
-      const [statsData, realStatsData, botsList, posList] = await Promise.all([
-        fetchExchangeStats(),
-        fetchWalletRealStats(),
+      const [botsList, posList] = await Promise.all([
         fetchBotsList(),
         fetchExchangePositions(),
       ]);
-
-      if (realStatsData) {
-        setRealStats(realStatsData);
-      } else {
-        setRealStats(emptyRealStats);
-      }
-
-      if (statsData) {
-        setStats(statsData);
-      } else {
-        const running = botsList.filter(b => isBotRunning(b.status));
-        setStats({
-          ...emptyStats,
-          botsCount: botsList.length,
-          runningBotsCount: running.length,
-          positionsCount: posList.length,
-          totalPnl: posList.reduce((s, p) => s + parseNum(p.unrealizedProfit), 0),
-        });
-      }
-
       setBots(botsList);
       setPositions(posList);
-      setLastUpdate(new Date());
     } catch {
-      /* polling silencioso */
+      /* silencioso */
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      setPositionsLoading(false);
     }
-  }, []);
+  }, [live.exchangeConnected]);
 
   useEffect(() => {
-    loadStats();
-    const interval = setInterval(() => loadStats(true), 10000);
-    return () => clearInterval(interval);
-  }, [loadStats]);
+    loadChartData();
+    if (!live.exchangeConnected) return;
+    const id = setInterval(loadChartData, 10000);
+    return () => clearInterval(id);
+  }, [loadChartData, live.exchangeConnected]);
 
-  const marginPct = realStats.availableBalance > 0
-    ? Math.min(100, (stats.usedMargin / realStats.availableBalance) * 100)
-    : stats.balance > 0
-      ? Math.min(100, (stats.usedMargin / stats.balance) * 100)
-      : 0;
-
-  const pnlAccent = (n: number): 'cyan' | 'red' => (n >= 0 ? 'cyan' : 'red');
-  const fmtSignedPnl = (n: number) => `${n >= 0 ? '+' : ''}${formatMoney(n)}`;
+  const marginPct = live.binanceBalance > 0
+    ? Math.min(100, (live.margin / live.binanceBalance) * 100)
+    : 0;
 
   const { symbol: chartSymbol, pairs, autoSymbol, selectSymbol, followAuto } = useChartSymbol(
     bots,
     positions,
   );
 
-  if (loading) {
-    return (
-      <PageLoader />
-    );
+  const handleRefresh = () => {
+    refresh();
+    loadChartData();
+  };
+
+  if (liveLoading && positionsLoading) {
+    return <PageLoader />;
   }
 
   return (
     <div className="space-y-4">
       <QuickGuide title="Painel em tempo real" steps={[
-        'Saldo e P&L reais da Binance actualizados a cada 10 segundos',
+        'Estado da conta via GET /account/live-status (10s)',
         'Gráfico e posições abertas da exchange',
         'Gerir bots na página Robôs',
       ]} />
@@ -144,7 +82,7 @@ export default function DashboardPage() {
         <div>
           <h2 className="text-text1 font-bold text-lg">Painel de Controlo</h2>
           <p className="font-mono text-[9px] text-text2 uppercase tracking-wider mt-0.5">
-            Gás: <span className="text-gold">${formatUSDT(wallet?.balance)} USDT</span>
+            Gás: <span className="text-gold">${live.gasBalance.toFixed(2)} USDT</span>
             {lastUpdate && (
               <> · Actualizado: {lastUpdate.toLocaleTimeString('pt-PT')}</>
             )}
@@ -152,7 +90,7 @@ export default function DashboardPage() {
         </div>
         <button
           type="button"
-          onClick={() => loadStats()}
+          onClick={handleRefresh}
           disabled={refreshing}
           className="font-mono text-[9px] uppercase px-4 py-2 border border-border2 text-text2 hover:border-cyan hover:text-cyan disabled:opacity-50"
         >
@@ -160,7 +98,15 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {!isConnected ? (
+      <AccountLiveStatusPanel
+        data={live}
+        loading={liveLoading}
+        refreshing={refreshing}
+        lastUpdate={lastUpdate}
+        onRefresh={handleRefresh}
+      />
+
+      {!live.exchangeConnected ? (
         <div className="bg-gold-dim border border-gold-30 p-6 text-center">
           <p className="font-mono text-[11px] text-gold mb-4">Nenhuma exchange conectada</p>
           <Link to="/exchanges"
@@ -174,46 +120,9 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <AnimatedStat
-              label="Saldo Disponível"
-              value={formatMoney(realStats.availableBalance)}
-              sub={`Binance${stats.exchange ? ` · ${stats.exchange}` : ''}${stats.accountType === 'demo' ? ' · Demo' : ''}`}
-              accent={pnlAccent(realStats.availableBalance)}
-              delay={0}
-              pulse={stats.runningBotsCount > 0}
-              icon={<IconWallet size={16} />}
-            />
-            <AnimatedStat
-              label="P&L Aberto"
-              value={fmtSignedPnl(realStats.unrealizedPnL)}
-              sub="Posições actuais"
-              accent={pnlAccent(realStats.unrealizedPnL)}
-              delay={80}
-              icon={realStats.unrealizedPnL >= 0 ? <IconTrendUp size={16} /> : <IconTrendDown size={16} />}
-            />
-            <AnimatedStat
-              label="Resultado de Hoje"
-              value={fmtSignedPnl(realStats.dailyPnL)}
-              sub="Realizado + funding − comissões (24h)"
-              accent={pnlAccent(realStats.dailyPnL)}
-              delay={160}
-              icon={realStats.dailyPnL >= 0 ? <IconTrendUp size={16} /> : <IconTrendDown size={16} />}
-            />
-            <AnimatedStat
-              label="Saldo Líquido Total"
-              value={formatMoney(realStats.netBalance)}
-              sub="Saldo + P&L aberto"
-              accent={pnlAccent(realStats.netBalance)}
-              delay={240}
-              pulse={stats.runningBotsCount > 0}
-              icon={<IconActivity size={16} />}
-            />
-          </div>
-
           <ProStrategyCardsDefaults />
 
-          <div className="bg-bg1 border border-border1 p-4 animate-fade-in-up" style={{ animationDelay: '200ms' }}>
+          <div className="bg-bg1 border border-border1 p-4 animate-fade-in-up">
             <LiveChart
               symbol={chartSymbol}
               pairs={pairs}
@@ -231,11 +140,11 @@ export default function DashboardPage() {
             <div className="grid grid-cols-2 gap-4 mb-3">
               <div>
                 <p className="font-mono text-[9px] text-text3">Disponível</p>
-                <p className="text-lg font-bold text-cyan">${stats.availableMargin.toFixed(2)}</p>
+                <p className="text-lg font-bold text-cyan">{formatMoney(live.binanceBalance - live.margin)}</p>
               </div>
               <div>
                 <p className="font-mono text-[9px] text-text3">Em uso</p>
-                <p className="text-lg font-bold text-gold">${stats.usedMargin.toFixed(2)}</p>
+                <p className="text-lg font-bold text-gold">${live.margin.toFixed(2)}</p>
               </div>
             </div>
             <div className="w-full bg-bg3 h-2">
@@ -278,8 +187,6 @@ export default function DashboardPage() {
                       <span>Qtd: <span className="text-text1">{pos.positionAmt}</span></span>
                       <span>Entrada: <span className="text-text1">${parseNum(pos.entryPrice).toFixed(2)}</span></span>
                       <span>Marca: <span className="text-text1">${parseNum(pos.markPrice).toFixed(2)}</span></span>
-                      <span>Margem: <span className="text-text1">${parseNum(pos.initialMargin).toFixed(2)}</span></span>
-                      <span>Alavancagem: <span className="text-text1">{pos.leverage}x</span></span>
                     </div>
                     <ProPositionDetails position={enriched} pnl={pnl} />
                   </div>

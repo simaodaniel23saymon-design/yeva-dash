@@ -4,7 +4,6 @@ import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import { buildReferralLink } from '../utils/referral'
 import { getFriendlyError } from '../utils/errorHandler'
-import { AccountLiveStatus } from '../components/notifications/AccountLiveStatus'
 import { NotificationChannelsPanel } from '../components/notifications/NotificationChannelsPanel'
 
 interface Settings {
@@ -16,8 +15,6 @@ interface Settings {
   telegramLinked: boolean
   createdAt: string
 }
-
-interface TelegramLink { code: string; link: string }
 
 const Badge = ({ on, labelOn, labelOff }: { on: boolean; labelOn: string; labelOff: string }) => (
   <span className={`font-mono text-[9px] px-2 py-0.5 border tracking-wider uppercase ${on ? 'text-cyan bg-cyan-dim border-cyan-20' : 'text-gold border-gold-30 bg-gold-dim'}`}>
@@ -81,7 +78,6 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings | null>(null)
-  const [telegram, setTelegram] = useState<TelegramLink | null>(null)
   const [loading, setLoading] = useState(true)
   const [copiedRef, setCopiedRef] = useState(false)
   const [msg, setMsg] = useState<{ text: string; type: 'ok' | 'err' } | null>(null)
@@ -152,28 +148,6 @@ export default function SettingsPage() {
     }
   }
 
-  const generateTelegramLink = async () => {
-    try {
-      const res = await api.post<TelegramLink>('/telegram/link-code')
-      setTelegram(res.data)
-    } catch (err: unknown) {
-      flash(getFriendlyError(err).message, 'err')
-      throw err
-    }
-  }
-
-  const unlinkTelegram = async () => {
-    try {
-      await api.post('/telegram/unlink')
-      setTelegram(null)
-      flash('Telegram desligado.')
-      await load()
-    } catch (err: unknown) {
-      flash(getFriendlyError(err).message, 'err')
-      throw err
-    }
-  }
-
   if (loading) return (
     <div className="py-32 flex justify-center">
       <YevaTradeLoader size="md" />
@@ -185,7 +159,7 @@ export default function SettingsPage() {
       <div>
         <h2 className="text-text1 font-bold text-lg">Configurações</h2>
         <p className="font-mono text-[9px] text-text2 uppercase tracking-wider mt-0.5">
-          Conta · Estado ao vivo · Notificações · Segurança
+          Conta · Notificações · Segurança
         </p>
       </div>
 
@@ -194,8 +168,6 @@ export default function SettingsPage() {
           {msg.text}
         </div>
       )}
-
-      <AccountLiveStatus pollMs={10000} />
 
       <div className="bg-bg1 border border-border1 p-5">
         <h3 className="font-mono text-[9px] uppercase tracking-wider text-text2 mb-4">Conta</h3>
@@ -234,9 +206,7 @@ export default function SettingsPage() {
           <NotificationChannelsPanel
             email={settings.email}
             telegramLinked={settings.telegramLinked}
-            telegram={telegram}
-            onGenerateTelegram={generateTelegramLink}
-            onUnlinkTelegram={unlinkTelegram}
+            onTelegramLinkedChange={load}
           />
         )}
       </div>

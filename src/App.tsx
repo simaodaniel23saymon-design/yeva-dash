@@ -34,6 +34,7 @@ function ProtectedRoute({ children, requireAdmin = false }: { children: React.Re
     );
   }
   if (!user) return <Navigate to="/login" replace />;
+  /* isAdmin vem sempre de GET /auth/me — não confiar em localStorage */
   if (requireAdmin && !user.isAdmin) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 }

@@ -38,7 +38,7 @@ export function persistTokens(data: AuthTokens): string | null {
 }
 
 export function clearAuthStorage(): void {
-  [...TOKEN_KEYS, ...REFRESH_KEYS, 'user'].forEach((key) => localStorage.removeItem(key));
+  [...TOKEN_KEYS, ...REFRESH_KEYS].forEach((key) => localStorage.removeItem(key));
 }
 
 export function isAuthenticated(): boolean {

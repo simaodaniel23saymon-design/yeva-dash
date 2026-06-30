@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import {
   clearAuthStorage,
-  getAccessToken,
   persistTokens,
   type AuthTokens,
 } from '../lib/authStorage';
@@ -39,19 +38,6 @@ interface AuthResponse extends AuthTokens {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-function readStoredUser(): User | null {
-  try {
-    const raw = localStorage.getItem('user');
-    return raw ? (JSON.parse(raw) as User) : null;
-  } catch {
-    return null;
-  }
-}
-
-function storeUser(user: User): void {
-  localStorage.setItem('user', JSON.stringify(user));
-}
-
 async function fetchMe(): Promise<User> {
   const res = await api.get<User>('/auth/me');
   return res.data;
@@ -59,11 +45,7 @@ async function fetchMe(): Promise<User> {
 
 function applyAuthResponse(data: AuthResponse): User | null {
   persistTokens(data);
-  if (data.user) {
-    storeUser(data.user);
-    return data.user;
-  }
-  return null;
+  return data.user ?? null;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -72,26 +54,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshUser = useCallback(async () => {
     const me = await fetchMe();
-    storeUser(me);
     setUser(me);
   }, []);
 
   useEffect(() => {
-    const token = getAccessToken();
-    if (!token) {
-      setUser(null);
-      setLoading(false);
-      return;
-    }
-
-    const cached = readStoredUser();
-    if (cached) setUser(cached);
-
     fetchMe()
-      .then((me) => {
-        storeUser(me);
-        setUser(me);
-      })
+      .then(setUser)
       .catch(() => {
         clearAuthStorage();
         setUser(null);
@@ -112,11 +80,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (res.data.requires2FA) return { requires2FA: true };
 
-    const authUser = applyAuthResponse(res.data);
+    applyAuthResponse(res.data);
     try {
       await refreshUser();
     } catch {
-      if (authUser) setUser(authUser);
+      if (res.data.user) setUser(res.data.user);
     }
     return {};
   };
@@ -128,11 +96,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ...(referralCode ? { referralCode } : {}),
     });
 
-    const authUser = applyAuthResponse(res.data);
+    applyAuthResponse(res.data);
     try {
       await refreshUser();
     } catch {
-      if (authUser) setUser(authUser);
+      if (res.data.user) setUser(res.data.user);
     }
   };
 
@@ -143,7 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    const refreshToken = localStorage.getItem('refreshToken');
+    const refreshToken = getRefreshTokenFromStorage();
     try {
       await api.post('/auth/logout', refreshToken ? { refreshToken } : undefined);
     } catch {
@@ -158,6 +126,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
+}
+
+function getRefreshTokenFromStorage(): string | null {
+  return localStorage.getItem('refreshToken') || localStorage.getItem('yevatrade_refresh_token');
 }
 
 export function useAuth() {
@@ -175,5 +147,3 @@ export function useLogout() {
     navigate('/login', { replace: true });
   };
 }
-
-export { isAuthenticated } from '../lib/authStorage';

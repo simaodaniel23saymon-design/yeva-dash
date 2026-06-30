@@ -15,7 +15,7 @@ import type { ChartMarket } from '../utils/chartData';
 import type { BotConfig } from '../types/trading';
 import { DEFAULT_PRO_CONFIG } from '../types/trading';
 import { ProBotConfigFields } from '../components/pro/ProBotConfigFields';
-import { buildProPayload } from '../utils/proTrading';
+import { buildCreateBotPayload } from '../utils/botPayload';
 
 export default function CreateBotPage() {
   const navigate = useNavigate();
@@ -34,7 +34,7 @@ export default function CreateBotPage() {
 
   const [pair, setPair] = useState('');
   const [market, setMarket] = useState<MarketType>('FUTURES');
-  const [mode, setMode] = useState('Hedge Pro');
+  const [mode, setMode] = useState('One-way');
   const [riskMode, setRiskMode] = useState('MODERATE');
   const [leverage, setLeverage] = useState(10);
   const [capitalPerSide, setCapitalPerSide] = useState(60);
@@ -69,15 +69,15 @@ export default function CreateBotPage() {
 
     const pairUpper = pair.toUpperCase();
     try {
-      await api.post('/bots', {
-        pair: pairUpper,
+      await api.post('/bots', buildCreateBotPayload(
+        pairUpper,
         market,
-        mode,
         riskMode,
-        leverage: parseInt(String(leverage), 10),
-        capitalPerSide: parseFloat(String(capitalPerSide)),
-        ...buildProPayload(proConfig),
-      });
+        leverage,
+        capitalPerSide,
+        proConfig,
+        { mode },
+      ));
 
       setStartedBot({ pair: pairUpper, market });
       setTimeout(() => navigate('/bots'), 2500);
@@ -159,6 +159,7 @@ export default function CreateBotPage() {
         <div>
           <label className="font-mono text-[12px] uppercase tracking-wider text-text2 mb-2 block">Estratégia</label>
           <select value={mode} onChange={e => setMode(e.target.value)} className={inputClass}>
+            <option value="One-way">One-way</option>
             <option value="Hedge Pro">Hedge Pro</option>
             <option value="GRID">Grid Trading</option>
           </select>

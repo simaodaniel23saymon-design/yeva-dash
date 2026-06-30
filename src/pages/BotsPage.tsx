@@ -27,7 +27,7 @@ import type { ChartMarket } from '../utils/chartData';
 import type { BotConfig } from '../types/trading';
 import { DEFAULT_PRO_CONFIG } from '../types/trading';
 import { ProBotConfigFields } from '../components/pro/ProBotConfigFields';
-import { buildProPayload } from '../utils/proTrading';
+import { buildCreateBotPayload } from '../utils/botPayload';
 
 interface Bot {
   id: string;
@@ -140,17 +140,7 @@ export default function BotsPage() {
           takeProfitPercent: takeProfit,
           stopLossPercent: stopLoss,
         }
-      : {
-          pair: pairUpper,
-          market,
-          leverage,
-          capitalPerSide,
-          mode: 'Hedge Pro',
-          riskMode,
-          tpDailyPct: 2,
-          maxLossPct: 5,
-          ...buildProPayload(proConfig),
-        };
+      : buildCreateBotPayload(pairUpper, market, riskMode, leverage, capitalPerSide, proConfig);
 
     try {
       await api.post('/bots', body);
