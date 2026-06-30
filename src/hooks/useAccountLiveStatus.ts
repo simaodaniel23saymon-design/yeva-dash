@@ -3,8 +3,25 @@ import { api } from '../lib/api';
 import {
   EMPTY_ACCOUNT_LIVE_STATUS,
   normalizeAccountLiveStatus,
+  sumPositionsUnrealizedPnl,
   type AccountLiveStatus,
 } from '../utils/accountSnapshot';
+
+async function enrichOpenPnlFromExchange(status: AccountLiveStatus): Promise<AccountLiveStatus> {
+  if (!status.exchangeConnected) return status;
+  if (status.openPnl !== 0) return status;
+
+  try {
+    const posRes = await api.get<{ positions?: { unrealizedProfit?: string | number }[] }>(
+      '/exchange/positions',
+    );
+    const positions = posRes.data.positions ?? [];
+    if (positions.length === 0) return status;
+    return { ...status, openPnl: sumPositionsUnrealizedPnl(positions) };
+  } catch {
+    return status;
+  }
+}
 
 export type { AccountLiveStatus };
 
@@ -19,7 +36,9 @@ export function useAccountLiveStatus(pollMs = 10000) {
     if (!silent) setRefreshing(true);
     try {
       const res = await api.get<Record<string, unknown>>('/account/live-status');
-      setData(normalizeAccountLiveStatus(res.data));
+      const normalized = normalizeAccountLiveStatus(res.data);
+      const enriched = await enrichOpenPnlFromExchange(normalized);
+      setData(enriched);
       setLastUpdate(new Date());
       setError(null);
     } catch {

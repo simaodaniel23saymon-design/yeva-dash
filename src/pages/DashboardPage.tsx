@@ -11,6 +11,7 @@ import { ProPositionDetails } from '../components/pro/ProPositionDetails';
 import { enrichPosition } from '../utils/proTrading';
 import { formatMoney } from '../utils/format';
 import { useAccountLiveStatus } from '../hooks/useAccountLiveStatus';
+import { sumPositionsUnrealizedPnl } from '../utils/accountSnapshot';
 import {
   fetchBotsList,
   fetchExchangePositions,
@@ -65,7 +66,10 @@ export default function DashboardPage() {
 
   const pnlAccent = (n: number): 'cyan' | 'red' => (n >= 0 ? 'cyan' : 'red');
   const fmtSignedPnl = (n: number) => `${n >= 0 ? '+' : ''}${formatMoney(n)}`;
-  const netBalance = live.binanceBalance + live.openPnl;
+  /** P&L aberto: posições Binance (prioridade) ou live-status se ainda sem posições carregadas */
+  const openPnlFromPositions = sumPositionsUnrealizedPnl(positions);
+  const openPnl = positions.length > 0 ? openPnlFromPositions : live.openPnl;
+  const netBalance = live.binanceBalance + openPnl;
 
   if (liveLoading && positionsLoading) {
     return <PageLoader />;
@@ -125,11 +129,11 @@ export default function DashboardPage() {
             />
             <AnimatedStat
               label="P&L Aberto"
-              value={fmtSignedPnl(live.openPnl)}
-              sub="Posições actuais"
-              accent={pnlAccent(live.openPnl)}
+              value={fmtSignedPnl(openPnl)}
+              sub={positions.length > 0 ? `${positions.length} posição(ões) · Binance` : 'Posições actuais'}
+              accent={pnlAccent(openPnl)}
               delay={80}
-              icon={live.openPnl >= 0 ? <IconTrendUp size={16} /> : <IconTrendDown size={16} />}
+              icon={openPnl >= 0 ? <IconTrendUp size={16} /> : <IconTrendDown size={16} />}
             />
             <AnimatedStat
               label="Resultado de Hoje"

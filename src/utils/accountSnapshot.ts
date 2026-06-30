@@ -46,13 +46,24 @@ export function normalizeAccountLiveStatus(raw: Record<string, unknown>): Accoun
     gasBalance: num(raw, ['gasBalance', 'gas_balance']),
     binanceBalance: num(raw, ['binanceBalance', 'binance_balance']),
     exchangeConnected: Boolean(raw.exchangeConnected ?? raw.exchange_connected),
-    openPnl: num(raw, ['openPnl', 'open_pnl']),
+    openPnl: num(raw, [
+      'openPnl', 'open_pnl',
+      'unrealizedPnL', 'unrealizedPnl', 'unrealized_pnl',
+      'totalPnl', 'total_pnl',
+    ]),
     activeBots: num(raw, ['activeBots', 'active_bots']),
     todayResult: resolvedToday,
     dailyProfit,
     dailyLoss,
     margin: num(raw, ['margin', 'usedMargin', 'used_margin']),
   };
+}
+
+export function sumPositionsUnrealizedPnl(positions: { unrealizedProfit?: string | number }[]): number {
+  return positions.reduce((sum, p) => {
+    const n = Number(p.unrealizedProfit ?? 0);
+    return sum + (Number.isFinite(n) ? n : 0);
+  }, 0);
 }
 
 export function fmtSignedUsd(value: number): string {
