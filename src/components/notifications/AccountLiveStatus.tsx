@@ -1,4 +1,4 @@
-import { IconActivity, IconWallet, IconTrendUp, IconTrendDown } from '../ui/Icons';
+import { IconActivity, IconTrendUp, IconTrendDown } from '../ui/Icons';
 import { formatMoney } from '../../utils/format';
 import type { AccountLiveStatus } from '../../hooks/useAccountLiveStatus';
 import { YevaTradeLoader } from '../YevaTradeLoader';
@@ -11,6 +11,7 @@ interface Props {
   onRefresh?: () => void;
 }
 
+/** Painel live — apenas dados Binance (sem gás/carteira interna) */
 export function AccountLiveStatusPanel({
   data,
   loading = false,
@@ -44,7 +45,7 @@ export function AccountLiveStatusPanel({
             )}
           </div>
           <div>
-            <h3 className="font-mono text-[10px] uppercase tracking-wider text-text1 font-bold">Estado ao vivo</h3>
+            <h3 className="font-mono text-[10px] uppercase tracking-wider text-text1 font-bold">Estado ao vivo · Binance</h3>
             <p className="font-mono text-[8px] text-text3 uppercase tracking-wider mt-0.5">
               Actualização a cada 10s
               {lastUpdate && ` · ${lastUpdate.toLocaleTimeString('pt-PT')}`}
@@ -69,22 +70,37 @@ export function AccountLiveStatusPanel({
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border1">
-        <Metric label="Gás interno" value={`$${data.gasBalance.toFixed(2)}`} sub="Carteira YevaTrade" accent="gold" icon={<IconWallet size={14} />} />
-        <Metric label="Saldo Binance" value={data.exchangeConnected ? formatMoney(data.binanceBalance) : '—'} sub="Disponível na exchange" accent="cyan" />
-        <Metric label="P&L aberto" value={data.exchangeConnected ? fmtSigned(data.openPnl) : '—'} sub="Posições actuais" valueClass={data.exchangeConnected ? pnlTone(data.openPnl) : 'text-text2'} icon={data.openPnl >= 0 ? <IconTrendUp size={14} /> : <IconTrendDown size={14} />} />
-        <Metric label="Resultado hoje" value={data.exchangeConnected ? fmtSigned(data.todayResult) : '—'} sub={`${data.activeBots} bot(s) activo(s)`} valueClass={data.exchangeConnected ? pnlTone(data.todayResult) : 'text-text2'} />
+        <Metric
+          label="Saldo disponível"
+          value={data.exchangeConnected ? formatMoney(data.binanceBalance) : '—'}
+          sub="Binance · exchange"
+          accent="cyan"
+        />
+        <Metric
+          label="P&L aberto"
+          value={data.exchangeConnected ? fmtSigned(data.openPnl) : '—'}
+          sub="Posições actuais"
+          valueClass={data.exchangeConnected ? pnlTone(data.openPnl) : 'text-text2'}
+          icon={data.openPnl >= 0 ? <IconTrendUp size={14} /> : <IconTrendDown size={14} />}
+        />
+        <Metric
+          label="Resultado de hoje"
+          value={data.exchangeConnected ? fmtSigned(data.todayResult) : '—'}
+          sub="Realizado + funding − comissões"
+          valueClass={data.exchangeConnected ? pnlTone(data.todayResult) : 'text-text2'}
+        />
+        <Metric
+          label="Saldo líquido total"
+          value={data.exchangeConnected ? formatMoney(netBalance) : '—'}
+          sub={`Saldo + P&L · ${data.activeBots} bot(s) activo(s)`}
+          valueClass={data.exchangeConnected ? pnlTone(netBalance) : 'text-text2'}
+        />
       </div>
 
-      {data.exchangeConnected && (
-        <div className="px-4 py-3 border-t border-border1 flex flex-wrap gap-6 font-mono text-[10px]">
-          <div>
-            <span className="text-text3 block text-[8px] uppercase tracking-wider mb-0.5">Saldo líquido</span>
-            <span className={pnlTone(netBalance)}>{formatMoney(netBalance)}</span>
-          </div>
-          <div>
-            <span className="text-text3 block text-[8px] uppercase tracking-wider mb-0.5">Margem em uso</span>
-            <span className="text-gold">${data.margin.toFixed(2)}</span>
-          </div>
+      {data.exchangeConnected && data.margin > 0 && (
+        <div className="px-4 py-3 border-t border-border1 font-mono text-[10px]">
+          <span className="text-text3 text-[8px] uppercase tracking-wider block mb-0.5">Margem em uso</span>
+          <span className="text-gold">${data.margin.toFixed(2)}</span>
         </div>
       )}
     </div>

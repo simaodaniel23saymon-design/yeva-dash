@@ -73,16 +73,16 @@ export default function DashboardPage() {
   return (
     <div className="space-y-4">
       <QuickGuide title="Painel em tempo real" steps={[
-        'Estado da conta via GET /account/live-status (10s)',
-        'Gráfico e posições abertas da exchange',
-        'Gerir bots na página Robôs',
+        'Saldo e P&L da tua conta Binance (actualização a cada 10s)',
+        'Gráfico e posições abertas na exchange',
+        'Gás interno: consulta em Carteira ou Admin (sistema)',
       ]} />
 
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-text1 font-bold text-lg">Painel de Controlo</h2>
           <p className="font-mono text-[9px] text-text2 uppercase tracking-wider mt-0.5">
-            Gás: <span className="text-gold">${live.gasBalance.toFixed(2)} USDT</span>
+            Dados Binance em tempo real
             {lastUpdate && (
               <> · Actualizado: {lastUpdate.toLocaleTimeString('pt-PT')}</>
             )}

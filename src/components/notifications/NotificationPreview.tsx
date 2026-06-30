@@ -68,9 +68,9 @@ export function NotificationPreview({ subject, message, metrics, mode }: Props) 
 /** Métricas de exemplo para preview admin */
 export function sampleNotifyMetrics(): EmailAlertBlock[] {
   return [
-    { label: 'Gás interno', value: '$42.50 USDT', tone: 'gold' },
     { label: 'Saldo Binance', value: '$1,240.00', tone: 'cyan' },
     { label: 'P&L aberto', value: '+$18.32', tone: 'cyan' },
+    { label: 'Resultado hoje', value: '+$4.50', tone: 'cyan' },
     { label: 'Bots activos', value: '2/3', tone: 'neutral' },
   ];
 }
