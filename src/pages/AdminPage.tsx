@@ -16,6 +16,28 @@ interface Stats {
   recentUsers: { id: string; email: string; plan: string; createdAt: string }[]
 }
 
+interface PerformanceFeeStats {
+  total: { amount: number; count: number }
+  today: { amount: number; count: number }
+  last30Days?: { amount: number; count: number }
+}
+
+function readFeeBucket(raw: Record<string, unknown> | undefined, bucket: string) {
+  const block = raw?.[bucket] as Record<string, unknown> | undefined
+  return {
+    amount: Number(block?.amount ?? 0) || 0,
+    count: Number(block?.count ?? 0) || 0,
+  }
+}
+
+function normalizePerformanceFeeStats(raw: Record<string, unknown>): PerformanceFeeStats {
+  return {
+    total: readFeeBucket(raw, 'total'),
+    today: readFeeBucket(raw, 'today'),
+    last30Days: raw.last30Days ? readFeeBucket(raw, 'last30Days') : undefined,
+  }
+}
+
 interface AdminUser {
   id: string; email: string; name?: string; plan: string
   isAdmin: boolean; twoFAEnabled: boolean; telegramLinked: boolean
@@ -75,6 +97,7 @@ export default function AdminPage() {
   const [tab, setTab] = useState<'overview' | 'users' | 'transactions' | 'bots' | 'notify'>('overview')
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState<Stats | null>(null)
+  const [feeStats, setFeeStats] = useState<PerformanceFeeStats | null>(null)
   const [users, setUsers] = useState<AdminUser[]>([])
   const [userTotal, setUserTotal] = useState(0)
   const [txs, setTxs] = useState<AdminTx[]>([])
@@ -104,8 +127,14 @@ export default function AdminPage() {
   }, [user, loading, navigate]);
 
   const loadStats = useCallback(async () => {
-    const res = await api.get<Stats>('/admin/stats')
-    setStats(res.data)
+    const [statsRes, feesRes] = await Promise.all([
+      api.get<Stats>('/admin/stats'),
+      api.get<Record<string, unknown>>('/admin/stats/performance-fees').catch(() => null),
+    ])
+    setStats(statsRes.data)
+    if (feesRes?.data) {
+      setFeeStats(normalizePerformanceFeeStats(feesRes.data))
+    }
   }, [])
 
   const loadUsers = useCallback(async (page = 1, q = search) => {
@@ -305,7 +334,7 @@ export default function AdminPage() {
             <StatBox label="Total Utilizadores" value={stats.users.total} sub={`${stats.users.active} activos`} />
             <StatBox label="Total Bots" value={stats.bots.total} sub={`${stats.bots.active} activos`} color="text-gold" />
             <StatBox label="Transacções" value={stats.transactions.total} color="text-text1" />
-            <StatBox label="Taxas Performance" value={formatMoney(stats.revenue.totalFeesPaid)} sub="Total cobrado" color="text-cyan" />
+            <StatBox label="Taxas Performance" value={formatMoney(feeStats?.total.amount ?? stats.revenue.performanceFees)} sub={feeStats ? `${feeStats.total.count} taxas cobradas · hoje ${formatMoney(feeStats.today.amount)}` : 'Total cobrado'} color="text-cyan" />
             <StatBox label="Total Depositado" value={formatMoney(stats.revenue.totalDeposited)} color="text-cyan" />
           </div>
 
