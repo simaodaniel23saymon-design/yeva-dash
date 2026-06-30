@@ -676,6 +676,7 @@ export default function AdminPage() {
               message={notifyMsg.message}
               metrics={includeLiveMetrics ? sampleNotifyMetrics() : undefined}
               mode={notifyPreview}
+              statusPreview={notifyPreview === 'telegram' && includeLiveMetrics}
             />
             <p className="font-mono text-[8px] text-text3 leading-relaxed">
               Emails usam logo horizontal e ícone oficial Yeva Trade, com fundo alinhado ao painel (#060a08).

@@ -1,6 +1,6 @@
 import { IconActivity, IconTrendUp, IconTrendDown } from '../ui/Icons';
 import { formatMoney } from '../../utils/format';
-import type { AccountLiveStatus } from '../../hooks/useAccountLiveStatus';
+import type { AccountLiveStatus } from '../../utils/accountSnapshot';
 import { YevaTradeLoader } from '../YevaTradeLoader';
 
 interface Props {
