@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { toUSDT } from '../utils/format';
+import { normalizeAccountLiveStatus } from '../utils/accountSnapshot';
 
 export function useBalances(pollMs = 30000) {
   const [gasBalance, setGasBalance] = useState(0);
@@ -22,12 +23,28 @@ export function useBalances(pollMs = 30000) {
     }
 
     try {
-      const statusRes = await api.get<{ binanceBalance?: number; wallet?: { balance?: number } }>('/bots/status');
-      binance = statusRes.data.binanceBalance ?? 0;
-      if (!gas && statusRes.data.wallet?.balance != null) {
-        gas = statusRes.data.wallet.balance;
+      const liveRes = await api.get<Record<string, unknown>>('/account/live-status');
+      const live = normalizeAccountLiveStatus(liveRes.data);
+      if (live.exchangeConnected) {
+        binance = live.binanceBalance;
       }
-    } catch { /* ignore */ }
+    } catch { /* fallback abaixo */ }
+
+    if (!binance) {
+      try {
+        const statsRes = await api.get<{ balance?: number; availableBalance?: number }>('/exchange/stats');
+        binance = statsRes.data.balance ?? statsRes.data.availableBalance ?? 0;
+      } catch { /* ignore */ }
+    }
+
+    if (!gas) {
+      try {
+        const statusRes = await api.get<{ wallet?: { balance?: number } }>('/bots/status');
+        if (statusRes.data.wallet?.balance != null) {
+          gas = statusRes.data.wallet.balance;
+        }
+      } catch { /* ignore */ }
+    }
 
     setGasBalance(gas);
     setBinanceBalance(binance);
