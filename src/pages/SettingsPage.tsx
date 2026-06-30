@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import { buildReferralLink } from '../utils/referral'
 import { getFriendlyError } from '../utils/errorHandler'
+import { AccountLiveStatus } from '../components/notifications/AccountLiveStatus'
+import { NotificationChannelsPanel } from '../components/notifications/NotificationChannelsPanel'
 
 interface Settings {
   email: string
@@ -17,7 +19,6 @@ interface Settings {
 
 interface TelegramLink { code: string; link: string }
 
-// ── Helpers visuais ─────────────────────────────────────────────────────────
 const Badge = ({ on, labelOn, labelOff }: { on: boolean; labelOn: string; labelOff: string }) => (
   <span className={`font-mono text-[9px] px-2 py-0.5 border tracking-wider uppercase ${on ? 'text-cyan bg-cyan-dim border-cyan-20' : 'text-gold border-gold-30 bg-gold-dim'}`}>
     {on ? labelOn : labelOff}
@@ -41,7 +42,6 @@ const Btn = ({
   )
 }
 
-// ── Modal 6 dígitos ─────────────────────────────────────────────────────────
 function TotpInput({ onComplete }: { onComplete: (code: string) => void }) {
   const [digits, setDigits] = useState(['', '', '', '', '', ''])
   const refs = useRef<(HTMLInputElement | null)[]>([])
@@ -65,7 +65,6 @@ function TotpInput({ onComplete }: { onComplete: (code: string) => void }) {
   )
 }
 
-// ── Modal wrapper ────────────────────────────────────────────────────────────
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 bg-black/80 z-[500] flex items-center justify-center p-4 backdrop-blur-sm">
@@ -80,13 +79,15 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
   )
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings | null>(null)
   const [telegram, setTelegram] = useState<TelegramLink | null>(null)
   const [loading, setLoading] = useState(true)
   const [copiedRef, setCopiedRef] = useState(false)
   const [msg, setMsg] = useState<{ text: string; type: 'ok' | 'err' } | null>(null)
+  const [modal2FA, setModal2FA] = useState<'setup' | 'enable' | 'disable' | null>(null)
+  const [qrData, setQrData] = useState<{ qrCode: string; secret: string } | null>(null)
+  const [twofaLoading, setTwofaLoading] = useState(false)
 
   const copyReferral = () => {
     if (!settings?.referralCode) return
@@ -94,9 +95,6 @@ export default function SettingsPage() {
     setCopiedRef(true)
     setTimeout(() => setCopiedRef(false), 2000)
   }
-  const [modal2FA, setModal2FA] = useState<'setup' | 'enable' | 'disable' | null>(null)
-  const [qrData, setQrData] = useState<{ qrCode: string; secret: string } | null>(null)
-  const [twofaLoading, setTwofaLoading] = useState(false)
 
   const flash = (text: string, type: 'ok' | 'err' = 'ok') => {
     setMsg({ text, type })
@@ -112,21 +110,19 @@ export default function SettingsPage() {
 
   useEffect(() => { load().finally(() => setLoading(false)) }, [])
 
-  // ── 2FA: SETUP (obter QR Code) ────────────────────────────────────────────
   const handle2FASetup = async () => {
     setTwofaLoading(true)
     try {
       const res = await api.post<{ qrCode: string; secret: string }>('/auth/2fa/setup')
       setQrData(res.data)
       setModal2FA('enable')
-    } catch (err: any) {
+    } catch (err: unknown) {
       flash(getFriendlyError(err).message, 'err')
     } finally {
       setTwofaLoading(false)
     }
   }
 
-  // ── 2FA: ENABLE (confirmar com código) ───────────────────────────────────
   const handle2FAEnable = async (code: string) => {
     setTwofaLoading(true)
     try {
@@ -135,14 +131,13 @@ export default function SettingsPage() {
       setModal2FA(null)
       setQrData(null)
       await load()
-    } catch (err: any) {
+    } catch (err: unknown) {
       flash(getFriendlyError(err).message, 'err')
     } finally {
       setTwofaLoading(false)
     }
   }
 
-  // ── 2FA: DISABLE ─────────────────────────────────────────────────────────
   const handle2FADisable = async (code: string) => {
     setTwofaLoading(true)
     try {
@@ -150,20 +145,20 @@ export default function SettingsPage() {
       flash('2FA desactivado.')
       setModal2FA(null)
       await load()
-    } catch (err: any) {
+    } catch (err: unknown) {
       flash(getFriendlyError(err).message, 'err')
     } finally {
       setTwofaLoading(false)
     }
   }
 
-  // ── Telegram ─────────────────────────────────────────────────────────────
   const generateTelegramLink = async () => {
     try {
       const res = await api.post<TelegramLink>('/telegram/link-code')
       setTelegram(res.data)
-    } catch (err: any) {
+    } catch (err: unknown) {
       flash(getFriendlyError(err).message, 'err')
+      throw err
     }
   }
 
@@ -173,8 +168,9 @@ export default function SettingsPage() {
       setTelegram(null)
       flash('Telegram desligado.')
       await load()
-    } catch (err: any) {
+    } catch (err: unknown) {
       flash(getFriendlyError(err).message, 'err')
+      throw err
     }
   }
 
@@ -185,29 +181,30 @@ export default function SettingsPage() {
   )
 
   return (
-    <div className="space-y-4 max-w-3xl">
-      {/* Título */}
+    <div className="space-y-4 max-w-4xl">
       <div>
         <h2 className="text-text1 font-bold text-lg">Configurações</h2>
-        <p className="font-mono text-[9px] text-text2 uppercase tracking-wider mt-0.5">Conta · Segurança · Notificações</p>
+        <p className="font-mono text-[9px] text-text2 uppercase tracking-wider mt-0.5">
+          Conta · Estado ao vivo · Notificações · Segurança
+        </p>
       </div>
 
-      {/* Flash message */}
       {msg && (
         <div className={`p-3 border font-mono text-[10px] ${msg.type === 'ok' ? 'bg-cyan-dim border-cyan-20 text-cyan' : 'bg-red-dim border-red-30 text-red'}`}>
           {msg.text}
         </div>
       )}
 
-      {/* ── CONTA ── */}
+      <AccountLiveStatus pollMs={10000} />
+
       <div className="bg-bg1 border border-border1 p-5">
         <h3 className="font-mono text-[9px] uppercase tracking-wider text-text2 mb-4">Conta</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {[
-            { label: 'Email',          value: settings?.email },
-            { label: 'Plano',          value: settings?.plan,          highlight: 'gold' },
-            { label: 'Código afiliado',value: settings?.referralCode,  highlight: 'cyan' },
-            { label: 'Criada em',      value: settings?.createdAt ? new Date(settings.createdAt).toLocaleDateString('pt-PT') : '-' },
+            { label: 'Email', value: settings?.email },
+            { label: 'Plano', value: settings?.plan, highlight: 'gold' as const },
+            { label: 'Código afiliado', value: settings?.referralCode, highlight: 'cyan' as const },
+            { label: 'Criada em', value: settings?.createdAt ? new Date(settings.createdAt).toLocaleDateString('pt-PT') : '-' },
           ].map(({ label, value, highlight }) => (
             <div key={label} className="bg-bg2 border border-border1 p-3">
               <span className="font-mono text-[8px] uppercase tracking-wider text-text3">{label}</span>
@@ -217,11 +214,9 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* ── LINK DE INDICAÇÃO ── */}
       {settings?.referralCode && (
         <div className="bg-bg1 border border-border1 p-5">
           <h3 className="font-mono text-[9px] uppercase tracking-wider text-text2 mb-3">Link de Indicação</h3>
-          <p className="font-mono text-[9px] text-text3 mb-3">Convida amigos e ganha comissões na tua rede.</p>
           <div className="flex gap-2">
             <input type="text" readOnly value={buildReferralLink(settings.referralCode)}
               className="flex-1 bg-bg3 border border-border2 text-cyan font-mono text-xs px-3 py-2 outline-none" />
@@ -233,128 +228,69 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* ── SEGURANÇA + TELEGRAM ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <h3 className="font-mono text-[9px] uppercase tracking-wider text-text2 mb-3">Notificações</h3>
+        {settings?.email && (
+          <NotificationChannelsPanel
+            email={settings.email}
+            telegramLinked={settings.telegramLinked}
+            telegram={telegram}
+            onGenerateTelegram={generateTelegramLink}
+            onUnlinkTelegram={unlinkTelegram}
+          />
+        )}
+      </div>
 
-        {/* 2FA */}
-        <div className="bg-bg1 border border-border1 p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-mono text-[9px] uppercase tracking-wider text-text2">Autenticação 2FA</h3>
-            <Badge on={settings?.twoFAEnabled ?? false} labelOn="Activo ✓" labelOff="Inactivo ⚠" />
-          </div>
-          <p className="font-mono text-[9px] text-text3 mb-4 leading-relaxed">
-            {settings?.twoFAEnabled
-              ? 'A tua conta está protegida por autenticação de dois factores.'
-              : 'Recomendamos activar o 2FA para proteger a tua conta.'}
-          </p>
-          <div className="flex gap-2">
-            {!settings?.twoFAEnabled ? (
-              <Btn onClick={handle2FASetup} loading={twofaLoading}>
-                Activar 2FA
-              </Btn>
-            ) : (
-              <Btn onClick={() => setModal2FA('disable')} variant="danger">
-                Desactivar 2FA
-              </Btn>
-            )}
-          </div>
-          <p className="font-mono text-[8px] text-text3 mt-3 leading-relaxed">
-            Usa: Google Authenticator · Authy · Microsoft Authenticator
-          </p>
+      <div className="bg-bg1 border border-border1 p-5">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-mono text-[9px] uppercase tracking-wider text-text2">Autenticação 2FA</h3>
+          <Badge on={settings?.twoFAEnabled ?? false} labelOn="Activo ✓" labelOff="Inactivo ⚠" />
         </div>
-
-        {/* Telegram */}
-        <div className="bg-bg1 border border-border1 p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-mono text-[9px] uppercase tracking-wider text-text2">Notificações Telegram</h3>
-            <Badge on={settings?.telegramLinked ?? false} labelOn="Ligado ✓" labelOff="Não ligado" />
-          </div>
-          <p className="font-mono text-[9px] text-text3 mb-4 leading-relaxed">
-            Recebe relatórios diários e alertas do bot directamente no Telegram.
-          </p>
-          <div className="flex gap-2">
-            {!settings?.telegramLinked ? (
-              <Btn onClick={generateTelegramLink}>Ligar Telegram</Btn>
-            ) : (
-              <Btn onClick={unlinkTelegram} variant="ghost">Desligar</Btn>
-            )}
-          </div>
-          {telegram && (
-            <div className="mt-4 bg-bg2 border border-border1 p-3 space-y-2">
-              <p className="font-mono text-[8px] uppercase tracking-wider text-text3">Código de ligação</p>
-              <p className="font-mono text-cyan text-sm font-bold tracking-widest">{telegram.code}</p>
-              <a href={telegram.link} target="_blank" rel="noreferrer"
-                className="inline-block font-mono text-[10px] text-gold underline hover:no-underline">
-                → Abrir no Telegram
-              </a>
-              <p className="font-mono text-[8px] text-text3">Envia /start {telegram.code} ao bot para ligar.</p>
-            </div>
+        <p className="font-mono text-[9px] text-text3 mb-4 leading-relaxed">
+          {settings?.twoFAEnabled
+            ? 'A tua conta está protegida por autenticação de dois factores.'
+            : 'Recomendamos activar o 2FA para proteger a tua conta.'}
+        </p>
+        <div className="flex gap-2">
+          {!settings?.twoFAEnabled ? (
+            <Btn onClick={handle2FASetup} loading={twofaLoading}>Activar 2FA</Btn>
+          ) : (
+            <Btn onClick={() => setModal2FA('disable')} variant="danger">Desactivar 2FA</Btn>
           )}
         </div>
       </div>
 
-      {/* Zona de perigo */}
       <div className="bg-bg1 border border-red-30 p-5">
         <h3 className="font-mono text-[9px] uppercase tracking-wider text-red font-bold mb-2">Zona de perigo</h3>
-        <p className="font-mono text-[10px] text-text2 mb-4 leading-relaxed">
-          Eliminar a conta remove permanentemente os teus dados, bots e ligações à exchange.
-        </p>
         <Link to="/settings/delete-account"
           className="inline-block px-4 py-2 border border-red-30 bg-red-dim text-red font-mono text-[9px] uppercase tracking-wider hover:bg-red/15 transition-all">
           Eliminar conta
         </Link>
       </div>
 
-      {/* ════ MODAL: QR CODE ════ */}
       {modal2FA === 'enable' && qrData && (
         <Modal title="Activar 2FA — Escaneia o QR Code" onClose={() => { setModal2FA(null); setQrData(null) }}>
           <div className="text-center space-y-4">
             <p className="font-mono text-[9px] text-text2">
               1. Abre o Google Authenticator ou Authy<br />
               2. Escaneia o QR Code abaixo<br />
-              3. Introduz o código de 6 dígitos para confirmar
+              3. Introduz o código de 6 dígitos
             </p>
             <img src={qrData.qrCode} alt="QR Code 2FA" className="w-44 h-44 mx-auto border border-border1" />
-            <div className="bg-bg2 border border-border1 p-2">
-              <p className="font-mono text-[8px] text-text3 mb-1">Chave manual (backup)</p>
-              <p className="font-mono text-[10px] text-text1 break-all tracking-widest">{qrData.secret}</p>
-            </div>
-            <p className="font-mono text-[9px] text-text2">Introduz o código após escanear:</p>
             <TotpInput onComplete={handle2FAEnable} />
-            {twofaLoading && (
-              <div className="flex justify-center">
-                <YevaTradeLoader size="sm" />
-              </div>
-            )}
+            {twofaLoading && <div className="flex justify-center"><YevaTradeLoader size="sm" /></div>}
           </div>
         </Modal>
       )}
 
-      {/* ════ MODAL: SETUP (intermédia se setup foi chamado antes) ════ */}
-      {modal2FA === 'setup' && (
-        <Modal title="A preparar 2FA..." onClose={() => setModal2FA(null)}>
-          <div className="flex justify-center py-8">
-            <YevaTradeLoader size="md" label="A preparar 2FA..." />
-          </div>
-        </Modal>
-      )}
-
-      {/* ════ MODAL: DESACTIVAR 2FA ════ */}
       {modal2FA === 'disable' && (
         <Modal title="Desactivar 2FA" onClose={() => setModal2FA(null)}>
           <div className="space-y-4">
             <div className="bg-red-dim border border-red-30 p-3 font-mono text-[10px] text-red">
-              ⚠ Desactivar o 2FA reduz a segurança da tua conta.
+              Desactivar o 2FA reduz a segurança da tua conta.
             </div>
-            <p className="font-mono text-[9px] text-text2 text-center">
-              Introduz o código actual do teu autenticador para confirmar:
-            </p>
             <TotpInput onComplete={handle2FADisable} />
-            {twofaLoading && (
-              <div className="flex justify-center">
-                <YevaTradeLoader size="sm" />
-              </div>
-            )}
+            {twofaLoading && <div className="flex justify-center"><YevaTradeLoader size="sm" /></div>}
           </div>
         </Modal>
       )}

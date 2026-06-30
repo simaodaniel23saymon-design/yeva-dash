@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { getFriendlyError } from '../utils/errorHandler'
 import { formatMoney, toWalletUnits } from '../utils/format'
+import { NotificationPreview, sampleNotifyMetrics } from '../components/notifications/NotificationPreview'
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 interface Stats {
@@ -87,6 +88,8 @@ export default function AdminPage() {
   const [userHistory, setUserHistory] = useState<Array<Omit<AdminTx, 'user'>>>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [notifyMsg, setNotifyMsg] = useState({ subject: '', message: '', userId: '', channels: ['panel'] as string[] })
+  const [notifyPreview, setNotifyPreview] = useState<'email' | 'telegram'>('email')
+  const [includeLiveMetrics, setIncludeLiveMetrics] = useState(true)
   const [flash, setFlash] = useState<{ text: string; ok: boolean } | null>(null)
 
   const showFlash = (text: string, ok = true) => {
@@ -594,56 +597,89 @@ export default function AdminPage() {
 
       {/* ═══ NOTIFICAÇÕES ═══ */}
       {tab === 'notify' && (
-        <div className="bg-bg1 border border-border1 p-5 space-y-4 max-w-xl">
-          <h3 className="font-mono text-[9px] uppercase tracking-wider text-text2">Enviar Notificação</h3>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 max-w-5xl">
+          <div className="bg-bg1 border border-border1 p-5 space-y-4">
+            <h3 className="font-mono text-[9px] uppercase tracking-wider text-text2">Enviar Notificação</h3>
+
+            <div className="space-y-3">
+              <div>
+                <label className="font-mono text-[8px] text-text3 uppercase block mb-1">Assunto / Título</label>
+                <input value={notifyMsg.subject} onChange={e => setNotifyMsg(p => ({ ...p, subject: e.target.value }))}
+                  className="w-full bg-bg3 border border-border2 text-text1 font-mono text-xs px-3 py-2 outline-none focus:border-cyan/50"
+                  placeholder="Ex: Manutenção programada" />
+              </div>
+
+              <div>
+                <label className="font-mono text-[8px] text-text3 uppercase block mb-1">Mensagem</label>
+                <textarea value={notifyMsg.message} onChange={e => setNotifyMsg(p => ({ ...p, message: e.target.value }))}
+                  rows={5}
+                  className="w-full bg-bg3 border border-border2 text-text1 font-mono text-xs px-3 py-2 outline-none focus:border-cyan/50 resize-none"
+                  placeholder="Texto claro e directo para o utilizador..." />
+              </div>
+
+              <div>
+                <label className="font-mono text-[8px] text-text3 uppercase block mb-1">
+                  ID do Utilizador <span className="text-text3">(vazio = todos)</span>
+                </label>
+                <input value={notifyMsg.userId} onChange={e => setNotifyMsg(p => ({ ...p, userId: e.target.value }))}
+                  className="w-full bg-bg3 border border-border2 text-text1 font-mono text-xs px-3 py-2 outline-none focus:border-cyan/50"
+                  placeholder="uuid do utilizador ou vazio para todos" />
+              </div>
+
+              <div>
+                <label className="font-mono text-[8px] text-text3 uppercase block mb-2">Canais de envio</label>
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    { id: 'panel', label: 'Painel' },
+                    { id: 'email', label: 'Email' },
+                    { id: 'telegram', label: 'Telegram' },
+                  ] as const).map(({ id, label }) => {
+                    const active = notifyMsg.channels.includes(id)
+                    return (
+                      <button key={id} type="button" onClick={() => setNotifyMsg(p => ({
+                        ...p,
+                        channels: active ? p.channels.filter(c => c !== id) : [...p.channels, id]
+                      }))}
+                        className={`px-3 py-1.5 font-mono text-[9px] uppercase border transition-all ${active ? 'bg-cyan-dim border-cyan-20 text-cyan' : 'border-border2 text-text3 hover:border-border1'}`}>
+                        {label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={includeLiveMetrics} onChange={e => setIncludeLiveMetrics(e.target.checked)}
+                  className="accent-cyan" />
+                <span className="font-mono text-[9px] text-text2">Incluir bloco «Estado da conta» (email/Telegram)</span>
+              </label>
+
+              <button type="button" onClick={sendNotify} disabled={!notifyMsg.subject || !notifyMsg.message}
+                className="w-full py-2.5 border border-cyan-30 bg-cyan-dim text-cyan font-mono text-[10px] uppercase tracking-widest hover:bg-cyan/20 transition-all disabled:opacity-40">
+                Enviar Notificação
+              </button>
+            </div>
+          </div>
 
           <div className="space-y-3">
-            <div>
-              <label className="font-mono text-[8px] text-text3 uppercase block mb-1">Assunto / Título</label>
-              <input value={notifyMsg.subject} onChange={e => setNotifyMsg(p => ({ ...p, subject: e.target.value }))}
-                className="w-full bg-bg3 border border-border2 text-text1 font-mono text-xs px-3 py-2 outline-none focus:border-cyan/50"
-                placeholder="Ex: Manutenção programada" />
+            <div className="flex gap-2">
+              {(['email', 'telegram'] as const).map(mode => (
+                <button key={mode} type="button" onClick={() => setNotifyPreview(mode)}
+                  className={`px-3 py-1.5 font-mono text-[9px] uppercase border transition-all ${notifyPreview === mode ? 'bg-cyan-dim border-cyan-20 text-cyan' : 'border-border2 text-text3'}`}>
+                  Preview {mode === 'email' ? 'Email' : 'Telegram'}
+                </button>
+              ))}
             </div>
-
-            <div>
-              <label className="font-mono text-[8px] text-text3 uppercase block mb-1">Mensagem</label>
-              <textarea value={notifyMsg.message} onChange={e => setNotifyMsg(p => ({ ...p, message: e.target.value }))}
-                rows={4}
-                className="w-full bg-bg3 border border-border2 text-text1 font-mono text-xs px-3 py-2 outline-none focus:border-cyan/50 resize-none"
-                placeholder="Texto da notificação..." />
-            </div>
-
-            <div>
-              <label className="font-mono text-[8px] text-text3 uppercase block mb-1">
-                ID do Utilizador <span className="text-text3">(vazio = todos)</span>
-              </label>
-              <input value={notifyMsg.userId} onChange={e => setNotifyMsg(p => ({ ...p, userId: e.target.value }))}
-                className="w-full bg-bg3 border border-border2 text-text1 font-mono text-xs px-3 py-2 outline-none focus:border-cyan/50"
-                placeholder="uuid do utilizador ou vazio para todos" />
-            </div>
-
-            <div>
-              <label className="font-mono text-[8px] text-text3 uppercase block mb-2">Canais</label>
-              <div className="flex gap-2">
-                {(['panel', 'email', 'telegram'] as const).map(ch => {
-                  const active = notifyMsg.channels.includes(ch)
-                  return (
-                    <button key={ch} onClick={() => setNotifyMsg(p => ({
-                      ...p,
-                      channels: active ? p.channels.filter(c => c !== ch) : [...p.channels, ch]
-                    }))}
-                      className={`px-3 py-1.5 font-mono text-[9px] uppercase border transition-all ${active ? 'bg-cyan-dim border-cyan-20 text-cyan' : 'border-border2 text-text3 hover:border-border1'}`}>
-                      {ch}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            <button onClick={sendNotify} disabled={!notifyMsg.subject || !notifyMsg.message}
-              className="w-full py-2.5 border border-cyan-30 bg-cyan-dim text-cyan font-mono text-[10px] uppercase tracking-widest hover:bg-cyan/20 transition-all disabled:opacity-40">
-              Enviar Notificação
-            </button>
+            <NotificationPreview
+              subject={notifyMsg.subject}
+              message={notifyMsg.message}
+              metrics={includeLiveMetrics ? sampleNotifyMetrics() : undefined}
+              mode={notifyPreview}
+            />
+            <p className="font-mono text-[8px] text-text3 leading-relaxed">
+              Emails usam logo horizontal e ícone oficial Yeva Trade, com fundo alinhado ao painel (#060a08).
+              Telegram usa formato estruturado com métricas ao vivo quando activadas.
+            </p>
           </div>
         </div>
       )}
