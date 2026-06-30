@@ -10,7 +10,9 @@ import {
   formatPerformanceFee,
   type PerformanceFeeStats,
 } from '../utils/adminPerformanceFees'
-import { NotificationPreview, sampleNotifyMetrics } from '../components/notifications/NotificationPreview'
+import { NotificationPreview } from '../components/notifications/NotificationPreview'
+import { useAccountLiveStatus } from '../hooks/useAccountLiveStatus'
+import { buildNotifyMetricsFromStatus } from '../utils/notifyMetrics'
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 interface Stats {
@@ -97,6 +99,7 @@ export default function AdminPage() {
   const [notifyPreview, setNotifyPreview] = useState<'email' | 'telegram'>('email')
   const [includeLiveMetrics, setIncludeLiveMetrics] = useState(true)
   const [flash, setFlash] = useState<{ text: string; ok: boolean } | null>(null)
+  const { data: liveStatus } = useAccountLiveStatus(15000)
 
   const showFlash = (text: string, ok = true) => {
     setFlash({ text, ok })
@@ -697,9 +700,10 @@ export default function AdminPage() {
             <NotificationPreview
               subject={notifyMsg.subject}
               message={notifyMsg.message}
-              metrics={includeLiveMetrics ? sampleNotifyMetrics() : undefined}
+              metrics={includeLiveMetrics ? buildNotifyMetricsFromStatus(liveStatus) : undefined}
               mode={notifyPreview}
               statusPreview={notifyPreview === 'telegram' && includeLiveMetrics}
+              liveStatus={includeLiveMetrics ? liveStatus : undefined}
             />
             <p className="font-mono text-[8px] text-text3 leading-relaxed">
               Emails usam logo horizontal e ícone oficial Yeva Trade, com fundo alinhado ao painel (#060a08).

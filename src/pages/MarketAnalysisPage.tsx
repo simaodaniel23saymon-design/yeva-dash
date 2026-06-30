@@ -12,7 +12,7 @@ export default function MarketAnalysisPage() {
   useEffect(() => {
     fetchBotsList().then(bots => {
       const list = [...new Set(bots.map(b => botPair(b)).filter(Boolean))];
-      setPairs(list.length ? list : ['BTCUSDT', 'ETHUSDT', 'SOLUSDT']);
+      setPairs(list);
     });
   }, []);
 
@@ -47,6 +47,12 @@ export default function MarketAnalysisPage() {
       {loading ? (
         <div className="flex justify-center py-20">
           <YevaTradeLoader size="md" />
+        </div>
+      ) : sorted.length === 0 ? (
+        <div className="bg-bg1 border border-border1 p-10 text-center font-mono text-[11px] text-text2">
+          {pairs.length === 0
+            ? 'Sem bots configurados — cria um bot para analisar os pares.'
+            : 'Análise de mercado indisponível — endpoint PRO ainda sem dados.'}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

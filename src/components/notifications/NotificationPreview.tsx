@@ -8,30 +8,32 @@ interface Props {
   mode: 'email' | 'telegram';
   /** Pré-visualiza o comando /status do bot Telegram */
   statusPreview?: boolean;
+  /** Estado real da conta (GET /account/live-status) */
+  liveStatus?: AccountLiveStatus | null;
 }
 
-const SAMPLE_STATUS: AccountLiveStatus = {
-  binanceBalance: 1240,
-  binanceAvailableBalance: 1240,
-  binanceWalletBalance: 1258.32,
-  liquidBalance: 1258.32,
-  openPnl: 18.32,
-  openPositionsCount: 1,
-  todayResult: 4.5,
-  dailyProfit: 12.8,
-  dailyLoss: 8.3,
-  exchangeConnected: true,
-  activeBots: 2,
-  gasBalance: 0,
-  margin: 10.45,
-  updatedAt: new Date().toISOString(),
-};
-
-export function NotificationPreview({ subject, message, metrics, mode, statusPreview }: Props) {
+export function NotificationPreview({
+  subject,
+  message,
+  metrics,
+  mode,
+  statusPreview,
+  liveStatus,
+}: Props) {
   if (mode === 'telegram' && statusPreview) {
+    if (!liveStatus) {
+      return (
+        <div className="bg-bg2 border border-border1 border-dashed p-8 text-center">
+          <p className="font-mono text-[10px] text-text3">A carregar estado da conta...</p>
+        </div>
+      );
+    }
+
     const text = buildTelegramStatusText(
-      SAMPLE_STATUS,
-      '• BTCUSDT — 🟢 ACTIVO\n  P&L acumulado: +$18.32',
+      liveStatus,
+      liveStatus.activeBots > 0
+        ? `• ${liveStatus.activeBots} bot(s) activo(s)`
+        : undefined,
     );
     return (
       <div className="bg-bg2 border border-border1 overflow-hidden">
@@ -39,7 +41,7 @@ export function NotificationPreview({ subject, message, metrics, mode, statusPre
           <span className="w-8 h-8 rounded-full bg-cyan-dim border border-cyan-20 flex items-center justify-center text-xs">🤖</span>
           <div>
             <p className="font-mono text-[10px] text-text1 font-bold">Yeva Trade Bot · /status</p>
-            <p className="font-mono text-[8px] text-text3">Pré-visualização Telegram</p>
+            <p className="font-mono text-[8px] text-text3">Dados reais · Binance</p>
           </div>
         </div>
         <pre className="p-4 font-mono text-[11px] text-text1 whitespace-pre-wrap leading-relaxed max-h-80 overflow-y-auto scroll-area">
@@ -104,15 +106,4 @@ export function NotificationPreview({ subject, message, metrics, mode, statusPre
       />
     </div>
   );
-}
-
-/** Métricas de exemplo para preview admin */
-export function sampleNotifyMetrics(): EmailAlertBlock[] {
-  return [
-    { label: 'Saldo Binance', value: '$1,240.00', tone: 'cyan' },
-    { label: 'P&L aberto', value: '+$18.32', tone: 'cyan' },
-    { label: 'Ganhos hoje', value: '+$12.80', tone: 'cyan' },
-    { label: 'Perdas hoje', value: '$8.30', tone: 'red' },
-    { label: 'Resultado hoje', value: '+$4.50', tone: 'cyan' },
-  ];
 }

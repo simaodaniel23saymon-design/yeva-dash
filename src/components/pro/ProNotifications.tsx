@@ -61,22 +61,3 @@ export function ProNotifications({ items, loading, compact = false, maxItems = 8
     </div>
   );
 }
-
-export const DEMO_PRO_NOTIFICATIONS: ProNotification[] = [
-  {
-    id: '1',
-    type: 'trend_detected',
-    title: 'Tendência Detectada',
-    message: 'Bot entrou em operação após confirmação multi-timeframe.',
-    pair: 'BTCUSDT',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    type: 'trailing_stop',
-    title: 'Trailing Stop Activado',
-    message: 'Lucro protegido com trailing stop de 1%.',
-    pair: 'ETHUSDT',
-    createdAt: new Date(Date.now() - 3600000).toISOString(),
-  },
-];

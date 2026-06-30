@@ -5,8 +5,11 @@ export interface BotConfig {
   maxLongPositions?: number;
   maxShortPositions?: number;
   gridSpacing?: number;
+  tpDailyPct?: number;
+  maxLossPct?: number;
   trailingStopEnabled?: boolean;
   trailingStopActivation?: number;
+  trailingStopCallback?: number;
   timeframes?: string[];
   requireAllTimeframes?: boolean;
   minLiquidity?: number;
@@ -15,6 +18,9 @@ export interface BotConfig {
 export interface Position {
   symbol?: string;
   positionSide?: string;
+  positionAmt?: string | number;
+  entryPrice?: string | number;
+  markPrice?: string | number;
   unrealizedProfit?: string | number;
   gridPosition?: number;
   gridMax?: number;
@@ -72,8 +78,11 @@ export const DEFAULT_PRO_CONFIG: Required<BotConfig> = {
   maxLongPositions: 15,
   maxShortPositions: 15,
   gridSpacing: 0.8,
+  tpDailyPct: 1.5,
+  maxLossPct: 3.0,
   trailingStopEnabled: true,
   trailingStopActivation: 1.0,
+  trailingStopCallback: 0.5,
   timeframes: ['1h', '4h', '1d'],
   requireAllTimeframes: true,
   minLiquidity: 500_000,

@@ -12,6 +12,9 @@ export interface CreateBotPayload {
   spacing: number;
   tpDailyPct: number;
   maxLossPct: number;
+  trailingStopEnabled: boolean;
+  trailingStopActivation: number;
+  trailingStopCallback: number;
 }
 
 /** Payload alinhado com POST /api/bots do backend */
@@ -38,7 +41,10 @@ export function buildCreateBotPayload(
     capitalPerSide: Number(capitalPerSide),
     ordersPerSide: Math.round(ordersPerSide),
     spacing: Number(Number(spacing).toFixed(2)),
-    tpDailyPct: 1.5,
-    maxLossPct: 3.0,
+    tpDailyPct: Number(c.tpDailyPct ?? 1.5),
+    maxLossPct: Number(c.maxLossPct ?? 3.0),
+    trailingStopEnabled: c.trailingStopEnabled !== false,
+    trailingStopActivation: Number(c.trailingStopActivation ?? 1.0),
+    trailingStopCallback: Number(c.trailingStopCallback ?? 0.5),
   };
 }

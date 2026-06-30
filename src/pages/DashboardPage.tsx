@@ -6,9 +6,7 @@ import { LiveChart } from '../components/LiveChart';
 import { useChartSymbol } from '../hooks/useChartSymbol';
 import { AnimatedStat } from '../components/AnimatedStat';
 import { IconWallet, IconTrendUp, IconTrendDown, IconActivity } from '../components/ui/Icons';
-import { ProStrategyCardsDefaults } from '../components/pro/ProStrategyCards';
-import { ProPositionDetails } from '../components/pro/ProPositionDetails';
-import { enrichPosition } from '../utils/proTrading';
+import { ProStrategyCardsLive } from '../components/pro/ProStrategyCards';
 import { formatMoney } from '../utils/format';
 import { fmtSignedUsd } from '../utils/binanceData';
 import { useBinanceData } from '../hooks/useBinanceData';
@@ -173,7 +171,7 @@ export default function DashboardPage() {
             />
           </div>
 
-          <ProStrategyCardsDefaults />
+          <ProStrategyCardsLive />
 
           <div className="bg-bg1 border border-border1 p-4 animate-fade-in-up">
             <LiveChart
@@ -195,14 +193,6 @@ export default function DashboardPage() {
               </h3>
               {positions.map((pos, idx) => {
                 const pnl = parseNum(pos.unrealizedProfit);
-                const enriched = enrichPosition(
-                  {
-                    symbol: pos.symbol,
-                    positionSide: pos.positionSide,
-                    unrealizedProfit: pos.unrealizedProfit,
-                  },
-                  idx,
-                );
                 return (
                   <div
                     key={`${pos.symbol}-${idx}`}
@@ -224,7 +214,6 @@ export default function DashboardPage() {
                       <span>Entrada: <span className="text-text1">${parseNum(pos.entryPrice).toFixed(2)}</span></span>
                       <span>Marca: <span className="text-text1">${parseNum(pos.markPrice).toFixed(2)}</span></span>
                     </div>
-                    <ProPositionDetails position={enriched} pnl={pnl} />
                   </div>
                 );
               })}

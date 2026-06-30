@@ -37,9 +37,15 @@ export interface LiveBot {
   isActive?: boolean;
   leverage?: number;
   capitalPerSide?: number;
+  ordersPerSide?: number;
+  spacing?: number;
   tpDailyPct?: number;
   maxLossPct?: number;
+  trailingStopEnabled?: boolean;
+  trailingStopActivation?: number;
+  trailingStopCallback?: number;
   mode?: string;
+  riskMode?: string;
 }
 
 type BotLike = {

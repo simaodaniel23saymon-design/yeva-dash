@@ -2,10 +2,10 @@ import { Link } from 'react-router-dom';
 import { YevaTradeLoader } from '../components/YevaTradeLoader';
 import { QuickGuide } from '../components/QuickGuide';
 import { GridVisual } from '../components/pro/GridVisual';
-import { ProStrategyCardsDefaults } from '../components/pro/ProStrategyCards';
+import { ProStrategyCardsLive } from '../components/pro/ProStrategyCards';
+import { useActiveBotConfig } from '../hooks/useActiveBotConfig';
 import { useProTrading } from '../hooks/useProTrading';
 import { formatLiquidity } from '../utils/proTrading';
-import { DEFAULT_PRO_CONFIG } from '../types/trading';
 
 function StatBlock({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
   return (
@@ -18,27 +18,38 @@ function StatBlock({ label, value, sub, accent }: { label: string; value: string
 }
 
 export default function BotStatsPage() {
-  const { botStats, loading } = useProTrading();
+  const { botStats, loading: proLoading } = useProTrading();
+  const { bot, longCount, shortCount, loading: botLoading } = useActiveBotConfig();
 
-  const stats = botStats ?? {
-    gridLongUsed: 0,
-    gridLongMax: DEFAULT_PRO_CONFIG.maxLongPositions,
-    gridShortUsed: 0,
-    gridShortMax: DEFAULT_PRO_CONFIG.maxShortPositions,
-    trailingActivations: 0,
-    trailingProtected: 0,
-    mtfSignalsConfirmed: 0,
-    mtfAccuracyPct: 0,
-    liquidityPairsIgnored: 0,
-    liquidityAvgVolume: DEFAULT_PRO_CONFIG.minLiquidity,
+  const orders = bot?.ordersPerSide ?? 0;
+  const spacing = bot?.spacing;
+
+  const stats = {
+    gridLongUsed: botStats?.gridLongUsed || longCount,
+    gridLongMax: botStats?.gridLongMax || orders,
+    gridShortUsed: botStats?.gridShortUsed || shortCount,
+    gridShortMax: botStats?.gridShortMax || orders,
+    trailingActivations: botStats?.trailingActivations ?? 0,
+    trailingProtected: botStats?.trailingProtected ?? 0,
+    mtfSignalsConfirmed: botStats?.mtfSignalsConfirmed ?? 0,
+    mtfAccuracyPct: botStats?.mtfAccuracyPct ?? 0,
+    liquidityPairsIgnored: botStats?.liquidityPairsIgnored ?? 0,
+    liquidityAvgVolume: botStats?.liquidityAvgVolume ?? 0,
   };
+
+  const loading = proLoading || botLoading;
+  const hasGrid = stats.gridLongMax > 0 || stats.gridShortMax > 0 || longCount > 0 || shortCount > 0;
+  const hasProMetrics =
+    stats.trailingActivations > 0
+    || stats.mtfSignalsConfirmed > 0
+    || stats.liquidityPairsIgnored > 0;
 
   return (
     <div className="space-y-4">
       <QuickGuide title="Estatísticas PRO" steps={[
-        'Grid: entradas long e short utilizadas',
-        'Trailing stop: activações e lucro protegido',
-        'Multi-timeframe e filtro de liquidez',
+        'Grid: entradas long e short utilizadas (dados reais)',
+        'Trailing stop e multi-timeframe quando a API reportar',
+        'Posições contadas a partir da Binance',
       ]} />
 
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -54,45 +65,59 @@ export default function BotStatsPage() {
         </Link>
       </div>
 
-      <ProStrategyCardsDefaults />
+      <ProStrategyCardsLive />
 
       {loading ? (
         <div className="flex justify-center py-12">
           <YevaTradeLoader size="md" />
         </div>
+      ) : !hasGrid && !hasProMetrics ? (
+        <div className="bg-bg1 border border-border1 p-8 text-center font-mono text-[11px] text-text2">
+          Sem estatísticas PRO disponíveis — activa um bot ou aguarda dados da API.
+        </div>
       ) : (
         <>
-          <GridVisual
-            longUsed={stats.gridLongUsed}
-            longMax={stats.gridLongMax}
-            shortUsed={stats.gridShortUsed}
-            shortMax={stats.gridShortMax}
-            spacing={DEFAULT_PRO_CONFIG.gridSpacing}
-          />
+          {hasGrid && spacing != null && (
+            <GridVisual
+              longUsed={stats.gridLongUsed}
+              longMax={stats.gridLongMax || 1}
+              shortUsed={stats.gridShortUsed}
+              shortMax={stats.gridShortMax || 1}
+              spacing={spacing}
+            />
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <StatBlock
-              label="Grid Utilizado"
-              value={`${stats.gridLongUsed}/${stats.gridLongMax} Long | ${stats.gridShortUsed}/${stats.gridShortMax} Short`}
-              accent="border-cyan-20"
-            />
-            <StatBlock
-              label="Trailing Stop"
-              value={`${stats.trailingActivations} activações`}
-              sub={`$${stats.trailingProtected.toFixed(2)} protegidos`}
-              accent="border-pro-blue/30"
-            />
-            <StatBlock
-              label="Multi-Timeframe"
-              value={`${stats.mtfSignalsConfirmed} sinais confirmados`}
-              sub={`${stats.mtfAccuracyPct.toFixed(1)}% acerto`}
-              accent="border-gold-30"
-            />
-            <StatBlock
-              label="Filtro Liquidez"
-              value={`${stats.liquidityPairsIgnored} pares ignorados`}
-              sub={`Média: ${formatLiquidity(stats.liquidityAvgVolume)}`}
-            />
+            {hasGrid && (
+              <StatBlock
+                label="Grid Utilizado"
+                value={`${stats.gridLongUsed}/${stats.gridLongMax || '—'} Long | ${stats.gridShortUsed}/${stats.gridShortMax || '—'} Short`}
+                accent="border-cyan-20"
+              />
+            )}
+            {stats.trailingActivations > 0 && (
+              <StatBlock
+                label="Trailing Stop"
+                value={`${stats.trailingActivations} activações`}
+                sub={`$${stats.trailingProtected.toFixed(2)} protegidos`}
+                accent="border-pro-blue/30"
+              />
+            )}
+            {stats.mtfSignalsConfirmed > 0 && (
+              <StatBlock
+                label="Multi-Timeframe"
+                value={`${stats.mtfSignalsConfirmed} sinais confirmados`}
+                sub={`${stats.mtfAccuracyPct.toFixed(1)}% acerto`}
+                accent="border-gold-30"
+              />
+            )}
+            {stats.liquidityPairsIgnored > 0 && (
+              <StatBlock
+                label="Filtro Liquidez"
+                value={`${stats.liquidityPairsIgnored} pares ignorados`}
+                sub={stats.liquidityAvgVolume > 0 ? `Média: ${formatLiquidity(stats.liquidityAvgVolume)}` : undefined}
+              />
+            )}
           </div>
         </>
       )}

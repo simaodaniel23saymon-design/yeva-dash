@@ -1,43 +1,31 @@
 import type { Position } from '../../types/trading';
-import { TrailingStopIndicator } from './TrailingStopIndicator';
+import { parseNum } from '../../utils/liveData';
 
 interface Props {
   position: Position;
   pnl: number;
 }
 
+/** Detalhes reais da posição Binance — sem estimativas locais */
 export function ProPositionDetails({ position, pnl }: Props) {
   const side = String(position.positionSide ?? '').toUpperCase();
-  const isLong = side.includes('LONG') || side === 'BUY';
-  const gridPos = position.gridPosition ?? 1;
-  const gridMax = position.gridMax ?? 15;
-  const trend = position.marketTrend ?? (isLong ? 'UP' : 'DOWN');
+  const entry = parseNum(position.entryPrice);
+  const mark = parseNum(position.markPrice);
+  const qty = position.positionAmt ?? '—';
 
   return (
-    <div className="mt-3 pt-3 border-t border-border1 space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="font-mono text-[9px] uppercase px-2 py-1 border border-border2 text-text2">
-          Entrada #{gridPos}/{gridMax}
-        </span>
-        <span className={`font-mono text-[9px] uppercase px-2 py-1 border ${trend === 'UP' ? 'border-pro-green/40 text-pro-green' : 'border-pro-red/40 text-pro-red'}`}>
-          Tendência {trend === 'UP' ? 'ALTA' : 'BAIXA'}
-        </span>
+    <div className="mt-3 pt-3 border-t border-border1 space-y-2 font-mono text-[10px] text-text2">
+      <div className="grid grid-cols-2 gap-2">
+        <span>Lado: <span className="text-text1">{side || '—'}</span></span>
+        <span>Qtd: <span className="text-text1">{qty}</span></span>
+        {entry > 0 && (
+          <span>Entrada: <span className="text-text1">${entry.toFixed(4)}</span></span>
+        )}
+        {mark > 0 && (
+          <span>Marca: <span className="text-text1">${mark.toFixed(4)}</span></span>
+        )}
+        <span>P&L: <span className={pnl >= 0 ? 'text-cyan' : 'text-red'}>${pnl.toFixed(2)}</span></span>
       </div>
-      <TrailingStopIndicator
-        compact
-        active={position.trailingStopActive}
-        protectedProfit={position.trailingStopProfit}
-      />
-      {position.trailingStopActive && (position.trailingStopProfit ?? 0) > 0 && (
-        <p className="font-mono text-[9px] text-pro-blue">
-          Lucro protegido: ${Number(position.trailingStopProfit).toFixed(2)}
-        </p>
-      )}
-      {pnl < 0 && (
-        <p className="font-mono text-[9px] text-pro-yellow">
-          Monitorização activa — mercado lateralizado pode fechar posição contra tendência
-        </p>
-      )}
     </div>
   );
 }

@@ -6,7 +6,6 @@ import type {
   MarketAnalysis,
   ProNotification,
   Position,
-  TrendDirection,
 } from '../types/trading';
 import { DEFAULT_PRO_CONFIG } from '../types/trading';
 
@@ -26,8 +25,11 @@ export function buildProPayload(config: BotConfig): BotConfig {
     maxLongPositions: c.maxLongPositions,
     maxShortPositions: c.maxShortPositions,
     gridSpacing: c.gridSpacing,
+    tpDailyPct: c.tpDailyPct,
+    maxLossPct: c.maxLossPct,
     trailingStopEnabled: c.trailingStopEnabled,
     trailingStopActivation: c.trailingStopActivation,
+    trailingStopCallback: c.trailingStopCallback,
     timeframes: timeframes.length ? timeframes : ['1h', '4h', '1d'],
     requireAllTimeframes: c.requireAllTimeframes,
     minLiquidity: c.minLiquidity,
@@ -40,34 +42,9 @@ export function formatLiquidity(value: number): string {
   return `$${value.toFixed(0)}`;
 }
 
-export function enrichPosition(
-  pos: Position,
-  index: number,
-  config = DEFAULT_PRO_CONFIG,
-): Position {
-  const side = String(pos.positionSide ?? '').toUpperCase();
-  const isLong = side.includes('LONG') || side === 'BUY';
-  const maxGrid = isLong ? config.maxLongPositions : config.maxShortPositions;
-  const pnl = parseNum(pos.unrealizedProfit);
-  const activation = config.trailingStopActivation;
-  const raw = pos as Position & {
-    gridPosition?: number;
-    gridMax?: number;
-    trailingStopActive?: boolean;
-    trailingStopProfit?: number;
-    marketTrend?: TrendDirection;
-  };
-
-  return {
-    ...pos,
-    gridPosition: raw.gridPosition ?? (index % maxGrid) + 1,
-    gridMax: raw.gridMax ?? maxGrid,
-    trailingStopActive: Boolean(
-      raw.trailingStopActive ?? (config.trailingStopEnabled && pnl >= activation),
-    ),
-    trailingStopProfit: raw.trailingStopProfit ?? (pnl > 0 ? pnl * 0.6 : 0),
-    marketTrend: raw.marketTrend ?? (isLong ? 'UP' : 'DOWN'),
-  };
+/** Passa posição Binance sem estimativas locais */
+export function enrichPosition(pos: Position): Position {
+  return { ...pos };
 }
 
 export async function fetchMarketAnalysis(pairs?: string[]): Promise<MarketAnalysis[]> {
@@ -77,48 +54,39 @@ export async function fetchMarketAnalysis(pairs?: string[]): Promise<MarketAnaly
     );
     const list = res.data.analysis ?? res.data.pairs ?? [];
     if (list.length) return list;
-  } catch { /* fallback */ }
+  } catch { /* silencioso */ }
 
   try {
     const res = await api.get<MarketAnalysis[]>('/pro/market-analysis');
     if (res.data.length) return res.data;
-  } catch { /* fallback */ }
+  } catch { /* silencioso */ }
 
-  return (pairs ?? ['BTCUSDT', 'ETHUSDT']).map(pair => ({
-    pair,
-    status: 'ranging' as const,
-    timeframes: { h1: 'UP', h4: 'UP', d1: 'DOWN' },
-    confirmed: false,
-    liquidity24h: DEFAULT_PRO_CONFIG.minLiquidity,
-    adx: 18,
-    slope: 0.02,
-    trendStrength: 42,
-  }));
+  return [];
 }
 
-export async function fetchBotProStats(): Promise<BotProStats> {
-  const empty: BotProStats = {
-    gridLongUsed: 0,
-    gridLongMax: DEFAULT_PRO_CONFIG.maxLongPositions,
-    gridShortUsed: 0,
-    gridShortMax: DEFAULT_PRO_CONFIG.maxShortPositions,
-    trailingActivations: 0,
-    trailingProtected: 0,
-    mtfSignalsConfirmed: 0,
-    mtfAccuracyPct: 0,
-    liquidityPairsIgnored: 0,
-    liquidityAvgVolume: DEFAULT_PRO_CONFIG.minLiquidity,
-  };
+const EMPTY_STATS: BotProStats = {
+  gridLongUsed: 0,
+  gridLongMax: 0,
+  gridShortUsed: 0,
+  gridShortMax: 0,
+  trailingActivations: 0,
+  trailingProtected: 0,
+  mtfSignalsConfirmed: 0,
+  mtfAccuracyPct: 0,
+  liquidityPairsIgnored: 0,
+  liquidityAvgVolume: 0,
+};
 
+export async function fetchBotProStats(): Promise<BotProStats> {
   try {
     const res = await api.get<BotProStats>('/bots/pro/stats');
-    return { ...empty, ...res.data };
+    return { ...EMPTY_STATS, ...res.data };
   } catch {
     try {
       const res = await api.get<{ stats?: BotProStats }>('/bots/stats/pro');
-      return { ...empty, ...res.data.stats };
+      return { ...EMPTY_STATS, ...res.data.stats };
     } catch {
-      return empty;
+      return EMPTY_STATS;
     }
   }
 }
@@ -146,4 +114,8 @@ export async function fetchProPositions(): Promise<Position[]> {
   } catch {
     return [];
   }
+}
+
+export function sumPositionPnl(positions: { unrealizedProfit?: string | number }[]): number {
+  return positions.reduce((sum, p) => sum + parseNum(p.unrealizedProfit), 0);
 }

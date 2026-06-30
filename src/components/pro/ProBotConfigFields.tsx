@@ -50,6 +50,21 @@ export function ProBotConfigFields({ config, onChange, inputClass, compact = fal
         </div>
       </div>
 
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className={label}>Take Profit global (%)</label>
+          <input type="number" min={0.1} max={100} step={0.1} value={c.tpDailyPct}
+            onChange={e => onChange({ tpDailyPct: Number(e.target.value) })}
+            className={inputClass} />
+        </div>
+        <div>
+          <label className={label}>Stop Loss global (%)</label>
+          <input type="number" min={0.1} max={100} step={0.1} value={c.maxLossPct}
+            onChange={e => onChange({ maxLossPct: Number(e.target.value) })}
+            className={inputClass} />
+        </div>
+      </div>
+
       <div className="bg-bg2 border border-border1 p-3 space-y-3">
         <label className="flex items-center gap-2 cursor-pointer">
           <input type="checkbox" checked={c.trailingStopEnabled} className="accent-cyan"
@@ -62,6 +77,14 @@ export function ProBotConfigFields({ config, onChange, inputClass, compact = fal
             disabled={!c.trailingStopEnabled}
             onChange={e => onChange({ trailingStopActivation: Number(e.target.value) })}
             className={`${inputClass} disabled:opacity-50`} />
+        </div>
+        <div>
+          <label className={label}>Recuo para fechar (%)</label>
+          <input type="number" min={0.1} max={10} step={0.1} value={c.trailingStopCallback}
+            disabled={!c.trailingStopEnabled}
+            onChange={e => onChange({ trailingStopCallback: Number(e.target.value) })}
+            className={`${inputClass} disabled:opacity-50`} />
+          <p className="font-mono text-[9px] text-text3 mt-1">Fecha o ciclo se o lucro recuar este % desde o pico</p>
         </div>
       </div>
 

@@ -5,7 +5,6 @@ import { QuickGuide } from '../components/QuickGuide';
 import { LiveOrders } from '../components/LiveOrders';
 import { LiveChart } from '../components/LiveChart';
 import { ProPositionDetails } from '../components/pro/ProPositionDetails';
-import { enrichPosition } from '../utils/proTrading';
 import { useChartSymbol } from '../hooks/useChartSymbol';
 import {
   fetchBotsList,
@@ -139,20 +138,10 @@ export default function OperationsPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {runningBots.map((bot, botIdx) => {
+          {runningBots.map(bot => {
             const pair = botPair(bot);
             const hasPosition = positions.find(p => p.symbol === pair);
             const pnl = hasPosition ? parseNum(hasPosition.unrealizedProfit) : 0;
-            const enriched = hasPosition
-              ? enrichPosition(
-                  {
-                    symbol: hasPosition.symbol,
-                    positionSide: hasPosition.positionSide,
-                    unrealizedProfit: hasPosition.unrealizedProfit,
-                  },
-                  botIdx,
-                )
-              : null;
 
             return (
               <div
@@ -198,7 +187,19 @@ export default function OperationsPage() {
                       <span>Actual: <span className="text-text1">${parseNum(hasPosition.markPrice).toFixed(2)}</span></span>
                       <span>P&L: <span className={pnl >= 0 ? 'text-cyan font-bold' : 'text-red font-bold'}>${pnl.toFixed(2)}</span></span>
                     </div>
-                    {enriched && <ProPositionDetails position={enriched} pnl={pnl} />}
+                    {hasPosition && (
+                      <ProPositionDetails
+                        position={{
+                          symbol: hasPosition.symbol,
+                          positionSide: hasPosition.positionSide,
+                          positionAmt: hasPosition.positionAmt,
+                          entryPrice: hasPosition.entryPrice,
+                          markPrice: hasPosition.markPrice,
+                          unrealizedProfit: hasPosition.unrealizedProfit,
+                        }}
+                        pnl={pnl}
+                      />
+                    )}
                   </div>
                 )}
               </div>
