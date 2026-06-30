@@ -50,8 +50,24 @@ export default function DashboardPage() {
   useEffect(() => {
     loadChartData();
     if (!live.exchangeConnected) return;
-    const id = setInterval(loadChartData, 10000);
-    return () => clearInterval(id);
+
+    const syncPositions = () => {
+      void loadChartData();
+    };
+
+    const intervalId = window.setInterval(syncPositions, 10000);
+    const onResume = () => {
+      if (!document.hidden) syncPositions();
+    };
+
+    document.addEventListener('visibilitychange', onResume);
+    window.addEventListener('focus', onResume);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', onResume);
+      window.removeEventListener('focus', onResume);
+    };
   }, [loadChartData, live.exchangeConnected]);
 
   const { symbol: chartSymbol, pairs, autoSymbol, selectSymbol, followAuto } = useChartSymbol(
@@ -66,9 +82,11 @@ export default function DashboardPage() {
 
   const pnlAccent = (n: number): 'cyan' | 'red' => (n >= 0 ? 'cyan' : 'red');
   const fmtSignedPnl = (n: number) => `${n >= 0 ? '+' : ''}${formatMoney(n)}`;
-  /** P&L aberto: posições Binance (prioridade) ou live-status se ainda sem posições carregadas */
+  /** P&L aberto: live-status (10s) com fallback às posições se ainda a carregar */
   const openPnlFromPositions = sumPositionsUnrealizedPnl(positions);
-  const openPnl = positions.length > 0 ? openPnlFromPositions : live.openPnl;
+  const openPnl = live.openPnl !== 0 || positions.length === 0
+    ? live.openPnl
+    : openPnlFromPositions;
   const netBalance = live.binanceBalance + openPnl;
 
   if (liveLoading && positionsLoading) {
@@ -89,7 +107,7 @@ export default function DashboardPage() {
           <p className="font-mono text-[9px] text-text2 uppercase tracking-wider mt-0.5">
             Dados Binance em tempo real
             {lastUpdate && (
-              <> · Actualizado: {lastUpdate.toLocaleTimeString('pt-PT')}</>
+              <> · Actualizado: {lastUpdate.toLocaleTimeString('pt-PT')}{refreshing ? ' · a sincronizar…' : ''}</>
             )}
           </p>
         </div>
