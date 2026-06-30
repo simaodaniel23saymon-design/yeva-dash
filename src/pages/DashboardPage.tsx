@@ -165,7 +165,7 @@ export default function DashboardPage() {
             <AnimatedStat
               label="Saldo Líquido Total"
               value={formatMoney(binance.saldoLiquido)}
-              sub="Margem total · Binance"
+              sub="Saldo de margem · Binance"
               accent={pnlAccent(binance.saldoLiquido)}
               delay={240}
               pulse={binance.activeBots > 0}

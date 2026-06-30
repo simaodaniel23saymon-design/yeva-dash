@@ -1,11 +1,14 @@
 import { formatMoney } from './format';
 
 export interface BinanceData {
+  /** totalWalletBalance — saldo USDT na carteira futures */
   saldoTotal: number;
+  /** availableBalance — livre para novas ordens */
   saldoDisponivel: number;
   pnlAberto: number;
   resultadoHoje: number;
   posicoesAbertas: number;
+  /** totalMarginBalance — saldo principal na app Binance (carteira + P&L aberto) */
   saldoLiquido: number;
   exchangeConnected: boolean;
   activeBots: number;
@@ -27,7 +30,7 @@ export const EMPTY_BINANCE_DATA: BinanceData = {
 function num(raw: Record<string, unknown>, keys: string[]): number {
   for (const k of keys) {
     const v = raw[k];
-    if (v !== undefined && v !== null) {
+    if (v !== undefined && v !== null && v !== '') {
       const n = Number(v);
       if (Number.isFinite(n)) return n;
     }
@@ -35,19 +38,17 @@ function num(raw: Record<string, unknown>, keys: string[]): number {
   return 0;
 }
 
-/** Normaliza GET /account/live-status para valores reais da Binance Futures */
+/** Normaliza GET /account/live-status — espelha campos da Binance Futures API */
 export function normalizeBinanceData(raw: Record<string, unknown>): BinanceData {
   const saldoDisponivel = num(raw, [
     'binanceAvailableBalance', 'binance_available_balance',
     'availableBalance', 'available_balance',
-    'binanceBalance', 'binance_balance',
-  ]);
+  ]) || num(raw, ['binanceBalance', 'binance_balance']);
 
   const saldoTotal = num(raw, [
     'binanceWalletBalance', 'binance_wallet_balance',
     'totalWalletBalance', 'total_wallet_balance',
-    'walletBalance', 'wallet_balance',
-  ]) || saldoDisponivel;
+  ]);
 
   const pnlAberto = num(raw, [
     'openPnl', 'open_pnl',
@@ -55,21 +56,22 @@ export function normalizeBinanceData(raw: Record<string, unknown>): BinanceData 
     'unrealizedPnL', 'unrealizedPnl', 'unrealized_pnl',
   ]);
 
-  const saldoLiquidoRaw = num(raw, [
+  const saldoLiquido = num(raw, [
     'liquidBalance', 'liquid_balance',
     'totalMarginBalance', 'total_margin_balance',
   ]);
-  const saldoLiquido = saldoLiquidoRaw || (saldoTotal + pnlAberto) || (saldoDisponivel + pnlAberto);
 
-  const resultadoHoje = num(raw, ['todayResult', 'today_result']);
+  const resolvedSaldoTotal = saldoTotal || (saldoLiquido - pnlAberto) || saldoDisponivel;
+  const resolvedSaldoLiquido = saldoLiquido
+    || (resolvedSaldoTotal !== 0 ? resolvedSaldoTotal + pnlAberto : 0);
 
   return {
-    saldoTotal,
+    saldoTotal: resolvedSaldoTotal,
     saldoDisponivel,
     pnlAberto,
-    resultadoHoje,
+    resultadoHoje: num(raw, ['todayResult', 'today_result']),
     posicoesAbertas: num(raw, ['openPositionsCount', 'open_positions_count']),
-    saldoLiquido,
+    saldoLiquido: resolvedSaldoLiquido,
     exchangeConnected: Boolean(raw.exchangeConnected ?? raw.exchange_connected),
     activeBots: num(raw, ['activeBots', 'active_bots']),
     atualizadoEm: String(raw.updatedAt ?? raw.updated_at ?? new Date().toISOString()),

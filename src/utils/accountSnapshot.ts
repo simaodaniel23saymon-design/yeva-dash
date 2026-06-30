@@ -76,8 +76,7 @@ export function normalizeAccountLiveStatus(raw: Record<string, unknown>): Accoun
     'totalMarginBalance', 'total_margin_balance',
   ]);
   const liquidBalance = liquidBalanceRaw
-    || (binanceWalletBalance + openPnl)
-    || (binanceBalance + openPnl);
+    || (binanceWalletBalance !== 0 ? binanceWalletBalance + openPnl : 0);
 
   return {
     gasBalance: num(raw, ['gasBalance', 'gas_balance']),
