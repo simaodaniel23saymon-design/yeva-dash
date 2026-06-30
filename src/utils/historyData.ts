@@ -6,6 +6,7 @@ export interface HistoryRound {
   pnl: number;
   cycles: number;
   closeReason?: string;
+  side?: string;
   openedAt: string;
   closedAt?: string;
   bot: { pair: string; market: string; exchangeAccount: { exchange: string } };
@@ -35,11 +36,13 @@ function asArray<T>(value: unknown): T[] {
 function normalizeRound(raw: Record<string, unknown>, index: number): HistoryRound {
   const botRaw = (raw.bot ?? {}) as Record<string, unknown>;
   const exRaw = (botRaw.exchangeAccount ?? {}) as Record<string, unknown>;
+  const closeReason = raw.closeReason ?? raw.status ?? raw.reason;
   return {
     id: String(raw.id ?? raw._id ?? `round-${index}`),
     pnl: Number(raw.pnl ?? raw.profit ?? 0),
-    cycles: Number(raw.cycles ?? raw.cycleCount ?? 0),
-    closeReason: raw.closeReason ? String(raw.closeReason) : raw.reason ? String(raw.reason) : undefined,
+    cycles: Number(raw.cycles ?? raw.cycleCount ?? 1),
+    closeReason: closeReason ? String(closeReason) : undefined,
+    side: raw.side ? String(raw.side) : undefined,
     openedAt: String(raw.openedAt ?? raw.createdAt ?? new Date().toISOString()),
     closedAt: raw.closedAt ? String(raw.closedAt) : undefined,
     bot: {
@@ -71,7 +74,7 @@ function normalizeHistoryPayload(payload: unknown): UserHistory {
   const data = (root.data ?? root) as Record<string, unknown>;
 
   const roundsRaw = asArray<Record<string, unknown>>(
-    data.rounds ?? data.tradingRounds ?? root.rounds,
+    data.rounds ?? data.tradingRounds ?? data.tradeCycles ?? root.rounds ?? root.tradeCycles,
   );
   const txRaw = asArray<Record<string, unknown>>(
     data.transactions ?? data.payments ?? root.transactions,
@@ -88,7 +91,7 @@ async function fetchRoundsFallback(): Promise<HistoryRound[]> {
   for (const path of paths) {
     try {
       const res = await api.get(path);
-      const list = asArray<Record<string, unknown>>(res.data?.rounds ?? res.data);
+      const list = asArray<Record<string, unknown>>(res.data?.rounds ?? res.data?.tradeCycles ?? res.data);
       if (list.length) return list.map(normalizeRound);
     } catch {
       /* tenta próximo */
@@ -146,7 +149,10 @@ async function fetchTradesAsRounds(): Promise<HistoryRound[]> {
 
 export async function fetchUserHistory(): Promise<UserHistory> {
   try {
-    const res = await api.get('/history');
+    const res = await api.get('/history', {
+      params: { _: Date.now() },
+      headers: { 'Cache-Control': 'no-cache' },
+    });
     const normalized = normalizeHistoryPayload(res.data);
     if (normalized.rounds.length || normalized.transactions.length) {
       return normalized;
