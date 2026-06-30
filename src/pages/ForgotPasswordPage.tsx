@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { YevaTradeLoader } from '../components/YevaTradeLoader';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
+import { BrandLogo } from '../components/BrandLogo';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -24,8 +25,7 @@ export default function ForgotPasswordPage() {
     <div className="auth-scroll bg-bg0 flex items-center justify-center p-4 py-8">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-xl font-bold text-text1">YEVA <span className="text-cyan">TRADE</span></h1>
-          <p className="font-mono text-[9px] text-text2 mt-1 tracking-widest uppercase">Recuperar Password</p>
+          <BrandLogo variant="auth" subtitle="Recuperar Password" />
         </div>
 
         <div className="bg-bg1 border border-border1 p-6">

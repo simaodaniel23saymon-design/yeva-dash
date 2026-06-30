@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-do
 import { useAuth } from '../context/AuthContext';
 import { getFriendlyError } from '../utils/errorHandler';
 import { ErrorMessage } from '../components/ErrorMessage';
+import { BrandLogo } from '../components/BrandLogo';
 
 export default function LoginPage() {
   const { login, register, loginDemo } = useAuth();
@@ -127,14 +128,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <img src="/logo.png" alt="YevaTrade" className="w-12 h-12 object-contain"
-              onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-            <div className="text-left">
-              <h1 className="text-2xl font-bold text-text1">YEVA <span className="text-cyan">TRADE</span></h1>
-              <p className="font-mono text-[9px] text-text2 tracking-[2px] uppercase">Alpha Trend Engine</p>
-            </div>
-          </div>
+          <BrandLogo variant="auth" subtitle="Alpha Trend Engine" className="mb-2" />
         </div>
 
         <div className="bg-bg1 border border-border1">

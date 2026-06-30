@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, NavLink, Link } from 'react-router-dom';
 import { useAuth, useLogout } from '../context/AuthContext';
 import { api } from '../lib/api';
+import { BrandLogo } from './BrandLogo';
 
 interface ExchangeAccount { id: string; exchange: string; isActive: boolean; }
 
@@ -67,13 +68,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
     <aside className={`fixed left-0 top-0 bottom-0 w-64 bg-bg1 border-r border-border1 z-[300] flex flex-col transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
       {/* Header */}
       <div className="p-5 border-b border-border1 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <img src="/logo.png" alt="YevaTrade" className="w-8 h-8 object-contain" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-          <div>
-            <div className="font-bold text-base text-text1">YEVA <span className="text-cyan">TRADE</span></div>
-            <div className="font-mono text-[8px] text-text2 tracking-[2px] uppercase mt-0.5">Trading Engine</div>
-          </div>
-        </div>
+        <BrandLogo variant="sidebar" subtitle="Trading Engine" />
         <button onClick={close} className="text-text2 hover:text-text1 transition-colors text-lg leading-none">✕</button>
       </div>
 
@@ -171,10 +166,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </svg>
         </button>
 
-        <div className="flex items-center gap-2">
-          <img src="/logo.png" alt="YevaTrade" className="w-6 h-6 object-contain" onError={e => { (e.target as HTMLImageElement).style.display='none'; }} />
-          <span className="font-bold text-sm text-text1">YEVA <span className="text-cyan">TRADE</span></span>
-        </div>
+        <BrandLogo variant="header" />
 
         <div className="ml-auto flex items-center gap-2">
           <div className="hidden sm:flex items-center gap-1.5 text-cyan bg-cyan-dim border border-cyan-20 px-2.5 py-1 font-mono text-[9px] tracking-widest uppercase">
