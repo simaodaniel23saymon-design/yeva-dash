@@ -5,6 +5,11 @@ import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { getFriendlyError } from '../utils/errorHandler'
 import { formatMoney, toWalletUnits } from '../utils/format'
+import {
+  fetchPerformanceFeeStats,
+  formatPerformanceFee,
+  type PerformanceFeeStats,
+} from '../utils/adminPerformanceFees'
 import { NotificationPreview, sampleNotifyMetrics } from '../components/notifications/NotificationPreview'
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
@@ -14,28 +19,6 @@ interface Stats {
   transactions: { total: number }
   revenue: { performanceFees: number; totalDeposited: number; totalFeesPaid: number }
   recentUsers: { id: string; email: string; plan: string; createdAt: string }[]
-}
-
-interface PerformanceFeeStats {
-  total: { amount: number; count: number }
-  today: { amount: number; count: number }
-  last30Days?: { amount: number; count: number }
-}
-
-function readFeeBucket(raw: Record<string, unknown> | undefined, bucket: string) {
-  const block = raw?.[bucket] as Record<string, unknown> | undefined
-  return {
-    amount: Number(block?.amount ?? 0) || 0,
-    count: Number(block?.count ?? 0) || 0,
-  }
-}
-
-function normalizePerformanceFeeStats(raw: Record<string, unknown>): PerformanceFeeStats {
-  return {
-    total: readFeeBucket(raw, 'total'),
-    today: readFeeBucket(raw, 'today'),
-    last30Days: raw.last30Days ? readFeeBucket(raw, 'last30Days') : undefined,
-  }
 }
 
 interface AdminUser {
@@ -127,14 +110,13 @@ export default function AdminPage() {
   }, [user, loading, navigate]);
 
   const loadStats = useCallback(async () => {
-    const [statsRes, feesRes] = await Promise.all([
-      api.get<Stats>('/admin/stats'),
-      api.get<Record<string, unknown>>('/admin/stats/performance-fees').catch(() => null),
-    ])
+    const statsRes = await api.get<Stats>('/admin/stats')
     setStats(statsRes.data)
-    if (feesRes?.data) {
-      setFeeStats(normalizePerformanceFeeStats(feesRes.data))
-    }
+  }, [])
+
+  const loadPerformanceFees = useCallback(async () => {
+    const fees = await fetchPerformanceFeeStats()
+    setFeeStats(fees)
   }, [])
 
   const loadUsers = useCallback(async (page = 1, q = search) => {
@@ -174,13 +156,14 @@ export default function AdminPage() {
 
   useEffect(() => {
     setLoading(true)
-    Promise.all([loadStats(), loadUsers(), loadTxs(), loadBots()])
+    Promise.all([loadStats(), loadPerformanceFees(), loadUsers(), loadTxs(), loadBots()])
       .finally(() => setLoading(false))
   }, [])
 
   useEffect(() => {
     if (tab === 'users') loadUsers(userPage)
-  }, [tab, userPage])
+    if (tab === 'overview') loadPerformanceFees()
+  }, [tab, userPage, loadPerformanceFees])
 
   const loadUserDetail = useCallback(async (id: string) => {
     setHistoryLoading(true)
@@ -330,11 +313,22 @@ export default function AdminPage() {
       {/* ═══ OVERVIEW ═══ */}
       {tab === 'overview' && stats && (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <StatBox label="Total Utilizadores" value={stats.users.total} sub={`${stats.users.active} activos`} />
             <StatBox label="Total Bots" value={stats.bots.total} sub={`${stats.bots.active} activos`} color="text-gold" />
             <StatBox label="Transacções" value={stats.transactions.total} color="text-text1" />
-            <StatBox label="Taxas Performance" value={formatMoney(feeStats?.total.amount ?? stats.revenue.performanceFees)} sub={feeStats ? `${feeStats.total.count} taxas cobradas · hoje ${formatMoney(feeStats.today.amount)}` : 'Total cobrado'} color="text-cyan" />
+            <StatBox
+              label="Total Taxas"
+              value={formatPerformanceFee(feeStats?.total.amount ?? stats.revenue.performanceFees)}
+              sub={feeStats ? `${feeStats.total.count} taxas cobradas` : 'A carregar taxas…'}
+              color="text-cyan"
+            />
+            <StatBox
+              label="Taxas Hoje"
+              value={formatPerformanceFee(feeStats?.today.amount ?? 0)}
+              sub={feeStats ? `${feeStats.today.count} taxas hoje` : '—'}
+              color="text-cyan"
+            />
             <StatBox label="Total Depositado" value={formatMoney(stats.revenue.totalDeposited)} color="text-cyan" />
           </div>
 
