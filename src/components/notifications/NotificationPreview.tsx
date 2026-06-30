@@ -12,7 +12,11 @@ interface Props {
 
 const SAMPLE_STATUS: AccountLiveStatus = {
   binanceBalance: 1240,
+  binanceAvailableBalance: 1240,
+  binanceWalletBalance: 1258.32,
+  liquidBalance: 1258.32,
   openPnl: 18.32,
+  openPositionsCount: 1,
   todayResult: 4.5,
   dailyProfit: 12.8,
   dailyLoss: 8.3,
@@ -20,6 +24,7 @@ const SAMPLE_STATUS: AccountLiveStatus = {
   activeBots: 2,
   gasBalance: 0,
   margin: 10.45,
+  updatedAt: new Date().toISOString(),
 };
 
 export function NotificationPreview({ subject, message, metrics, mode, statusPreview }: Props) {

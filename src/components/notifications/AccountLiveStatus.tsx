@@ -21,7 +21,7 @@ export function AccountLiveStatusPanel({
 }: Props) {
   const pnlTone = (n: number) => (n >= 0 ? 'text-cyan' : 'text-red');
   const fmtSigned = (n: number) => `${n >= 0 ? '+' : ''}${formatMoney(n)}`;
-  const netBalance = data.binanceBalance + data.openPnl;
+  const netBalance = data.liquidBalance || (data.binanceWalletBalance + data.openPnl);
 
   if (loading) {
     return (

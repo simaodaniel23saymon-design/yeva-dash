@@ -1,26 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import {
-  EMPTY_ACCOUNT_LIVE_STATUS,
-  normalizeAccountLiveStatus,
-  type AccountLiveStatus,
-} from '../utils/accountSnapshot';
+  EMPTY_BINANCE_DATA,
+  normalizeBinanceData,
+  type BinanceData,
+} from '../utils/binanceData';
 
 const LIVE_STATUS_PATH = '/account/live-status';
 
-export type { AccountLiveStatus };
+export type { BinanceData };
 
-/** @deprecated Prefer useBinanceData no dashboard — mantido para compatibilidade */
-export function useAccountLiveStatus(pollMs = 10000) {
-  const [data, setData] = useState<AccountLiveStatus>(EMPTY_ACCOUNT_LIVE_STATUS);
+export function useBinanceData(pollMs = 10000) {
+  const [data, setData] = useState<BinanceData>(EMPTY_BINANCE_DATA);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
   const requestSeqRef = useRef(0);
   const mountedRef = useRef(true);
 
-  const refresh = useCallback(async (silent = false) => {
+  const refetch = useCallback(async (silent = false) => {
     const seq = ++requestSeqRef.current;
     if (!silent) setRefreshing(true);
 
@@ -32,12 +30,11 @@ export function useAccountLiveStatus(pollMs = 10000) {
 
       if (!mountedRef.current || seq !== requestSeqRef.current) return;
 
-      setData(normalizeAccountLiveStatus(res.data));
-      setLastUpdate(new Date());
+      setData(normalizeBinanceData(res.data));
       setError(null);
     } catch {
       if (mountedRef.current && seq === requestSeqRef.current) {
-        setError('Não foi possível carregar o estado ao vivo.');
+        setError('Não foi possível carregar dados da Binance.');
       }
     } finally {
       if (mountedRef.current && seq === requestSeqRef.current) {
@@ -49,7 +46,7 @@ export function useAccountLiveStatus(pollMs = 10000) {
 
   useEffect(() => {
     mountedRef.current = true;
-    refresh();
+    refetch();
 
     if (pollMs <= 0) {
       return () => {
@@ -57,10 +54,10 @@ export function useAccountLiveStatus(pollMs = 10000) {
       };
     }
 
-    const intervalId = window.setInterval(() => refresh(true), pollMs);
+    const intervalId = window.setInterval(() => refetch(true), pollMs);
 
     const onResume = () => {
-      if (!document.hidden) refresh(true);
+      if (!document.hidden) refetch(true);
     };
 
     document.addEventListener('visibilitychange', onResume);
@@ -73,7 +70,13 @@ export function useAccountLiveStatus(pollMs = 10000) {
       document.removeEventListener('visibilitychange', onResume);
       window.removeEventListener('focus', onResume);
     };
-  }, [refresh, pollMs]);
+  }, [refetch, pollMs]);
 
-  return { data, loading, refreshing, lastUpdate, error, refresh };
+  return {
+    data,
+    loading,
+    refreshing,
+    error,
+    refetch: () => refetch(false),
+  };
 }

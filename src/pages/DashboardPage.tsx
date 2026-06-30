@@ -10,8 +10,8 @@ import { ProStrategyCardsDefaults } from '../components/pro/ProStrategyCards';
 import { ProPositionDetails } from '../components/pro/ProPositionDetails';
 import { enrichPosition } from '../utils/proTrading';
 import { formatMoney } from '../utils/format';
-import { useAccountLiveStatus } from '../hooks/useAccountLiveStatus';
-import { sumPositionsUnrealizedPnl } from '../utils/accountSnapshot';
+import { fmtSignedUsd } from '../utils/binanceData';
+import { useBinanceData } from '../hooks/useBinanceData';
 import {
   fetchBotsList,
   fetchExchangePositions,
@@ -21,13 +21,13 @@ import {
 } from '../utils/liveData';
 
 export default function DashboardPage() {
-  const { data: live, loading: liveLoading, refreshing, lastUpdate, refresh } = useAccountLiveStatus(10000);
+  const { data: binance, loading: binanceLoading, refreshing, error, refetch } = useBinanceData(10000);
   const [positionsLoading, setPositionsLoading] = useState(true);
   const [bots, setBots] = useState<LiveBot[]>([]);
   const [positions, setPositions] = useState<ExchangePosition[]>([]);
 
   const loadChartData = useCallback(async () => {
-    if (!live.exchangeConnected) {
+    if (!binance.exchangeConnected) {
       setBots([]);
       setPositions([]);
       setPositionsLoading(false);
@@ -45,11 +45,11 @@ export default function DashboardPage() {
     } finally {
       setPositionsLoading(false);
     }
-  }, [live.exchangeConnected]);
+  }, [binance.exchangeConnected]);
 
   useEffect(() => {
     loadChartData();
-    if (!live.exchangeConnected) return;
+    if (!binance.exchangeConnected) return;
 
     const syncPositions = () => {
       void loadChartData();
@@ -68,7 +68,7 @@ export default function DashboardPage() {
       document.removeEventListener('visibilitychange', onResume);
       window.removeEventListener('focus', onResume);
     };
-  }, [loadChartData, live.exchangeConnected]);
+  }, [loadChartData, binance.exchangeConnected]);
 
   const { symbol: chartSymbol, pairs, autoSymbol, selectSymbol, followAuto } = useChartSymbol(
     bots,
@@ -76,20 +76,15 @@ export default function DashboardPage() {
   );
 
   const handleRefresh = () => {
-    refresh();
+    refetch();
     loadChartData();
   };
 
   const pnlAccent = (n: number): 'cyan' | 'red' => (n >= 0 ? 'cyan' : 'red');
-  const fmtSignedPnl = (n: number) => `${n >= 0 ? '+' : ''}${formatMoney(n)}`;
-  /** P&L aberto: live-status (10s) com fallback às posições se ainda a carregar */
-  const openPnlFromPositions = sumPositionsUnrealizedPnl(positions);
-  const openPnl = live.openPnl !== 0 || positions.length === 0
-    ? live.openPnl
-    : openPnlFromPositions;
-  const netBalance = live.binanceBalance + openPnl;
+  const posCount = binance.posicoesAbertas || positions.length;
+  const updatedAt = new Date(binance.atualizadoEm);
 
-  if (liveLoading && positionsLoading) {
+  if (binanceLoading && positionsLoading) {
     return <PageLoader />;
   }
 
@@ -106,8 +101,8 @@ export default function DashboardPage() {
           <h2 className="text-text1 font-bold text-lg">Painel de Controlo</h2>
           <p className="font-mono text-[9px] text-text2 uppercase tracking-wider mt-0.5">
             Dados Binance em tempo real
-            {lastUpdate && (
-              <> · Actualizado: {lastUpdate.toLocaleTimeString('pt-PT')}{refreshing ? ' · a sincronizar…' : ''}</>
+            {!Number.isNaN(updatedAt.getTime()) && (
+              <> · Actualizado: {updatedAt.toLocaleTimeString('pt-PT')}{refreshing ? ' · a sincronizar…' : ''}</>
             )}
           </p>
         </div>
@@ -121,7 +116,13 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {!live.exchangeConnected ? (
+      {error && (
+        <div className="bg-red-dim border border-red-30 p-3 font-mono text-[10px] text-red">
+          {error}
+        </div>
+      )}
+
+      {!binance.exchangeConnected ? (
         <div className="bg-gold-dim border border-gold-30 p-6 text-center">
           <p className="font-mono text-[11px] text-gold mb-4">Nenhuma exchange conectada</p>
           <Link to="/exchanges"
@@ -138,36 +139,36 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <AnimatedStat
               label="Saldo Disponível"
-              value={formatMoney(live.binanceBalance)}
+              value={formatMoney(binance.saldoDisponivel)}
               sub="Binance · exchange"
-              accent={pnlAccent(live.binanceBalance)}
+              accent={pnlAccent(binance.saldoDisponivel)}
               delay={0}
-              pulse={live.activeBots > 0}
+              pulse={binance.activeBots > 0}
               icon={<IconWallet size={16} />}
             />
             <AnimatedStat
               label="P&L Aberto"
-              value={fmtSignedPnl(openPnl)}
-              sub={positions.length > 0 ? `${positions.length} posição(ões) · Binance` : 'Posições actuais'}
-              accent={pnlAccent(openPnl)}
+              value={fmtSignedUsd(binance.pnlAberto)}
+              sub={posCount > 0 ? `${posCount} posição(ões) · Binance` : 'Posições actuais'}
+              accent={pnlAccent(binance.pnlAberto)}
               delay={80}
-              icon={openPnl >= 0 ? <IconTrendUp size={16} /> : <IconTrendDown size={16} />}
+              icon={binance.pnlAberto >= 0 ? <IconTrendUp size={16} /> : <IconTrendDown size={16} />}
             />
             <AnimatedStat
               label="Resultado de Hoje"
-              value={fmtSignedPnl(live.todayResult)}
+              value={fmtSignedUsd(binance.resultadoHoje)}
               sub="Realizado + funding − comissões (24h)"
-              accent={pnlAccent(live.todayResult)}
+              accent={pnlAccent(binance.resultadoHoje)}
               delay={160}
-              icon={live.todayResult >= 0 ? <IconTrendUp size={16} /> : <IconTrendDown size={16} />}
+              icon={binance.resultadoHoje >= 0 ? <IconTrendUp size={16} /> : <IconTrendDown size={16} />}
             />
             <AnimatedStat
               label="Saldo Líquido Total"
-              value={formatMoney(netBalance)}
-              sub="Saldo + P&L aberto"
-              accent={pnlAccent(netBalance)}
+              value={formatMoney(binance.saldoLiquido)}
+              sub="Margem total · Binance"
+              accent={pnlAccent(binance.saldoLiquido)}
               delay={240}
-              pulse={live.activeBots > 0}
+              pulse={binance.activeBots > 0}
               icon={<IconActivity size={16} />}
             />
           </div>
