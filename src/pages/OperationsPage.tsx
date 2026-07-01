@@ -99,9 +99,9 @@ export default function OperationsPage() {
   return (
     <div className="space-y-4">
       <QuickGuide title="Operações em tempo real" steps={[
-        'Bots activos mostram se estão a analisar ou em posição',
-        'Dados actualizados a cada 10 segundos',
-        'Selecciona um bot para ver trades detalhados',
+        'Grade hedge: compras e vendas activas — posições negativas não são fechadas sozinhas',
+        'PnL global: o bot só encerra quando o lucro total atinge o TP configurado',
+        'Após fecho global, a grade é reconstruída automaticamente',
       ]} />
 
       <div className="flex items-center justify-between flex-wrap gap-2">

@@ -62,6 +62,7 @@ export function ProBotConfigFields({ config, onChange, inputClass, compact = fal
           <input type="number" min={0.1} max={100} step={0.1} value={c.maxLossPct}
             onChange={e => onChange({ maxLossPct: Number(e.target.value) })}
             className={inputClass} />
+          <p className="font-mono text-[9px] text-text3 mt-1">Referência de risco — o bot não fecha posições individuais no prejuízo</p>
         </div>
       </div>
 
