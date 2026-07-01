@@ -5,14 +5,38 @@ export interface BotConfig {
   maxLongPositions?: number;
   maxShortPositions?: number;
   gridSpacing?: number;
+  dynamicSpacingEnabled?: boolean;
   tpDailyPct?: number;
+  minProfitUsdt?: number;
   maxLossPct?: number;
   trailingStopEnabled?: boolean;
   trailingStopActivation?: number;
   trailingStopCallback?: number;
+  trailingStopActivationUsdt?: number;
+  trailingStopCallbackUsdt?: number;
   timeframes?: string[];
   requireAllTimeframes?: boolean;
   minLiquidity?: number;
+}
+
+export interface BotCycleStats {
+  engineState?: string;
+  cycleAnchorPrice?: number;
+  cycleSpacingPct?: number;
+  cycleLongOrders?: number;
+  cycleShortOrders?: number;
+  peakNetPnlUsdt?: number;
+  peakNetPnlPercent?: number;
+  cycleStartedAt?: string;
+  lastCloseReason?: string;
+  lastGrossPnl?: number;
+  lastNetPnl?: number;
+  lastBinanceFees?: number;
+  lastFunding?: number;
+  lastYevaFee?: number;
+  lastCycleClosedAt?: string;
+  minProfitUsdt?: number;
+  dynamicSpacingEnabled?: boolean;
 }
 
 export interface Position {
@@ -78,11 +102,15 @@ export const DEFAULT_PRO_CONFIG: Required<BotConfig> = {
   maxLongPositions: 15,
   maxShortPositions: 15,
   gridSpacing: 0.8,
+  dynamicSpacingEnabled: true,
   tpDailyPct: 1.5,
+  minProfitUsdt: 2,
   maxLossPct: 3.0,
   trailingStopEnabled: true,
   trailingStopActivation: 1.0,
   trailingStopCallback: 0.5,
+  trailingStopActivationUsdt: 1.0,
+  trailingStopCallbackUsdt: 0.5,
   timeframes: ['1h', '4h', '1d'],
   requireAllTimeframes: true,
   minLiquidity: 500_000,

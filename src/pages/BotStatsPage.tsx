@@ -3,6 +3,7 @@ import { YevaTradeLoader } from '../components/YevaTradeLoader';
 import { QuickGuide } from '../components/QuickGuide';
 import { GridVisual } from '../components/pro/GridVisual';
 import { ProStrategyCardsLive } from '../components/pro/ProStrategyCards';
+import { ProCycleStatsPanel } from '../components/pro/ProCycleStatsPanel';
 import { useActiveBotConfig } from '../hooks/useActiveBotConfig';
 import { useProTrading } from '../hooks/useProTrading';
 import { formatLiquidity } from '../utils/proTrading';
@@ -66,6 +67,8 @@ export default function BotStatsPage() {
       </div>
 
       <ProStrategyCardsLive />
+
+      <ProCycleStatsPanel bot={bot} />
 
       {loading ? (
         <div className="flex justify-center py-12">

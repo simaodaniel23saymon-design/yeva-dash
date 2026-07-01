@@ -43,12 +43,18 @@ export function ProBotConfigFields({ config, onChange, inputClass, compact = fal
             className={inputClass} />
         </div>
         <div>
-          <label className={label}>Grid Spacing (%)</label>
+          <label className={label}>Grid Spacing base (%)</label>
           <input type="number" min={0.1} max={5} step={0.1} value={c.gridSpacing}
             onChange={e => onChange({ gridSpacing: Number(e.target.value) })}
             className={inputClass} />
         </div>
       </div>
+
+      <label className="flex items-center gap-2 cursor-pointer font-mono text-[11px] text-text1">
+        <input type="checkbox" checked={c.dynamicSpacingEnabled !== false} className="accent-cyan"
+          onChange={e => onChange({ dynamicSpacingEnabled: e.target.checked })} />
+        Spacing dinâmico (ATR / volatilidade)
+      </label>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
@@ -56,6 +62,13 @@ export function ProBotConfigFields({ config, onChange, inputClass, compact = fal
           <input type="number" min={0.1} max={100} step={0.1} value={c.tpDailyPct}
             onChange={e => onChange({ tpDailyPct: Number(e.target.value) })}
             className={inputClass} />
+        </div>
+        <div>
+          <label className={label}>Lucro mínimo (USDT)</label>
+          <input type="number" min={0.5} max={10000} step={0.5} value={c.minProfitUsdt}
+            onChange={e => onChange({ minProfitUsdt: Number(e.target.value) })}
+            className={inputClass} />
+          <p className="font-mono text-[9px] text-text3 mt-1">TP só fecha se % e USDT mínimo forem atingidos</p>
         </div>
         <div>
           <label className={label}>Stop Loss global (%)</label>
@@ -73,19 +86,19 @@ export function ProBotConfigFields({ config, onChange, inputClass, compact = fal
           <span className={`${compact ? 'text-[10px]' : 'text-[12px]'} text-text1`}>Activar Trailing Stop</span>
         </label>
         <div>
-          <label className={label}>Activar após lucro (%)</label>
-          <input type="number" min={0.1} max={10} step={0.1} value={c.trailingStopActivation}
+          <label className={label}>Activar após lucro líquido (USDT)</label>
+          <input type="number" min={0.1} max={1000} step={0.1} value={c.trailingStopActivationUsdt}
             disabled={!c.trailingStopEnabled}
-            onChange={e => onChange({ trailingStopActivation: Number(e.target.value) })}
+            onChange={e => onChange({ trailingStopActivationUsdt: Number(e.target.value) })}
             className={`${inputClass} disabled:opacity-50`} />
         </div>
         <div>
-          <label className={label}>Recuo para fechar (%)</label>
-          <input type="number" min={0.1} max={10} step={0.1} value={c.trailingStopCallback}
+          <label className={label}>Recuo para fechar (USDT)</label>
+          <input type="number" min={0.1} max={1000} step={0.1} value={c.trailingStopCallbackUsdt}
             disabled={!c.trailingStopEnabled}
-            onChange={e => onChange({ trailingStopCallback: Number(e.target.value) })}
+            onChange={e => onChange({ trailingStopCallbackUsdt: Number(e.target.value) })}
             className={`${inputClass} disabled:opacity-50`} />
-          <p className="font-mono text-[9px] text-text3 mt-1">Fecha o ciclo se o lucro recuar este % desde o pico</p>
+          <p className="font-mono text-[9px] text-text3 mt-1">Trailing protege lucro líquido em USDT</p>
         </div>
       </div>
 

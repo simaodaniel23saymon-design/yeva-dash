@@ -12,10 +12,12 @@ interface Props {
 
 function cardsFromBot(bot: LiveBot, longCount: number, shortCount: number) {
   const orders = bot.ordersPerSide ?? '—';
-  const spacing = bot.spacing != null ? `${bot.spacing}%` : '—';
+  const spacing = bot.dynamicSpacingEnabled !== false
+    ? 'Dinâmico (ATR)'
+    : (bot.spacing != null ? `${bot.spacing}%` : '—');
   const trailing = bot.trailingStopEnabled === false
     ? 'Desactivado'
-    : `Activo · ${bot.trailingStopActivation ?? 1}% / recuo ${bot.trailingStopCallback ?? 0.5}%`;
+    : `USDT · act. ${bot.minProfitUsdt ?? 1} / recuo 0.5`;
   return [
     {
       title: 'Grid Trading',
@@ -40,7 +42,7 @@ function cardsFromBot(bot: LiveBot, longCount: number, shortCount: number) {
     },
     {
       title: 'Risco',
-      value: `TP ${bot.tpDailyPct ?? '—'}%`,
+      value: `TP ${bot.tpDailyPct ?? '—'}% · min $${bot.minProfitUsdt ?? 2}`,
       sub: `SL max ${bot.maxLossPct ?? '—'}% · Trailing: ${trailing}`,
       accent: 'border-border1 bg-bg2',
       icon: '🎯',

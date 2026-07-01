@@ -15,6 +15,10 @@ export interface CreateBotPayload {
   trailingStopEnabled: boolean;
   trailingStopActivation: number;
   trailingStopCallback: number;
+  minProfitUsdt: number;
+  dynamicSpacingEnabled: boolean;
+  trailingStopActivationUsdt: number;
+  trailingStopCallbackUsdt: number;
 }
 
 /** Payload alinhado com POST /api/bots do backend */
@@ -46,5 +50,9 @@ export function buildCreateBotPayload(
     trailingStopEnabled: c.trailingStopEnabled !== false,
     trailingStopActivation: Number(c.trailingStopActivation ?? 1.0),
     trailingStopCallback: Number(c.trailingStopCallback ?? 0.5),
+    minProfitUsdt: Number(c.minProfitUsdt ?? 2),
+    dynamicSpacingEnabled: c.dynamicSpacingEnabled !== false,
+    trailingStopActivationUsdt: Number(c.trailingStopActivationUsdt ?? c.minProfitUsdt ?? 1),
+    trailingStopCallbackUsdt: Number(c.trailingStopCallbackUsdt ?? 0.5),
   };
 }

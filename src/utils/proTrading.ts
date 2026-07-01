@@ -2,6 +2,7 @@ import { api } from '../lib/api';
 import { parseNum } from './liveData';
 import type {
   BotConfig,
+  BotCycleStats,
   BotProStats,
   MarketAnalysis,
   ProNotification,
@@ -25,11 +26,15 @@ export function buildProPayload(config: BotConfig): BotConfig {
     maxLongPositions: c.maxLongPositions,
     maxShortPositions: c.maxShortPositions,
     gridSpacing: c.gridSpacing,
+    dynamicSpacingEnabled: c.dynamicSpacingEnabled,
     tpDailyPct: c.tpDailyPct,
+    minProfitUsdt: c.minProfitUsdt,
     maxLossPct: c.maxLossPct,
     trailingStopEnabled: c.trailingStopEnabled,
     trailingStopActivation: c.trailingStopActivation,
     trailingStopCallback: c.trailingStopCallback,
+    trailingStopActivationUsdt: c.trailingStopActivationUsdt,
+    trailingStopCallbackUsdt: c.trailingStopCallbackUsdt,
     timeframes: timeframes.length ? timeframes : ['1h', '4h', '1d'],
     requireAllTimeframes: c.requireAllTimeframes,
     minLiquidity: c.minLiquidity,
@@ -45,6 +50,15 @@ export function formatLiquidity(value: number): string {
 /** Passa posição Binance sem estimativas locais */
 export function enrichPosition(pos: Position): Position {
   return { ...pos };
+}
+
+export async function fetchBotCycleStats(botId: string): Promise<{ cycle?: BotCycleStats; auditLog?: unknown[] } | null> {
+  try {
+    const res = await api.get<{ cycle?: BotCycleStats; auditLog?: unknown[] }>(`/bots/${encodeURIComponent(botId)}/cycle`);
+    return res.data;
+  } catch {
+    return null;
+  }
 }
 
 export async function fetchMarketAnalysis(pairs?: string[]): Promise<MarketAnalysis[]> {

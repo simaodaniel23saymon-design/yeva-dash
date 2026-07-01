@@ -44,6 +44,16 @@ export interface LiveBot {
   trailingStopEnabled?: boolean;
   trailingStopActivation?: number;
   trailingStopCallback?: number;
+  minProfitUsdt?: number;
+  dynamicSpacingEnabled?: boolean;
+  lastCloseReason?: string;
+  lastGrossPnl?: number;
+  lastNetPnl?: number;
+  lastBinanceFees?: number;
+  lastFunding?: number;
+  lastYevaFee?: number;
+  engineState?: string;
+  peakNetPnlUsdt?: number;
   mode?: string;
   riskMode?: string;
 }
