@@ -185,28 +185,49 @@ export async function startBotById(botId: string): Promise<void> {
   await api.post(`/bots/${encodeURIComponent(id)}/start`);
 }
 
+function deleteBotError(err: unknown): { status?: number; code?: string; message: string } {
+  const friendly = getFriendlyError(err);
+  const ax = err as { response?: { status?: number; data?: { code?: string; error?: string } } };
+  return {
+    status: ax.response?.status,
+    code: ax.response?.data?.code,
+    message: ax.response?.data?.error ?? friendly.message,
+  };
+}
+
 export async function deleteBotById(botId: string): Promise<void> {
   const id = String(botId ?? '').trim();
   if (!id) throw new Error('ID do bot inválido.');
+  const path = `/bots/${encodeURIComponent(id)}`;
   try {
-    await api.delete(`/bots/${encodeURIComponent(id)}`);
-  } catch {
-    await api.post(`/bots/${encodeURIComponent(id)}/delete`);
+    await api.delete(path);
+    return;
+  } catch (err) {
+    const { status, code, message } = deleteBotError(err);
+    if (status === 400 && code === 'BOT_RUNNING') {
+      throw new Error(message || 'Pare o bot antes de apagar.');
+    }
+    if (status === 404) {
+      throw new Error(message || 'Bot não encontrado.');
+    }
+    if (status !== 500) {
+      throw new Error(message || 'Não foi possível apagar o bot.');
+    }
+  }
+  try {
+    await api.delete(`${path}/force`);
+  } catch (err) {
+    throw new Error(deleteBotError(err).message || 'Não foi possível apagar o bot.');
   }
 }
 
 export async function deleteStoppedBots(): Promise<number> {
   try {
-    const res = await api.delete<{ deleted?: number; count?: number }>('/bots/stopped');
+    const res = await api.delete<{ deleted?: number; count?: number }>('/bots/purge-stopped');
     return res.data.deleted ?? res.data.count ?? 0;
   } catch {
-    try {
-      const res = await api.post<{ deleted?: number; count?: number }>('/bots/delete-stopped');
-      return res.data.deleted ?? res.data.count ?? 0;
-    } catch {
-      const res = await api.post<{ deleted?: number; count?: number }>('/bots/cleanup');
-      return res.data.deleted ?? res.data.count ?? 0;
-    }
+    const res = await api.delete<{ deleted?: number; count?: number }>('/bots/stopped');
+    return res.data.deleted ?? res.data.count ?? 0;
   }
 }
 
