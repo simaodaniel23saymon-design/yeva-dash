@@ -56,6 +56,9 @@ export interface LiveBot {
   peakNetPnlUsdt?: number;
   mode?: string;
   riskMode?: string;
+  /** DEMO | REAL — vindo da API */
+  accountType?: string;
+  exchange?: string;
 }
 
 type BotLike = {
@@ -93,14 +96,27 @@ export function normalizeBotStatus(
   return 'stopped';
 }
 
+export function normalizeAccountType(value: unknown, exchange?: unknown): 'DEMO' | 'REAL' {
+  const raw = String(value ?? '').trim().toUpperCase();
+  if (raw === 'DEMO' || raw === 'TESTNET') return 'DEMO';
+  const ex = String(exchange ?? '').trim().toUpperCase();
+  if (ex === 'DEMO') return 'DEMO';
+  return 'REAL';
+}
+
+export function isDemoBot(bot?: Pick<LiveBot, 'accountType' | 'exchange'> | null): boolean {
+  return normalizeAccountType(bot?.accountType, bot?.exchange) === 'DEMO';
+}
+
 export function normalizeLiveBot<T extends LiveBot>(bot: T): T {
-  const raw = bot as T & BotLike;
+  const raw = bot as T & BotLike & { accountType?: string; exchange?: string };
   return {
     ...bot,
     id: resolveBotId(raw),
     symbol: bot.symbol ?? bot.pair,
     pair: bot.pair ?? bot.symbol,
     status: normalizeBotStatus(raw.status, raw),
+    accountType: normalizeAccountType(raw.accountType, raw.exchange),
   };
 }
 

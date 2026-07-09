@@ -21,12 +21,14 @@ import {
   deleteBotById,
   deleteStoppedBots,
   isBotRunning,
+  isDemoBot,
   normalizeLiveBot,
 } from '../utils/liveData';
 import type { ChartMarket } from '../utils/chartData';
 import type { BotConfig } from '../types/trading';
 import { DEFAULT_PRO_CONFIG } from '../types/trading';
 import { ProBotConfigFields } from '../components/pro/ProBotConfigFields';
+import { MarketProtectionBanner } from '../components/MarketProtectionBanner';
 import { buildCreateBotPayload } from '../utils/botPayload';
 
 interface Bot {
@@ -47,6 +49,8 @@ interface Bot {
   entryPercent?: number;
   takeProfitPercent?: number;
   stopLossPercent?: number;
+  accountType?: string;
+  exchange?: string;
 }
 
 export default function BotsPage() {
@@ -140,7 +144,9 @@ export default function BotsPage() {
           takeProfitPercent: takeProfit,
           stopLossPercent: stopLoss,
         }
-      : buildCreateBotPayload(pairUpper, market, riskMode, leverage, capitalPerSide, proConfig);
+      : buildCreateBotPayload(pairUpper, market, riskMode, leverage, capitalPerSide, proConfig, {
+          accountType: isDemo ? 'DEMO' : 'REAL',
+        });
 
     try {
       await api.post('/bots', body);
@@ -301,6 +307,14 @@ export default function BotsPage() {
             lastUpdate={lastSync}
           />
 
+          {isDemo && (
+            <div className="bg-gold-dim border border-gold-30 px-3 py-2 font-mono text-[9px] text-gold uppercase tracking-wider">
+              Modo DEMO — ordens simuladas, sem risco real na Binance
+            </div>
+          )}
+
+          <MarketProtectionBanner compact />
+
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
               <h2 className="text-text1 font-bold text-lg">Configurar Robô</h2>
@@ -308,6 +322,9 @@ export default function BotsPage() {
                 Gás: <span className="text-gold">${formatUSDT(wallet?.balance)}</span>
                 {' · '}
                 <span className={isDemo ? 'text-gold' : 'text-cyan'}>{balanceLabel}</span>
+                {isDemo && (
+                  <span className="ml-2 px-1.5 py-0.5 border border-gold-30 bg-gold-dim text-gold">DEMO</span>
+                )}
               </p>
             </div>
             <button onClick={() => setShowCreate(true)}
@@ -355,6 +372,7 @@ export default function BotsPage() {
             const sym = bot.symbol ?? bot.pair ?? '—';
             const running = isBotRunning(bot.status);
             const isDeleting = deletingId === botId;
+            const demo = isDemoBot(bot) || isDemo;
             return (
               <div key={botId || sym} className={`bg-bg1 border p-4 ${running ? 'border-cyan/20' : 'border-border1'}`}>
                 <div className="flex items-start justify-between gap-3">
@@ -369,6 +387,21 @@ export default function BotsPage() {
                         running ? 'border-cyan-30 bg-cyan-dim text-cyan' : 'border-border2 text-text3'
                       }`}>
                         {running ? 'A operar' : 'Parado'}
+                      </span>
+                      {demo ? (
+                        <span className="font-mono text-[8px] uppercase px-1.5 py-0.5 border border-gold-30 bg-gold-dim text-gold">
+                          DEMO
+                        </span>
+                      ) : (
+                        <span className="font-mono text-[8px] uppercase px-1.5 py-0.5 border border-border2 text-text3">
+                          REAL
+                        </span>
+                      )}
+                      <span
+                        className="font-mono text-[8px] uppercase px-1.5 py-0.5 border border-cyan-30/60 text-cyan/80"
+                        title="Filtro explosivo e tendência multi-TF activos no motor"
+                      >
+                        Protecção ON
                       </span>
                     </div>
                     <div className="flex gap-4 font-mono text-[10px] text-text2 flex-wrap">
@@ -443,9 +476,12 @@ export default function BotsPage() {
                       <p className="text-text2">Par: <span className="text-text1 font-bold">{pair}</span> · {market}</p>
                       <p className="text-text2">Risco: <span className="text-text1">{riskMode}</span> · Alavancagem: <span className="text-text1">{leverage}x</span></p>
                       <p className="text-text2">Capital/ordem: <span className="text-cyan">${capitalPerSide}</span> · Modo: Hedge Pro</p>
-                      <p className="text-text2">Grid PRO: {proConfig.maxLongPositions ?? 15}L+{proConfig.maxShortPositions ?? 15}S · {proConfig.gridSpacing ?? 0.8}%</p>
+                      <p className="text-text2">Grid PRO: {proConfig.maxLongPositions ?? 5}L+{proConfig.maxShortPositions ?? 5}S · {proConfig.gridSpacing ?? 0.8}%</p>
+                      <p className="text-gold/80 text-[9px] pt-1">Mercado explosivo: o motor reduz ordens e só segue a tendência</p>
                     </div>
                   )}
+
+                  <MarketProtectionBanner compact />
 
                   <ProBotConfigFields
                     compact

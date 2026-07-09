@@ -19,6 +19,7 @@ export interface CreateBotPayload {
   dynamicSpacingEnabled: boolean;
   trailingStopActivationUsdt: number;
   trailingStopCallbackUsdt: number;
+  accountType?: 'DEMO' | 'REAL';
 }
 
 /** Payload alinhado com POST /api/bots do backend */
@@ -29,12 +30,12 @@ export function buildCreateBotPayload(
   leverage: number,
   capitalPerSide: number,
   proConfig?: BotConfig,
-  options?: { mode?: string; ordersPerSide?: number; spacing?: number },
+  options?: { mode?: string; ordersPerSide?: number; spacing?: number; accountType?: 'DEMO' | 'REAL' },
 ): CreateBotPayload {
   const c = mergeProConfig(proConfig);
   const ordersPerSide = options?.ordersPerSide
-    ?? Math.max(c.maxLongPositions, c.maxShortPositions, 30);
-  const spacing = options?.spacing ?? c.gridSpacing ?? 0.3;
+    ?? Math.max(c.maxLongPositions, c.maxShortPositions, 5);
+  const spacing = options?.spacing ?? c.gridSpacing ?? 0.8;
 
   return {
     pair: pair.toUpperCase(),
@@ -54,5 +55,6 @@ export function buildCreateBotPayload(
     dynamicSpacingEnabled: c.dynamicSpacingEnabled !== false,
     trailingStopActivationUsdt: Number(c.trailingStopActivationUsdt ?? c.minProfitUsdt ?? 1),
     trailingStopCallbackUsdt: Number(c.trailingStopCallbackUsdt ?? 0.5),
+    accountType: options?.accountType,
   };
 }

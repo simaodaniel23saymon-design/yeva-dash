@@ -15,6 +15,7 @@ import type { ChartMarket } from '../utils/chartData';
 import type { BotConfig } from '../types/trading';
 import { DEFAULT_PRO_CONFIG } from '../types/trading';
 import { ProBotConfigFields } from '../components/pro/ProBotConfigFields';
+import { MarketProtectionBanner } from '../components/MarketProtectionBanner';
 import { buildCreateBotPayload } from '../utils/botPayload';
 
 export default function CreateBotPage() {
@@ -76,7 +77,7 @@ export default function CreateBotPage() {
         leverage,
         capitalPerSide,
         proConfig,
-        { mode },
+        { mode, accountType: isDemo ? 'DEMO' : 'REAL' },
       ));
 
       setStartedBot({ pair: pairUpper, market });
@@ -115,8 +116,19 @@ export default function CreateBotPage() {
           Gás: <span className="text-gold">${formatUSDT(wallet?.balance)}</span>
           {' · '}
           <span className={isDemo ? 'text-gold' : 'text-cyan'}>{balanceLabel}</span>
+          {isDemo && (
+            <span className="ml-2 font-mono text-[9px] uppercase px-1.5 py-0.5 border border-gold-30 bg-gold-dim text-gold">DEMO</span>
+          )}
         </p>
       </div>
+
+      {isDemo && (
+        <div className="bg-gold-dim border border-gold-30 p-3 font-mono text-[11px] text-gold">
+          Modo DEMO — o bot usa a mesma estratégia com dinheiro fictício (sem ordens reais).
+        </div>
+      )}
+
+      <MarketProtectionBanner />
 
       {!isConnected && (
         <div className="bg-gold-dim border border-gold-30 p-4 font-mono text-[12px] text-gold">
@@ -146,7 +158,8 @@ export default function CreateBotPage() {
             <p className="text-text3 uppercase text-[11px] tracking-wider mb-2">Resumo</p>
             <p className="text-text2">Par: <span className="text-text1 font-bold">{pair}</span> · {market}</p>
             <p className="text-text2">Risco: {riskMode} · Alavancagem: {leverage}x · Capital: ${capitalPerSide}</p>
-            <p className="text-text2">Grid: {proConfig.maxLongPositions ?? 15}L+{proConfig.maxShortPositions ?? 15}S · Spacing {proConfig.gridSpacing ?? 0.8}%</p>
+            <p className="text-text2">Grid: {proConfig.maxLongPositions ?? 5}L+{proConfig.maxShortPositions ?? 5}S · Spacing {proConfig.gridSpacing ?? 0.8}%</p>
+            <p className="text-gold/80 text-[10px] pt-1">Protecção explosiva activa no motor (só segue a tendência em pumps)</p>
           </div>
         )}
 

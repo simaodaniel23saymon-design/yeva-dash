@@ -28,17 +28,20 @@ export function ProBotConfigFields({ config, onChange, inputClass, compact = fal
       <p className="font-mono text-[10px] uppercase tracking-widest text-cyan font-bold">
         Configuração PRO
       </p>
+      <p className="font-mono text-[9px] text-text3">
+        Default seguro: 5 Long + 5 Short · spacing 0.8%. Em mercado explosivo o motor reduz ainda mais.
+      </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
           <label className={label}>Máx Posições Long</label>
-          <input type="number" min={1} max={30} value={c.maxLongPositions}
+          <input type="number" min={1} max={10} value={c.maxLongPositions}
             onChange={e => onChange({ maxLongPositions: Number(e.target.value) })}
             className={inputClass} />
         </div>
         <div>
           <label className={label}>Máx Posições Short</label>
-          <input type="number" min={1} max={30} value={c.maxShortPositions}
+          <input type="number" min={1} max={10} value={c.maxShortPositions}
             onChange={e => onChange({ maxShortPositions: Number(e.target.value) })}
             className={inputClass} />
         </div>

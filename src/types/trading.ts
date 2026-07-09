@@ -99,8 +99,8 @@ export interface ProNotification {
 }
 
 export const DEFAULT_PRO_CONFIG: Required<BotConfig> = {
-  maxLongPositions: 15,
-  maxShortPositions: 15,
+  maxLongPositions: 5,
+  maxShortPositions: 5,
   gridSpacing: 0.8,
   dynamicSpacingEnabled: true,
   tpDailyPct: 1.5,
