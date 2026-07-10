@@ -20,6 +20,7 @@ export interface CreateBotPayload {
   trailingStopActivationUsdt: number;
   trailingStopCallbackUsdt: number;
   accountType?: 'DEMO' | 'REAL';
+  autoStart?: boolean;
 }
 
 /** Payload alinhado com POST /api/bots do backend */
@@ -30,7 +31,7 @@ export function buildCreateBotPayload(
   leverage: number,
   capitalPerSide: number,
   proConfig?: BotConfig,
-  options?: { mode?: string; ordersPerSide?: number; spacing?: number; accountType?: 'DEMO' | 'REAL' },
+  options?: { mode?: string; ordersPerSide?: number; spacing?: number; accountType?: 'DEMO' | 'REAL'; autoStart?: boolean },
 ): CreateBotPayload {
   const c = mergeProConfig(proConfig);
   const ordersPerSide = options?.ordersPerSide
@@ -56,5 +57,6 @@ export function buildCreateBotPayload(
     trailingStopActivationUsdt: Number(c.trailingStopActivationUsdt ?? c.minProfitUsdt ?? 1),
     trailingStopCallbackUsdt: Number(c.trailingStopCallbackUsdt ?? 0.5),
     accountType: options?.accountType,
+    autoStart: options?.autoStart !== false,
   };
 }

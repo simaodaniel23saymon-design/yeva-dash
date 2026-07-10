@@ -77,8 +77,14 @@ export default function CreateBotPage() {
         leverage,
         capitalPerSide,
         proConfig,
-        { mode, accountType: isDemo ? 'DEMO' : 'REAL' },
+        { mode, accountType: isDemo ? 'DEMO' : 'REAL', autoStart: true },
       ));
+
+      try {
+        await api.post('/bots/start');
+      } catch {
+        /* bot já pode estar running após create */
+      }
 
       setStartedBot({ pair: pairUpper, market });
       setTimeout(() => navigate('/bots'), 2500);

@@ -146,22 +146,39 @@ export default function BotsPage() {
         }
       : buildCreateBotPayload(pairUpper, market, riskMode, leverage, capitalPerSide, proConfig, {
           accountType: isDemo ? 'DEMO' : 'REAL',
+          autoStart: true,
         });
 
     try {
-      await api.post('/bots', body);
-      setStartPhase('starting');
-      try {
-        await api.post('/bots/start');
-      } catch {
-        /* start pode falhar se já estiver activo */
+      const createRes = await api.post('/bots', body);
+      const createdStatus = String(createRes.data?.status ?? '').toLowerCase();
+      let started = createdStatus === 'running' || createdStatus === 'active';
+
+      if (!started) {
+        setStartPhase('starting');
+        try {
+          await api.post('/bots/start');
+          started = true;
+        } catch (startErr: unknown) {
+          const ax = startErr as { response?: { data?: { error?: string; code?: string } } };
+          const startMsg = ax.response?.data?.error || getFriendlyError(startErr).message;
+          await loadBots();
+          setShowCreate(false);
+          setPair('');
+          setError(`Bot criado mas não iniciou: ${startMsg}`);
+          showFlash(`Bot ${pairUpper} criado — clica "Iniciar Este" para activar.`);
+          return;
+        }
       }
+
       setShowCreate(false);
       setPair('');
       setStarting(true);
       await loadBots();
       setStartedBot({ pair: pairUpper, market });
-      showFlash(`Bot ${pairUpper} criado e a operar.`);
+      showFlash(started
+        ? `Bot ${pairUpper} criado e a operar.`
+        : `Bot ${pairUpper} criado — inicia manualmente.`);
     } catch (err: unknown) {
       setError(getFriendlyError(err).message);
     } finally {
