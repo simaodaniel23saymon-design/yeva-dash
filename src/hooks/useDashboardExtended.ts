@@ -47,8 +47,20 @@ export interface DashLog {
   message: string;
 }
 
+export interface MlPrediction {
+  regime: string;
+  confidence: number;
+  recommendedAction: string;
+  intensity: number;
+  source: string;
+  enabled: boolean;
+  shadowMode?: boolean;
+  probabilities?: Record<string, number>;
+}
+
 export interface DashboardExtended {
   marketIndicators: Record<string, MarketIndicator>;
+  mlPrediction?: Record<string, MlPrediction>;
   primarySymbol: string | null;
   bots: DashBotRow[];
   recentTrades: DashTrade[];
@@ -71,6 +83,7 @@ export interface DashboardExtended {
 
 const empty: DashboardExtended = {
   marketIndicators: {},
+  mlPrediction: {},
   primarySymbol: null,
   bots: [],
   recentTrades: [],

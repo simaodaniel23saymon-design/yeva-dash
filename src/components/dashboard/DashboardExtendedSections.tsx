@@ -15,6 +15,7 @@ import {
   type DashLog,
   type DashTrade,
   type MarketIndicator,
+  type MlPrediction,
   type PerfRange,
   useDashboardExtended,
   useDashboardLogs,
@@ -49,9 +50,11 @@ function SectionShell({
 
 function MarketIndicatorsSection({
   indicators,
+  mlPrediction,
   symbols,
 }: {
   indicators: Record<string, MarketIndicator>;
+  mlPrediction?: Record<string, MlPrediction>;
   symbols: string[];
 }) {
   const [sym, setSym] = useState(symbols[0] || '');
@@ -60,6 +63,7 @@ function MarketIndicatorsSection({
   }, [symbols, sym]);
 
   const ind = indicators[sym];
+  const ml = mlPrediction?.[sym];
   if (!symbols.length) {
     return (
       <SectionShell title="Indicadores de Mercado">
@@ -131,6 +135,52 @@ function MarketIndicatorsSection({
           </p>
         </div>
       </div>
+
+      {ml && (
+        <div
+          className={`border p-3 mt-1 ${
+            ml.shadowMode || !ml.enabled
+              ? 'border-gold-30 bg-gold-dim'
+              : 'border-cyan-20 bg-cyan-dim'
+          }`}
+        >
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <p
+              className={`font-mono text-[9px] uppercase tracking-wider ${
+                ml.shadowMode || !ml.enabled ? 'text-gold' : 'text-cyan'
+              }`}
+            >
+              Inteligência ML-1
+            </p>
+            <span
+              className={`font-mono text-[9px] uppercase px-2 py-0.5 border ${
+                ml.shadowMode || !ml.enabled
+                  ? 'border-gold-30 text-gold'
+                  : 'border-cyan-30 text-cyan'
+              }`}
+              title="ML observa e prevê; o motor usa regras rígidas"
+            >
+              {ml.shadowMode || !ml.enabled ? '\u{1F441} Shadow Mode' : 'Execution ON'}
+            </span>
+          </div>
+          <p className="font-bold text-text1 text-base mt-1">
+            {ml.regime}{' '}
+            <span
+              className={`font-mono text-sm ${
+                ml.shadowMode || !ml.enabled ? 'text-gold' : 'text-cyan'
+              }`}
+            >
+              {(ml.confidence * 100).toFixed(0)}%
+            </span>
+          </p>
+          <p className="font-mono text-[10px] text-text2 mt-1">{ml.recommendedAction}</p>
+          {(ml.shadowMode || !ml.enabled) && (
+            <p className="font-mono text-[9px] text-gold mt-2">
+              Observação apenas — o bot opera com regras rígidas (Fases 1–4).
+            </p>
+          )}
+        </div>
+      )}
     </SectionShell>
   );
 }
@@ -576,7 +626,11 @@ export function DashboardExtendedSections({ enabled }: { enabled: boolean }) {
           {error}
         </div>
       )}
-      <MarketIndicatorsSection indicators={data.marketIndicators} symbols={symbols} />
+      <MarketIndicatorsSection
+        indicators={data.marketIndicators}
+        mlPrediction={data.mlPrediction}
+        symbols={symbols}
+      />
       <BotsStatusSection bots={data.bots} onChanged={() => void refetch()} />
       <RecentTradesSection trades={data.recentTrades} />
       <PerformanceSection
