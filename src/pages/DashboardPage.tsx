@@ -17,6 +17,7 @@ import {
   type ExchangePosition,
   type LiveBot,
 } from '../utils/liveData';
+import { DashboardExtendedSections } from '../components/dashboard/DashboardExtendedSections';
 
 export default function DashboardPage() {
   const { data: binance, loading: binanceLoading, refreshing, error, refetch } = useBinanceData(10000);
@@ -219,6 +220,9 @@ export default function DashboardPage() {
               })}
             </div>
           )}
+
+          {/* Novas secções — layout existente intacto acima */}
+          <DashboardExtendedSections enabled />
         </>
       )}
     </div>
