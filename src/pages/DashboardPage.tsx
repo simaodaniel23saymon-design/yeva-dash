@@ -18,6 +18,7 @@ import {
   type LiveBot,
 } from '../utils/liveData';
 import { DashboardExtendedSections } from '../components/dashboard/DashboardExtendedSections';
+import { EnablePushButton } from '../components/notifications/EnablePushButton';
 
 export default function DashboardPage() {
   const { data: binance, loading: binanceLoading, refreshing, error, refetch } = useBinanceData(10000);
@@ -94,6 +95,8 @@ export default function DashboardPage() {
         'Actualização automática a cada 10 segundos',
         'Gráfico e posições abertas na exchange',
       ]} />
+
+      <EnablePushButton />
 
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>

@@ -3,6 +3,7 @@ import { api } from '../../lib/api';
 import { getFriendlyError } from '../../utils/errorHandler';
 import { YevaTradeLoader } from '../YevaTradeLoader';
 import { sanitizeTelegramLink } from '../../utils/telegramLink';
+import { EnablePushButton } from './EnablePushButton';
 
 interface TelegramLink {
   code: string;
@@ -214,6 +215,16 @@ export function NotificationChannelsPanel({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-bg1 border border-border1 p-5 md:col-span-2">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-mono text-[9px] uppercase tracking-wider text-text2">Web Push (PWA)</h3>
+          </div>
+          <p className="font-mono text-[9px] text-text3 mb-3">
+            Recebe alertas DCA no Chrome (desktop ou Android) mesmo com o separador em segundo plano.
+          </p>
+          <EnablePushButton />
+        </div>
+
         <div className="bg-bg1 border border-border1 p-5">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-mono text-[9px] uppercase tracking-wider text-text2">Email</h3>
