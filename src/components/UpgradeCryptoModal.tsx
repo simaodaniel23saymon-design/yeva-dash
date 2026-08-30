@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { YevaTradeLoader } from '../YevaTradeLoader';
-import { api } from '../../lib/api';
-import { getFriendlyError } from '../../utils/errorHandler';
-import { MIN_DEPOSIT } from '../../utils/constants';
+import { YevaTradeLoader } from './YevaTradeLoader';
+import { api } from '../lib/api';
+import { getFriendlyError } from '../utils/errorHandler';
+import { MIN_DEPOSIT } from '../utils/constants';
 
 interface Deposit {
   paymentId: string;
