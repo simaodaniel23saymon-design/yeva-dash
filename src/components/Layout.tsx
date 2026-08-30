@@ -80,6 +80,9 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
         <NavLink to="/operations" className={navLinkClass} onClick={close}><IconChart /><span>Operações</span></NavLink>
         <NavLink to="/market-analysis" className={navLinkClass} onClick={close}><IconChart /><span>Análise PRO</span></NavLink>
         <NavLink to="/bot-stats" className={navLinkClass} onClick={close}><IconBot /><span>Stats PRO</span></NavLink>
+        <NavLink to="/pro/signals" className={navLinkClass} onClick={close}><IconChart /><span>Pro Signals</span></NavLink>
+        <NavLink to="/pro" className={navLinkClass} onClick={close}><IconNetwork /><span>BOTS PRO</span></NavLink>
+        <NavLink to="/performance" className={navLinkClass} onClick={close}><IconChart /><span>Performance</span></NavLink>
         <NavLink to="/history"   className={navLinkClass} onClick={close}><IconChart /><span>Histórico</span></NavLink>
 
         <span className="font-mono text-[8px] tracking-[2.5px] uppercase text-text3 px-2 mb-2 mt-5 block">Exchanges</span>

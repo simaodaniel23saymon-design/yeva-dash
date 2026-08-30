@@ -23,6 +23,9 @@ import CreateBotPage from './pages/CreateBotPage';
 import ApiGuidePage from './pages/ApiGuidePage';
 import MarketAnalysisPage from './pages/MarketAnalysisPage';
 import BotStatsPage from './pages/BotStatsPage';
+import PerformancePage from './pages/PerformancePage';
+import ProPage from './pages/ProPage';
+import ProSignalsPage from './pages/ProSignalsPage';
 
 function ProtectedRoute({ children, requireAdmin = false }: { children: React.ReactNode; requireAdmin?: boolean }) {
   const { user, loading } = useAuth();
@@ -72,6 +75,8 @@ export default function App() {
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/legal/terms" element={<TermsOfUse />} />
           <Route path="/legal/privacy" element={<PrivacyPolicy />} />
+          <Route path="/performance" element={<PerformancePage />} />
+          <Route path="/pro" element={<ProPage />} />
           <Route path="/dashboard" element={<AppRoute element={<DashboardPage />} />} />
           <Route path="/bots" element={<AppRoute element={<BotsPage />} />} />
           <Route path="/create-bot" element={<AppRoute element={<CreateBotPage />} />} />
@@ -82,6 +87,7 @@ export default function App() {
           <Route path="/positions" element={<AppRoute element={<OperationsPage />} />} />
           <Route path="/market-analysis" element={<AppRoute element={<MarketAnalysisPage />} />} />
           <Route path="/bot-stats" element={<AppRoute element={<BotStatsPage />} />} />
+          <Route path="/pro/signals" element={<AppRoute element={<ProSignalsPage />} />} />
           <Route path="/history" element={<AppRoute element={<HistoryPage />} />} />
           <Route path="/wallet" element={<AppRoute element={<WalletPage />} />} />
           <Route path="/deposit" element={<AppRoute element={<DepositPage />} />} />
