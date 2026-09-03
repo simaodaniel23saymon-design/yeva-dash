@@ -223,7 +223,8 @@ function BotsStatusSection({
   };
 
   const statusDot = (status: string) => {
-    if (status === 'active' || status === 'grid_active') return 'text-cyan';
+    if (status === 'dca_no_sl') return 'text-red font-bold';
+    if (status === 'active' || status === 'grid_active' || status === 'dca_active') return 'text-cyan';
     if (status === 'grid_off_adx') return 'text-red';
     if (status === 'no_balance') return 'text-text3';
     return 'text-text2';
@@ -259,8 +260,42 @@ function BotsStatusSection({
               return (
                 <tr key={bot.id} className="border-b border-border1/60">
                   <td className="py-2.5 pr-3 text-text1 font-bold">{bot.symbol}</td>
-                  <td className="py-2.5 pr-3 text-text2">{bot.strategy}</td>
-                  <td className={`py-2.5 pr-3 ${statusDot(bot.status)}`}>
+                  <td className="py-2.5 pr-3 text-text2">
+                    <div>{bot.strategy}</div>
+                    {bot.dcaCycle && (
+                      <div className="mt-1 text-[9px] text-text2/80 leading-relaxed">
+                        {bot.dcaCycle.missingSl && (
+                          <span className="inline-block mb-1 font-mono text-[9px] uppercase tracking-wider text-white bg-red-600 px-1.5 py-0.5">
+                            CICLO SEM SL
+                          </span>
+                        )}
+                        média ${bot.dcaCycle.avgEntry.toPrecision(6)} · safety{' '}
+                        {bot.dcaCycle.safetyFilled}/{bot.dcaCycle.maxSafetyOrders}
+                        {bot.dcaCycle.nextSafetyPrice != null && (
+                          <>
+                            <br />
+                            próxima @ ${bot.dcaCycle.nextSafetyPrice.toPrecision(6)}
+                          </>
+                        )}
+                        {bot.dcaCycle.tpPrice != null && (
+                          <>
+                            <br />
+                            TP ${bot.dcaCycle.tpPrice.toPrecision(6)}
+                            {bot.dcaCycle.slPrice != null
+                              ? ` · SL $${bot.dcaCycle.slPrice.toPrecision(6)}`
+                              : ''}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                  <td
+                    className={`py-2.5 pr-3 ${
+                      bot.dcaCycle?.missingSl || bot.status === 'dca_no_sl'
+                        ? 'text-red font-bold'
+                        : statusDot(bot.status)
+                    }`}
+                  >
                     ● {bot.statusLabel}
                   </td>
                   <td

@@ -15,6 +15,22 @@ export interface MarketIndicator {
   gridReason: string;
 }
 
+export interface DashDcaCycle {
+  avgEntry: number;
+  totalQty: number;
+  safetyFilled: number;
+  safetyPlaced: number;
+  maxSafetyOrders: number;
+  tpPrice: number | null;
+  slPrice: number | null;
+  slOrderId?: string | null;
+  missingSl?: boolean;
+  nextSafetyPrice: number | null;
+  nextSafetyQty: number | null;
+  maxLossUsdt: number | null;
+  levels: number;
+}
+
 export interface DashBotRow {
   id: string;
   symbol: string;
@@ -26,6 +42,7 @@ export interface DashBotRow {
   gridEnabled: boolean;
   gridActive: boolean;
   botStatus: string;
+  dcaCycle?: DashDcaCycle | null;
 }
 
 export interface DashTrade {

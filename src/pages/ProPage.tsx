@@ -18,6 +18,9 @@ export default function ProPage() {
   const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [earlyLimit, setEarlyLimit] = useState(10);
+  const [waitlistNote, setWaitlistNote] = useState<string | null>(
+    'Cobranças em breve — paper precisa PF ≥ 1.5 e DD ≤ 20%.'
+  );
   const [busy, setBusy] = useState<string | null>(null);
   const [pay, setPay] = useState<{
     payAddress: string;
@@ -30,10 +33,21 @@ export default function ProPage() {
 
   useEffect(() => {
     api
-      .get<{ products: Product[]; earlyBirdLimit: number }>('/pro/products')
+      .get<{
+        products: Product[];
+        earlyBirdLimit: number;
+        waitlistNote?: string | null;
+        billingReady?: boolean;
+      }>('/pro/products')
       .then((r) => {
         setProducts(r.data.products || []);
         setEarlyLimit(r.data.earlyBirdLimit || 10);
+        setWaitlistNote(
+          r.data.billingReady
+            ? null
+            : r.data.waitlistNote ||
+                'Cobranças em breve — paper precisa PF ≥ 1.5 e DD ≤ 20%.'
+        );
       })
       .catch(() => setErr('Falha ao carregar produtos'));
   }, []);
@@ -94,6 +108,11 @@ export default function ProPage() {
             Feed de sinais premium — DCA Elite + Grid Pro em paper. Sem pedir as tuas
             chaves de exchange. Early-bird: primeiros {earlyLimit} a 50% off.
           </p>
+          {waitlistNote && (
+            <p className="font-mono text-[11px] text-gold max-w-lg mx-auto border border-gold-30 px-3 py-2">
+              {waitlistNote}
+            </p>
+          )}
         </div>
 
         <div className="grid md:grid-cols-3 gap-4">
