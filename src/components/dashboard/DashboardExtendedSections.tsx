@@ -185,6 +185,103 @@ function MarketIndicatorsSection({
   );
 }
 
+function DcaPairsSection({
+  pairs,
+  onChanged,
+}: {
+  pairs: Array<{
+    symbol: string;
+    status: string;
+    statusLabel: string;
+    minNotional: number | null;
+    hasBot: boolean;
+  }>;
+  onChanged: () => void;
+}) {
+  const [symbol, setSymbol] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const add = async () => {
+    const s = symbol.trim().toUpperCase();
+    if (!s) return;
+    setBusy(true);
+    try {
+      await api.post('/dashboard/dca-pairs/add', { symbol: s });
+      setSymbol('');
+      onChanged();
+    } catch {
+      /* */
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async (sym: string) => {
+    setBusy(true);
+    try {
+      await api.post('/dashboard/dca-pairs/remove', { symbol: sym });
+      onChanged();
+    } catch {
+      /* */
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <SectionShell title="Pares DCA">
+      <div className="flex flex-wrap gap-2 mb-3">
+        {(pairs || []).map((p) => (
+          <div
+            key={p.symbol}
+            className="border border-border1 px-2 py-1.5 flex items-center gap-2"
+          >
+            <span className="text-text1 font-bold">{p.symbol}</span>
+            <span
+              className={
+                p.status === 'active'
+                  ? 'text-cyan'
+                  : p.status === 'skip_min' || p.status === 'no_sl'
+                    ? 'text-red'
+                    : 'text-text2'
+              }
+            >
+              {p.statusLabel}
+            </span>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void remove(p.symbol)}
+              className="text-text3 hover:text-red text-[9px] uppercase"
+            >
+              remover
+            </button>
+          </div>
+        ))}
+        {(!pairs || pairs.length === 0) && (
+          <span className="text-text3">Nenhum par configurado</span>
+        )}
+      </div>
+      <div className="flex gap-2 items-center">
+        <input
+          value={symbol}
+          onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+          placeholder="SOLUSDT"
+          className="bg-bg0 border border-border1 px-2 py-1 text-text1 w-36"
+        />
+        <button
+          type="button"
+          disabled={busy || !symbol.trim()}
+          onClick={() => void add()}
+          className="border border-cyan text-cyan px-3 py-1 text-[10px] uppercase disabled:opacity-40"
+        >
+          Adicionar par
+        </button>
+      </div>
+    </SectionShell>
+  );
+}
+
 function BotsStatusSection({
   bots,
   onChanged,
@@ -665,6 +762,10 @@ export function DashboardExtendedSections({ enabled }: { enabled: boolean }) {
         indicators={data.marketIndicators}
         mlPrediction={data.mlPrediction}
         symbols={symbols}
+      />
+      <DcaPairsSection
+        pairs={data.dcaPairs || []}
+        onChanged={() => void refetch()}
       />
       <BotsStatusSection bots={data.bots} onChanged={() => void refetch()} />
       <RecentTradesSection trades={data.recentTrades} />

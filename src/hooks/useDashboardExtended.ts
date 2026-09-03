@@ -75,11 +75,20 @@ export interface MlPrediction {
   probabilities?: Record<string, number>;
 }
 
+export interface DashDcaPairStatus {
+  symbol: string;
+  status: string;
+  statusLabel: string;
+  minNotional: number | null;
+  hasBot: boolean;
+}
+
 export interface DashboardExtended {
   marketIndicators: Record<string, MarketIndicator>;
   mlPrediction?: Record<string, MlPrediction>;
   primarySymbol: string | null;
   bots: DashBotRow[];
+  dcaPairs?: DashDcaPairStatus[];
   recentTrades: DashTrade[];
   performance: {
     labels: string[];
