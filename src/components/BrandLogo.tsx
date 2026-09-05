@@ -22,7 +22,9 @@ export function BrandLogo({ variant = 'header', subtitle, className = '' }: Prop
         draggable={false}
       />
       {subtitle ? (
-        <p className="font-mono text-[8px] text-text2 tracking-[2px] uppercase mt-1">{subtitle}</p>
+        <p className="font-mono text-[9px] text-text2 tracking-[0.22em] uppercase mt-1.5 alive-breath">
+          {subtitle}
+        </p>
       ) : null}
     </div>
   );

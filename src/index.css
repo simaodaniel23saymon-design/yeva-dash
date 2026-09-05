@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "@fontsource/space-grotesk/400.css";
 @import "@fontsource/space-grotesk/500.css";
+@import "@fontsource/space-grotesk/600.css";
 @import "@fontsource/space-grotesk/700.css";
 @import "@fontsource/space-mono/400.css";
 @import "@fontsource/space-mono/700.css";
@@ -67,10 +68,36 @@ body {
   background-color: #060a08;
   color: #c8d4c9;
   font-family: 'Space Grotesk', sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
   overflow: hidden;
   overscroll-behavior-y: none;
   touch-action: manipulation;
+}
+
+h1, h2, h3, .display-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+.font-mono,
+.tabular-nums {
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.eyebrow {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #6b8a6e;
 }
 
 #root {
@@ -275,4 +302,28 @@ body {
 
 .surface-card:hover {
   border-color: rgba(0, 212, 160, 0.18);
+}
+
+/* Sistema vivo — micro-motion sem mudar cores */
+@keyframes alivePing {
+  0% { transform: scale(1); opacity: 0.55; }
+  70% { transform: scale(2.1); opacity: 0; }
+  100% { transform: scale(2.1); opacity: 0; }
+}
+
+.alive-ping {
+  animation: alivePing 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes softBreath {
+  0%, 100% { opacity: 0.72; }
+  50% { opacity: 1; }
+}
+
+.alive-breath {
+  animation: softBreath 3.2s ease-in-out infinite;
+}
+
+.page-enter {
+  animation: fadeInUp 0.55s ease-out both;
 }

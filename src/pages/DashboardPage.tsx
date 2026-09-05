@@ -19,6 +19,7 @@ import {
 } from '../utils/liveData';
 import { DashboardExtendedSections } from '../components/dashboard/DashboardExtendedSections';
 import { EnablePushButton } from '../components/notifications/EnablePushButton';
+import { AmbientAliveCanvas } from '../components/SystemAliveBoot';
 
 export default function DashboardPage() {
   const { data: binance, loading: binanceLoading, refreshing, error, refetch } = useBinanceData(10000);
@@ -89,7 +90,31 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 relative">
+      <div className="relative overflow-hidden border border-border1 bg-bg1 px-4 py-5 sm:px-5">
+        <AmbientAliveCanvas />
+        <div className="relative z-10 flex items-start justify-between flex-wrap gap-3">
+          <div>
+            <p className="eyebrow mb-1.5">Sessão activa</p>
+            <h2 className="display-title text-text1 text-[22px] sm:text-2xl">Painel de Controlo</h2>
+            <p className="font-mono text-[10px] text-text2 tracking-[0.08em] mt-1.5 leading-relaxed">
+              Dados Binance em tempo real
+              {!Number.isNaN(updatedAt.getTime()) && (
+                <> · Actualizado: {updatedAt.toLocaleTimeString('pt-PT')}{refreshing ? ' · a sincronizar…' : ''}</>
+              )}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="font-mono text-[9px] uppercase tracking-[0.14em] px-4 py-2 border border-border2 text-text2 hover:border-cyan hover:text-cyan disabled:opacity-50"
+          >
+            {refreshing ? 'A actualizar...' : 'Actualizar'}
+          </button>
+        </div>
+      </div>
+
       <QuickGuide title="Painel em tempo real" steps={[
         'Saldo disponível, P&L aberto, resultado de hoje e saldo líquido (Binance)',
         'Actualização automática a cada 10 segundos',
@@ -97,26 +122,6 @@ export default function DashboardPage() {
       ]} />
 
       <EnablePushButton />
-
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h2 className="text-text1 font-bold text-lg">Painel de Controlo</h2>
-          <p className="font-mono text-[9px] text-text2 uppercase tracking-wider mt-0.5">
-            Dados Binance em tempo real
-            {!Number.isNaN(updatedAt.getTime()) && (
-              <> · Actualizado: {updatedAt.toLocaleTimeString('pt-PT')}{refreshing ? ' · a sincronizar…' : ''}</>
-            )}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="font-mono text-[9px] uppercase px-4 py-2 border border-border2 text-text2 hover:border-cyan hover:text-cyan disabled:opacity-50"
-        >
-          {refreshing ? 'A actualizar...' : 'Actualizar'}
-        </button>
-      </div>
 
       {error && (
         <div className="bg-red-dim border border-red-30 p-3 font-mono text-[10px] text-red">

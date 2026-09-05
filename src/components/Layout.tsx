@@ -1,8 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation, NavLink, Link } from 'react-router-dom';
 import { useAuth, useLogout } from '../context/AuthContext';
 import { api } from '../lib/api';
 import { BrandLogo } from './BrandLogo';
+import {
+  shouldShowSystemBoot,
+  SystemAliveBoot,
+} from './SystemAliveBoot';
 
 interface ExchangeAccount { id: string; exchange: string; isActive: boolean; }
 
@@ -139,8 +143,11 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
 // ── Layout Principal ─────────────────────────────────────────────────────────
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [booting, setBooting] = useState(() => shouldShowSystemBoot());
   const location = useLocation();
   const navigate = useNavigate();
+
+  const finishBoot = useCallback(() => setBooting(false), []);
 
   const bottomNav = [
     { label: 'Painel',    path: '/dashboard', icon: <IconGrid /> },
@@ -151,8 +158,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { label: 'Carteira',  path: '/wallet',    icon: <IconWallet /> },
   ];
 
+  if (booting) {
+    return <SystemAliveBoot onDone={finishBoot} />;
+  }
+
   return (
-    <div className="app-shell bg-bg0 text-text1">
+    <div className="app-shell bg-bg0 text-text1 page-enter">
       {/* Overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/75 z-[299] backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
@@ -172,9 +183,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <BrandLogo variant="header" />
 
         <div className="ml-auto flex items-center gap-2">
-          <div className="hidden sm:flex items-center gap-1.5 text-cyan bg-cyan-dim border border-cyan-20 px-2.5 py-1 font-mono text-[9px] tracking-widest uppercase">
-            <span className="w-[5px] h-[5px] rounded-full bg-cyan animate-pulse" />
-            ALPHA TREND
+          <div className="hidden sm:flex items-center gap-1.5 text-cyan bg-cyan-dim border border-cyan-20 px-2.5 py-1 font-mono text-[9px] tracking-[0.18em] uppercase alive-breath">
+            <span className="relative flex h-[6px] w-[6px]">
+              <span className="alive-ping absolute inline-flex h-full w-full rounded-full bg-cyan opacity-50" />
+              <span className="relative inline-flex rounded-full h-[6px] w-[6px] bg-cyan" />
+            </span>
+            Sistema vivo
           </div>
           <button className="flex items-center gap-1.5 px-3 py-1.5 border border-red-30 bg-red-dim text-red font-mono text-[9px] tracking-widest uppercase hover:bg-red/15 transition-all">
             ✕ <span className="hidden sm:inline">Fechar Tudo</span>
