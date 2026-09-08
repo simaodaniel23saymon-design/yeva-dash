@@ -8,6 +8,7 @@ import { useBalances } from '../hooks/useBalances';
 import { formatMoney, formatUSDT, toUSDT } from '../utils/format';
 import { getFriendlyError } from '../utils/errorHandler';
 import { MIN_DEPOSIT } from '../utils/constants';
+import { listDepositNetworks } from '../utils/depositNetworks';
 
 interface Tx {
   id: string; type: string; amount: number; status: string;
@@ -20,14 +21,6 @@ interface Deposit {
 
 const dt = (s: string) => new Date(s).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 
-const NETWORKS = [
-  { value: 'usdttrc20', label: 'USDT — TRC20 (Tron)' },
-  { value: 'usdtbsc',   label: 'USDT — BEP20 (BSC)' },
-  { value: 'usdterc20', label: 'USDT — ERC20 (Ethereum)' },
-  { value: 'usdtpol',   label: 'USDT — Polygon' },
-  { value: 'btc',       label: 'Bitcoin (BTC)' },
-];
-
 export default function WalletPage() {
   const { wallet, loading: walletLoading, refresh: refreshWallet } = useWallet(30000);
   const { gasBalance, binanceUSDT, loading: balancesLoading, refresh: refreshBalances } = useBalances(30000);
@@ -39,10 +32,12 @@ export default function WalletPage() {
   const [copied, setCopied] = useState(false);
 
   // Depósito
-  const [currency, setCurrency] = useState('usdttrc20');
+  const [currency, setCurrency] = useState('usdtbsc');
   const [deposit, setDeposit] = useState<Deposit | null>(null);
   const [payStatus, setPayStatus] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const depositNetworks = listDepositNetworks(MIN_DEPOSIT);
+  const selectedNet = depositNetworks.find((n) => n.id === currency) ?? depositNetworks[0];
 
   // Saque
   const [withdrawAmount, setWithdrawAmount] = useState('');
@@ -253,11 +248,28 @@ export default function WalletPage() {
           {!deposit ? (
             <div className="space-y-3">
               <div>
-                <label className="font-mono text-[8px] uppercase tracking-wider text-text3 mb-1.5 block">Rede de pagamento</label>
+                <label className="font-mono text-[8px] uppercase tracking-wider text-text3 mb-1.5 block">
+                  Rede de pagamento (baratas primeiro)
+                </label>
                 <select value={currency} onChange={e => setCurrency(e.target.value)} className={selectClass}>
-                  {NETWORKS.map(n => <option key={n.value} value={n.value}>{n.label}</option>)}
+                  {depositNetworks.map(n => (
+                    <option key={n.id} value={n.id}>
+                      {n.label} · fee {n.feeLabel}{n.warning ? ' ⚠' : ''}
+                    </option>
+                  ))}
                 </select>
               </div>
+              {selectedNet && (
+                <div className="bg-bg2 border border-border1 p-3 font-mono text-[10px] space-y-1">
+                  <p className="text-cyan">fee estimada da rede: {selectedNet.feeLabel}</p>
+                  {selectedNet.warning && <p className="text-gold">{selectedNet.warning}</p>}
+                  {selectedNet.feeTooHigh && (
+                    <p className="text-gold">
+                      Fee &gt; 5% do mínimo — preferir BEP20 ou Polygon (~$0.01).
+                    </p>
+                  )}
+                </div>
+              )}
               <div className="bg-bg2 border border-border1 p-3 font-mono text-[10px] text-text2">
                 Mínimo: <span className="text-cyan">${MIN_DEPOSIT}</span> · Confirmação automática após 1-3 blocos
               </div>

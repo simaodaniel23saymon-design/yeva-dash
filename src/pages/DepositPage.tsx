@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { QuickGuide } from '../components/QuickGuide';
-import { UpgradeCryptoModal } from '../components/UpgradeCryptoModal';
 import { MIN_DEPOSIT } from '../utils/constants';
+import { UpgradeCryptoModal } from '../components/UpgradeCryptoModal';
 
 const DISTRIBUTION_LEVELS = [
   { level: 1, pct: 15, label: 'Quem te convidou' },
@@ -48,6 +48,7 @@ export default function DepositPage() {
           `Mínimo de $${MIN_DEPOSIT} USDT para activar o sistema`,
           '50% fica no sistema · 50% distribuído a afiliados',
           'Pagamento via cripto (NOWPayments) — crédito automático após confirmação',
+          'Prefira BEP20 / TRC20 / Polygon — evita ERC20 em valores baixos (fee alta)',
         ]}
       />
 
