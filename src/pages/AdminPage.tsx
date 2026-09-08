@@ -7,6 +7,7 @@ import { getFriendlyError } from '../utils/errorHandler'
 import { formatMoney, toWalletUnits } from '../utils/format'
 import {
   fetchPerformanceFeeStats,
+  fetchUserPerformanceFees,
   formatPerformanceFee,
   type PerformanceFeeStats,
 } from '../utils/adminPerformanceFees'
@@ -94,6 +95,9 @@ export default function AdminPage() {
   const [balanceNote, setBalanceNote] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [userHistory, setUserHistory] = useState<Array<Omit<AdminTx, 'user'>>>([])
+  const [userFeeLedger, setUserFeeLedger] = useState<
+    Array<{ id: string; date: string; cycleId?: string | null; profit: number; fee: number; status: string; note?: string | null }>
+  >([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [notifyMsg, setNotifyMsg] = useState({ subject: '', message: '', userId: '', channels: ['panel'] as string[] })
   const [notifyPreview, setNotifyPreview] = useState<'email' | 'telegram'>('email')
@@ -171,11 +175,16 @@ export default function AdminPage() {
   const loadUserDetail = useCallback(async (id: string) => {
     setHistoryLoading(true)
     try {
-      const res = await api.get<AdminUserDetail>(`/admin/users/${id}`)
+      const [res, fees] = await Promise.all([
+        api.get<AdminUserDetail>(`/admin/users/${id}`),
+        fetchUserPerformanceFees(id),
+      ])
       setUserHistory(res.data.transactions ?? [])
+      setUserFeeLedger(fees)
       setSelectedUser(prev => prev?.id === id ? { ...prev, wallet: res.data.wallet ?? prev.wallet } : prev)
     } catch {
       setUserHistory([])
+      setUserFeeLedger([])
     } finally {
       setHistoryLoading(false)
     }
@@ -185,6 +194,7 @@ export default function AdminPage() {
     if (selectedUser?.id === u.id) {
       setSelectedUser(null)
       setUserHistory([])
+      setUserFeeLedger([])
       return
     }
     setSelectedUser(u)
@@ -333,6 +343,44 @@ export default function AdminPage() {
               color="text-cyan"
             />
             <StatBox label="Total Depositado" value={formatMoney(stats.revenue.totalDeposited)} color="text-cyan" />
+          </div>
+
+          <div className="bg-bg1 border border-border1">
+            <div className="px-4 py-3 border-b border-border1">
+              <h3 className="text-sm font-bold text-text1">Ledger — Performance Fees</h3>
+              <p className="font-mono text-[9px] text-text3 mt-0.5">data · ciclo · lucro · fee (reais cobrados)</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b border-border1 font-mono text-[8px] uppercase text-text3">
+                    {['Data', 'Utilizador', 'Ciclo', 'Lucro', 'Fee', 'Estado'].map(h => (
+                      <th key={h} className="px-3 py-2 font-normal">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border1">
+                  {(feeStats?.recent ?? []).length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-3 py-4 font-mono text-[9px] text-text3">Sem fees registadas.</td>
+                    </tr>
+                  ) : (
+                    (feeStats?.recent ?? []).map(row => (
+                      <tr key={row.id} className="font-mono text-[9px]">
+                        <td className="px-3 py-2 text-text3">
+                          {row.createdAt ? new Date(row.createdAt).toLocaleString('pt-PT') : '—'}
+                        </td>
+                        <td className="px-3 py-2 text-text1 truncate max-w-[140px]">{row.user?.email ?? '—'}</td>
+                        <td className="px-3 py-2 text-text3 truncate max-w-[80px]">{row.cycleId?.slice(0, 8) ?? '—'}</td>
+                        <td className="px-3 py-2 text-cyan">{formatPerformanceFee(row.profit)}</td>
+                        <td className="px-3 py-2 text-gold">{formatPerformanceFee(row.amount)}</td>
+                        <td className="px-3 py-2 text-text2">{row.status ?? 'PAID'}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           <div className="bg-bg1 border border-border1">
@@ -501,6 +549,32 @@ export default function AdminPage() {
                 <p className="font-mono text-[8px] text-text3">
                   Valor em USDT. Positivo adiciona, negativo remove. Regista transacção no histórico.
                 </p>
+              </div>
+
+              {/* Ledger performance fees do user */}
+              <div className="bg-bg2 border border-border1 p-3 space-y-2">
+                <p className="font-mono text-[8px] text-text3 uppercase tracking-wider">Ledger Performance Fees</p>
+                {historyLoading ? (
+                  <p className="font-mono text-[9px] text-text3">A carregar...</p>
+                ) : userFeeLedger.length === 0 ? (
+                  <p className="font-mono text-[9px] text-text3">Sem fees de performance.</p>
+                ) : (
+                  <div className="divide-y divide-border1 max-h-40 scroll-area">
+                    {userFeeLedger.map(row => (
+                      <div key={row.id} className="flex items-center justify-between py-2 font-mono text-[9px] gap-2">
+                        <div className="min-w-0">
+                          <span className="text-text3">{row.date ? new Date(row.date).toLocaleDateString('pt-PT') : '—'}</span>
+                          <span className="text-text2 ml-2">{row.cycleId ? `ciclo ${row.cycleId.slice(0, 8)}` : '—'}</span>
+                          {row.note && <p className="text-text3 truncate">{row.note}</p>}
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <div className="text-cyan">lucro {formatPerformanceFee(row.profit)}</div>
+                          <div className="text-gold">fee −{formatPerformanceFee(row.fee)} · {row.status}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Histórico do utilizador */}
