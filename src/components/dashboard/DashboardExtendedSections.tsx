@@ -17,6 +17,8 @@ import {
   type MarketIndicator,
   type MlPrediction,
   type PerfRange,
+  PERF_RANGE_OPTIONS,
+  downloadHistoryCsv,
   useDashboardExtended,
   useDashboardLogs,
 } from '../../hooks/useDashboardExtended';
@@ -537,6 +539,7 @@ function PerformanceSection({
   onRange,
   performance,
   metrics,
+  periodCards,
 }: {
   range: PerfRange;
   onRange: (r: PerfRange) => void;
@@ -551,8 +554,20 @@ function PerformanceSection({
     profitFactor: number;
     maxDrawdown: number;
     totalTrades: number;
+    netPnl?: number;
+    fees?: number;
+  };
+  periodCards?: {
+    grossProfit: number;
+    grossLoss: number;
+    net: number;
+    bestTrade: { symbol: string | null; pnl: number } | null;
+    worstTrade: { symbol: string | null; pnl: number } | null;
+    greenDays: number;
+    fees: number;
   };
 }) {
+  const [exporting, setExporting] = useState(false);
   const chartData = performance.labels.map((label, i) => ({
     label,
     trend: performance.trend[i] ?? 0,
@@ -560,12 +575,38 @@ function PerformanceSection({
     total: performance.total[i] ?? 0,
   }));
 
+  const cards = periodCards || {
+    grossProfit: 0,
+    grossLoss: 0,
+    net: 0,
+    bestTrade: null,
+    worstTrade: null,
+    greenDays: 0,
+    fees: metrics.fees ?? 0,
+  };
+
+  const exportCsv = async () => {
+    setExporting(true);
+    try {
+      await downloadHistoryCsv(range);
+    } catch {
+      /* ignore */
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const fmtMoney = (n: number, signed = false) => {
+    if (signed) return `${n >= 0 ? '+' : '−'}$${Math.abs(n).toFixed(2)}`;
+    return `$${Math.abs(n).toFixed(2)}`;
+  };
+
   return (
     <SectionShell
       title="Gráfico de Performance"
       right={
-        <div className="flex gap-1">
-          {(['24h', '7d', '30d'] as PerfRange[]).map((r) => (
+        <div className="flex gap-1 flex-wrap items-center">
+          {PERF_RANGE_OPTIONS.map((r) => (
             <button
               key={r}
               type="button"
@@ -579,15 +620,69 @@ function PerformanceSection({
               {r}
             </button>
           ))}
+          <button
+            type="button"
+            disabled={exporting}
+            onClick={() => void exportCsv()}
+            className="font-mono text-[9px] uppercase px-2 py-1 border border-border2 text-text2 hover:border-cyan hover:text-cyan disabled:opacity-40"
+          >
+            {exporting ? 'CSV…' : 'Export CSV'}
+          </button>
         </div>
       }
     >
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mb-3">
         {[
+          {
+            label: 'Lucro',
+            value: `+$${cards.grossProfit.toFixed(2)}`,
+            tone: 'text-cyan',
+          },
+          {
+            label: 'Perda',
+            value: `−$${cards.grossLoss.toFixed(2)}`,
+            tone: 'text-red',
+          },
+          {
+            label: 'Net',
+            value: `${cards.net >= 0 ? '+' : '−'}$${Math.abs(cards.net).toFixed(2)}`,
+            tone: cards.net >= 0 ? 'text-cyan' : 'text-red',
+          },
+          {
+            label: 'Melhor trade',
+            value: cards.bestTrade
+              ? `${cards.bestTrade.symbol || '—'} ${cards.bestTrade.pnl >= 0 ? '+' : ''}$${cards.bestTrade.pnl.toFixed(2)}`
+              : '—',
+            tone: 'text-text1',
+          },
+          {
+            label: 'Pior trade',
+            value: cards.worstTrade
+              ? `${cards.worstTrade.symbol || '—'} ${cards.worstTrade.pnl >= 0 ? '+' : ''}$${cards.worstTrade.pnl.toFixed(2)}`
+              : '—',
+            tone: 'text-text1',
+          },
+          {
+            label: 'Dias em verde',
+            value: String(cards.greenDays),
+            tone: 'text-cyan',
+          },
+        ].map((m) => (
+          <div key={m.label} className="border border-border1 bg-bg2 p-3">
+            <p className="font-mono text-[9px] uppercase text-text2">{m.label}</p>
+            <p className={`font-bold text-base mt-1 ${m.tone}`}>{m.value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mb-3">
+        {[
+          { label: 'PnL', value: fmtMoney(metrics.netPnl ?? cards.net, true) },
+          { label: 'Trades', value: String(metrics.totalTrades) },
           { label: 'Win Rate', value: `${metrics.winRate}%` },
           { label: 'Profit Factor', value: metrics.profitFactor.toFixed(2) },
           { label: 'Max Drawdown', value: `${metrics.maxDrawdown}%` },
-          { label: 'Trades', value: String(metrics.totalTrades) },
+          { label: 'Fees', value: `$${(metrics.fees ?? cards.fees).toFixed(2)}` },
         ].map((m) => (
           <div key={m.label} className="border border-border1 bg-bg2 p-3">
             <p className="font-mono text-[9px] uppercase text-text2">{m.label}</p>
@@ -774,6 +869,7 @@ export function DashboardExtendedSections({ enabled }: { enabled: boolean }) {
         onRange={setRange}
         performance={data.performance}
         metrics={data.metrics}
+        periodCards={data.periodCards}
       />
       <LogsTerminal enabled={enabled} />
     </div>

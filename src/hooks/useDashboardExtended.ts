@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../lib/api';
 
-export type PerfRange = '24h' | '7d' | '30d';
+export type PerfRange = '24h' | '7d' | '30d' | '90d' | 'TOTAL';
+
+export const PERF_RANGE_OPTIONS: PerfRange[] = ['24h', '7d', '30d', '90d', 'TOTAL'];
 
 export interface MarketIndicator {
   adx: number;
@@ -83,6 +85,23 @@ export interface DashDcaPairStatus {
   hasBot: boolean;
 }
 
+export interface PeriodTradeRef {
+  id: string | null;
+  symbol: string | null;
+  pnl: number;
+  date: string | null;
+}
+
+export interface PeriodCards {
+  grossProfit: number;
+  grossLoss: number;
+  net: number;
+  bestTrade: PeriodTradeRef | null;
+  worstTrade: PeriodTradeRef | null;
+  greenDays: number;
+  fees: number;
+}
+
 export interface DashboardExtended {
   marketIndicators: Record<string, MarketIndicator>;
   mlPrediction?: Record<string, MlPrediction>;
@@ -101,11 +120,24 @@ export interface DashboardExtended {
     profitFactor: number;
     maxDrawdown: number;
     totalTrades: number;
+    netPnl?: number;
+    fees?: number;
   };
+  periodCards?: PeriodCards;
   logs: DashLog[];
   range: PerfRange;
   generatedAt: string;
 }
+
+const emptyCards: PeriodCards = {
+  grossProfit: 0,
+  grossLoss: 0,
+  net: 0,
+  bestTrade: null,
+  worstTrade: null,
+  greenDays: 0,
+  fees: 0,
+};
 
 const empty: DashboardExtended = {
   marketIndicators: {},
@@ -114,7 +146,8 @@ const empty: DashboardExtended = {
   bots: [],
   recentTrades: [],
   performance: { labels: [], trend: [], grid: [], total: [] },
-  metrics: { winRate: 0, profitFactor: 0, maxDrawdown: 0, totalTrades: 0 },
+  metrics: { winRate: 0, profitFactor: 0, maxDrawdown: 0, totalTrades: 0, netPnl: 0, fees: 0 },
+  periodCards: emptyCards,
   logs: [],
   range: '24h',
   generatedAt: '',
@@ -151,6 +184,22 @@ export function useDashboardExtended(enabled: boolean, range: PerfRange, pollMs 
   }, [load, enabled, pollMs]);
 
   return { data, loading, error, refetch: load, setData };
+}
+
+export async function downloadHistoryCsv(range: PerfRange): Promise<void> {
+  const res = await api.get<Blob>('/dashboard/history/export', {
+    params: { range },
+    responseType: 'blob',
+  });
+  const stamp = new Date().toISOString().slice(0, 10);
+  const url = URL.createObjectURL(res.data);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `yevatrade-history-${range}-${stamp}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 export function useDashboardLogs(enabled: boolean, pollMs = 2000) {
