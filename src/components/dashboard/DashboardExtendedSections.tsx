@@ -361,6 +361,45 @@ function BotsStatusSection({
                   <td className="py-2.5 pr-3 text-text1 font-bold">{bot.symbol}</td>
                   <td className="py-2.5 pr-3 text-text2">
                     <div>{bot.strategy}</div>
+                    {bot.gridNote && (
+                      <div className="mt-1 text-[9px] text-gold">{bot.gridNote}</div>
+                    )}
+                    {bot.gridLevels && bot.gridLevels.length > 0 && (
+                      <div className="mt-2 overflow-x-auto">
+                        <table className="w-full text-[9px] border border-border1/60">
+                          <thead>
+                            <tr className="text-text3 uppercase">
+                              <th className="px-1 py-0.5 text-left">#</th>
+                              <th className="px-1 py-0.5 text-left">Lado</th>
+                              <th className="px-1 py-0.5 text-left">Preço</th>
+                              <th className="px-1 py-0.5 text-left">Qty</th>
+                              <th className="px-1 py-0.5 text-left">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {bot.gridLevels.map((lv) => (
+                              <tr key={lv.id} className="border-t border-border1/40">
+                                <td className="px-1 py-0.5">{lv.levelIndex}</td>
+                                <td className="px-1 py-0.5">{lv.side}</td>
+                                <td className="px-1 py-0.5">${lv.price}</td>
+                                <td className="px-1 py-0.5">{lv.quantity}</td>
+                                <td
+                                  className={`px-1 py-0.5 ${
+                                    lv.status === 'FILLED'
+                                      ? 'text-cyan'
+                                      : lv.status === 'PENDING'
+                                        ? 'text-gold'
+                                        : 'text-text3'
+                                  }`}
+                                >
+                                  {lv.status}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                     {bot.dcaCycle && (
                       <div className="mt-1 text-[9px] text-text2/80 leading-relaxed">
                         {bot.dcaCycle.missingSl && (

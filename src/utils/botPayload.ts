@@ -9,6 +9,8 @@ export interface CreateBotPayload {
   leverage: number;
   capitalPerSide: number;
   ordersPerSide: number;
+  maxLongPositions: number;
+  maxShortPositions: number;
   spacing: number;
   tpDailyPct: number;
   maxLossPct: number;
@@ -34,8 +36,10 @@ export function buildCreateBotPayload(
   options?: { mode?: string; ordersPerSide?: number; spacing?: number; accountType?: 'DEMO' | 'REAL'; autoStart?: boolean },
 ): CreateBotPayload {
   const c = mergeProConfig(proConfig);
+  const maxLong = Math.round(Number(c.maxLongPositions) || 5);
+  const maxShort = Math.round(Number(c.maxShortPositions) || 5);
   const ordersPerSide = options?.ordersPerSide
-    ?? Math.max(c.maxLongPositions, c.maxShortPositions, 5);
+    ?? Math.max(maxLong, maxShort, 1);
   const spacing = options?.spacing ?? c.gridSpacing ?? 0.8;
 
   return {
@@ -46,6 +50,8 @@ export function buildCreateBotPayload(
     leverage: Math.round(Number(leverage)),
     capitalPerSide: Number(capitalPerSide),
     ordersPerSide: Math.round(ordersPerSide),
+    maxLongPositions: maxLong,
+    maxShortPositions: maxShort,
     spacing: Number(Number(spacing).toFixed(2)),
     tpDailyPct: Number(c.tpDailyPct ?? 1.5),
     maxLossPct: Number(c.maxLossPct ?? 3.0),

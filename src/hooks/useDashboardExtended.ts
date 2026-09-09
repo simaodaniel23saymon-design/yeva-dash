@@ -43,6 +43,17 @@ export interface DashBotRow {
   lastTrade: string;
   gridEnabled: boolean;
   gridActive: boolean;
+  gridNote?: string | null;
+  gridLevels?: Array<{
+    id: string;
+    side: string;
+    levelIndex: number;
+    price: number;
+    quantity: number;
+    status: string;
+    orderId: string | null;
+    fillPrice: number | null;
+  }>;
   botStatus: string;
   dcaCycle?: DashDcaCycle | null;
 }
