@@ -18,7 +18,6 @@ import { ProBotConfigFields } from '../components/pro/ProBotConfigFields';
 import { MarketProtectionBanner } from '../components/MarketProtectionBanner';
 import { buildCreateBotPayload } from '../utils/botPayload';
 import {
-  CapacityWarningModal,
   RiskDisclaimerInline,
 } from '../components/RiskDisclaimer';
 
@@ -49,7 +48,6 @@ export default function CreateBotPage() {
   const [startedBot, setStartedBot] = useState<{ pair: string; market: string } | null>(null);
   const [proConfig, setProConfig] = useState<BotConfig>({ ...DEFAULT_PRO_CONFIG });
   const [capacityWarning, setCapacityWarning] = useState<string | null>(null);
-  const [pendingConfirm, setPendingConfirm] = useState(false);
 
   const effectiveLeverage = market === 'SPOT' ? 1 : leverage;
   const marginUsed = market === 'FUTURES' ? capitalPerSide / effectiveLeverage : capitalPerSide;
@@ -123,8 +121,6 @@ export default function CreateBotPage() {
       });
       if (cap.data.exceeds && cap.data.warning) {
         setCapacityWarning(cap.data.warning);
-        setPendingConfirm(true);
-        return;
       }
     } catch {
       /* fail-open: criar sem aviso se capacity-check falhar */
@@ -283,6 +279,10 @@ export default function CreateBotPage() {
           </div>
         )}
 
+        {capacityWarning && (
+          <p className="text-[11px] text-text3 font-mono leading-relaxed">{capacityWarning}</p>
+        )}
+
         <button
           type="submit"
           disabled={loading || !canSubmit}
@@ -300,16 +300,6 @@ export default function CreateBotPage() {
         )}
       </form>
       )}
-      <CapacityWarningModal
-        open={pendingConfirm && !!capacityWarning}
-        warning={capacityWarning || ''}
-        busy={loading}
-        onCancel={() => {
-          setPendingConfirm(false);
-          setCapacityWarning(null);
-        }}
-        onConfirm={() => void doCreate()}
-      />
     </div>
   );
 }

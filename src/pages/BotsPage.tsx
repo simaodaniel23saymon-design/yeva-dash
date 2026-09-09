@@ -138,10 +138,7 @@ export default function BotsPage() {
         params: { capitalPerSide, leverage: effectiveLev, market, adding: true },
       });
       if (cap.data.exceeds && cap.data.warning) {
-        const ok = window.confirm(
-          `${cap.data.warning}\n\nConfirmar criação mesmo assim?`
-        );
-        if (!ok) return;
+        showFlash(cap.data.warning);
       }
     } catch {
       /* fail-open */
