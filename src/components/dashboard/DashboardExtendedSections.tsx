@@ -827,7 +827,13 @@ function LogsTerminal({ enabled }: { enabled: boolean }) {
   );
 }
 
-export function DashboardExtendedSections({ enabled }: { enabled: boolean }) {
+export function DashboardExtendedSections({
+  enabled,
+  showLogs = false,
+}: {
+  enabled: boolean;
+  showLogs?: boolean;
+}) {
   const [range, setRange] = useState<PerfRange>('24h');
   const { data, loading, error, refetch } = useDashboardExtended(enabled, range, 10000);
 
@@ -871,7 +877,7 @@ export function DashboardExtendedSections({ enabled }: { enabled: boolean }) {
         metrics={data.metrics}
         periodCards={data.periodCards}
       />
-      <LogsTerminal enabled={enabled} />
+      {showLogs ? <LogsTerminal enabled={enabled && showLogs} /> : null}
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { PageLoader, YevaTradeLoader } from '../components/YevaTradeLoader';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { QuickGuide } from '../components/QuickGuide';
+import { RiskDisclaimerInline } from '../components/RiskDisclaimer';
 import { BotToggleButton } from '../components/BotToggleButton';
 import { BinancePairSelector } from '../components/BinancePairSelector';
 import { BotStartedAlert } from '../components/BotStartedAlert';
@@ -130,6 +131,22 @@ export default function BotsPage() {
       setError(eligibility?.message || eligibilityMessage || 'Saldo insuficiente para criar bots.');
       return;
     }
+
+    const effectiveLev = market === 'SPOT' ? 1 : leverage;
+    try {
+      const cap = await api.get<{ exceeds?: boolean; warning?: string | null }>('/bots/capacity-check', {
+        params: { capitalPerSide, leverage: effectiveLev, market, adding: true },
+      });
+      if (cap.data.exceeds && cap.data.warning) {
+        const ok = window.confirm(
+          `${cap.data.warning}\n\nConfirmar criação mesmo assim?`
+        );
+        if (!ok) return;
+      }
+    } catch {
+      /* fail-open */
+    }
+
     setCreating(true);
     setError('');
     setStartPhase('creating');
@@ -144,7 +161,7 @@ export default function BotsPage() {
           takeProfitPercent: takeProfit,
           stopLossPercent: stopLoss,
         }
-      : buildCreateBotPayload(pairUpper, market, riskMode, leverage, capitalPerSide, proConfig, {
+      : buildCreateBotPayload(pairUpper, market, riskMode, effectiveLev, capitalPerSide, proConfig, {
           accountType: isDemo ? 'DEMO' : 'REAL',
           autoStart: true,
         });
@@ -537,8 +554,10 @@ export default function BotsPage() {
                     <label className="font-mono text-[9px] uppercase tracking-wider text-text2 mb-1.5 block">Capital por ordem (USDT)</label>
                     <input type="number" min={1} step={0.01} value={capitalPerSide}
                       onChange={e => setCapitalPerSide(Number(e.target.value))} className={inputClass} />
-                    <p className="font-mono text-[9px] text-text3 mt-1">Margem ≈ notional ÷ alavancagem</p>
+                    <p className="font-mono text-[9px] text-text3 mt-1">Margem ≈ notional ÷ alavancagem · Spot = capital sem alavancagem</p>
                   </div>
+
+                  <RiskDisclaimerInline />
 
                   <div className="bg-cyan-dim border border-cyan-20 p-3 font-mono text-[10px] space-y-1">
                     <p className="text-text2">{balanceLabel}</p>

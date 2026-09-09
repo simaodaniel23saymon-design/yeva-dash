@@ -23,8 +23,10 @@ import { EnablePushButton } from '../components/notifications/EnablePushButton';
 import { AmbientAliveCanvas } from '../components/SystemAliveBoot';
 import { useDashboardExtended } from '../hooks/useDashboardExtended';
 import { isBreakevenSl, type PositionOverlay } from '../utils/chartOverlays';
+import { useAuth } from '../context/AuthContext';
 
 export default function DashboardPage() {
+  const { user } = useAuth();
   const { data: binance, loading: binanceLoading, refreshing, error, refetch } = useBinanceData(10000);
   const [positionsLoading, setPositionsLoading] = useState(true);
   const [bots, setBots] = useState<LiveBot[]>([]);
@@ -253,7 +255,7 @@ export default function DashboardPage() {
             onSelect={selectSymbol}
           />
 
-          <DashboardExtendedSections enabled />
+          <DashboardExtendedSections enabled showLogs={!!user?.isAdmin} />
         </>
       )}
     </div>

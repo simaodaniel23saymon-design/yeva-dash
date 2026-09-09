@@ -7,6 +7,7 @@ import {
   shouldShowSystemBoot,
   SystemAliveBoot,
 } from './SystemAliveBoot';
+import { FirstLoginRiskGate } from './RiskDisclaimer';
 
 interface ExchangeAccount { id: string; exchange: string; isActive: boolean; }
 
@@ -231,6 +232,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           );
         })}
       </nav>
+      {user?.id ? <FirstLoginRiskGate userId={user.id} /> : null}
     </div>
   );
 }

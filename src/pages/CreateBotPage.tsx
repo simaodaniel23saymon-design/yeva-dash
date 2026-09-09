@@ -17,6 +17,10 @@ import { DEFAULT_PRO_CONFIG } from '../types/trading';
 import { ProBotConfigFields } from '../components/pro/ProBotConfigFields';
 import { MarketProtectionBanner } from '../components/MarketProtectionBanner';
 import { buildCreateBotPayload } from '../utils/botPayload';
+import {
+  CapacityWarningModal,
+  RiskDisclaimerInline,
+} from '../components/RiskDisclaimer';
 
 export default function CreateBotPage() {
   const navigate = useNavigate();
@@ -44,29 +48,22 @@ export default function CreateBotPage() {
   const [startPhase, setStartPhase] = useState<'idle' | 'creating'>('idle');
   const [startedBot, setStartedBot] = useState<{ pair: string; market: string } | null>(null);
   const [proConfig, setProConfig] = useState<BotConfig>({ ...DEFAULT_PRO_CONFIG });
+  const [capacityWarning, setCapacityWarning] = useState<string | null>(null);
+  const [pendingConfirm, setPendingConfirm] = useState(false);
 
-  const marginUsed = market === 'FUTURES' ? capitalPerSide / leverage : capitalPerSide;
+  const effectiveLeverage = market === 'SPOT' ? 1 : leverage;
+  const marginUsed = market === 'FUTURES' ? capitalPerSide / effectiveLeverage : capitalPerSide;
   const availableBalance = balance - marginUsed;
   const canSubmit = isConnected && !!pair.trim() && isEligible;
 
   const inputClass = 'w-full bg-bg3 border border-border2 text-text1 font-mono text-[13px] px-4 py-2.5 outline-none focus:border-cyan/35 transition-colors placeholder:text-text2';
 
-  const createBot = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!pair.trim()) {
-      setError('Informe o par de trading.');
-      return;
-    }
-
-    const eligibility = await refreshEligibility();
-    if (!eligibility?.eligible) {
-      setError(eligibility?.message || eligibilityMessage || 'Saldo insuficiente para criar bots.');
-      return;
-    }
-
+  const doCreate = async () => {
     setLoading(true);
     setError('');
     setStartPhase('creating');
+    setCapacityWarning(null);
+    setPendingConfirm(false);
 
     const pairUpper = pair.toUpperCase();
     try {
@@ -74,7 +71,7 @@ export default function CreateBotPage() {
         pairUpper,
         market,
         riskMode,
-        leverage,
+        effectiveLeverage,
         capitalPerSide,
         proConfig,
         { mode, accountType: isDemo ? 'DEMO' : 'REAL', autoStart: true },
@@ -100,6 +97,40 @@ export default function CreateBotPage() {
       setLoading(false);
       setStartPhase('idle');
     }
+  };
+
+  const createBot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pair.trim()) {
+      setError('Informe o par de trading.');
+      return;
+    }
+
+    const eligibility = await refreshEligibility();
+    if (!eligibility?.eligible) {
+      setError(eligibility?.message || eligibilityMessage || 'Saldo insuficiente para criar bots.');
+      return;
+    }
+
+    try {
+      const cap = await api.get<{ exceeds?: boolean; warning?: string | null }>('/bots/capacity-check', {
+        params: {
+          capitalPerSide,
+          leverage: effectiveLeverage,
+          market,
+          adding: true,
+        },
+      });
+      if (cap.data.exceeds && cap.data.warning) {
+        setCapacityWarning(cap.data.warning);
+        setPendingConfirm(true);
+        return;
+      }
+    } catch {
+      /* fail-open: criar sem aviso se capacity-check falhar */
+    }
+
+    await doCreate();
   };
 
   if (exchangeLoading || balanceLoading) {
@@ -204,14 +235,15 @@ export default function CreateBotPage() {
 
         <div>
           <label className="font-mono text-[12px] uppercase tracking-wider text-text2 mb-2 block">
-            Alavancagem: {leverage}x
+            Alavancagem: {market === 'SPOT' ? '1x (Spot sem alavancagem)' : `${leverage}x`}
           </label>
           <input
             type="number"
-            value={leverage}
+            value={market === 'SPOT' ? 1 : leverage}
             onChange={e => setLeverage(Number(e.target.value))}
             min={1}
             max={125}
+            disabled={market === 'SPOT'}
             className={inputClass}
           />
         </div>
@@ -227,6 +259,8 @@ export default function CreateBotPage() {
             className={inputClass}
           />
         </div>
+
+        <RiskDisclaimerInline />
 
         <div className="bg-cyan-dim border border-cyan-20 p-3 font-mono text-[12px] space-y-1">
           <p className="text-text2">{balanceLabel}</p>
@@ -266,6 +300,16 @@ export default function CreateBotPage() {
         )}
       </form>
       )}
+      <CapacityWarningModal
+        open={pendingConfirm && !!capacityWarning}
+        warning={capacityWarning || ''}
+        busy={loading}
+        onCancel={() => {
+          setPendingConfirm(false);
+          setCapacityWarning(null);
+        }}
+        onConfirm={() => void doCreate()}
+      />
     </div>
   );
 }
