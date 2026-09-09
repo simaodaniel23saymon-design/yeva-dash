@@ -8,6 +8,7 @@ import {
   SystemAliveBoot,
 } from './SystemAliveBoot';
 import { FirstLoginRiskGate } from './RiskDisclaimer';
+import { AssistantChat } from './AssistantChat';
 
 interface ExchangeAccount { id: string; exchange: string; isActive: boolean; }
 
@@ -147,6 +148,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [booting, setBooting] = useState(() => shouldShowSystemBoot());
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const finishBoot = useCallback(() => setBooting(false), []);
 
@@ -233,6 +235,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         })}
       </nav>
       {user?.id ? <FirstLoginRiskGate userId={user.id} /> : null}
+      {user?.id ? <AssistantChat /> : null}
     </div>
   );
 }
