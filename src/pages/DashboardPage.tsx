@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PageLoader } from '../components/YevaTradeLoader';
 import { Link } from 'react-router-dom';
 import { QuickGuide } from '../components/QuickGuide';
 import { LiveChart } from '../components/LiveChart';
+import { OpenPositionCards } from '../components/OpenPositionCards';
 import { useChartSymbol } from '../hooks/useChartSymbol';
 import { AnimatedStat } from '../components/AnimatedStat';
 import { IconWallet, IconTrendUp, IconTrendDown, IconActivity } from '../components/ui/Icons';
@@ -20,12 +21,15 @@ import {
 import { DashboardExtendedSections } from '../components/dashboard/DashboardExtendedSections';
 import { EnablePushButton } from '../components/notifications/EnablePushButton';
 import { AmbientAliveCanvas } from '../components/SystemAliveBoot';
+import { useDashboardExtended } from '../hooks/useDashboardExtended';
+import { isBreakevenSl, type PositionOverlay } from '../utils/chartOverlays';
 
 export default function DashboardPage() {
   const { data: binance, loading: binanceLoading, refreshing, error, refetch } = useBinanceData(10000);
   const [positionsLoading, setPositionsLoading] = useState(true);
   const [bots, setBots] = useState<LiveBot[]>([]);
   const [positions, setPositions] = useState<ExchangePosition[]>([]);
+  const { data: extended } = useDashboardExtended(binance.exchangeConnected, '24h', 15000);
 
   const loadChartData = useCallback(async () => {
     if (!binance.exchangeConnected) {
@@ -76,6 +80,47 @@ export default function DashboardPage() {
     positions,
   );
 
+  const overlays: PositionOverlay[] = useMemo(() => {
+    const bySym = new Map<string, PositionOverlay>();
+    for (const bot of extended.bots) {
+      const c = bot.dcaCycle;
+      if (!c || !(c.avgEntry > 0)) continue;
+      const sym = bot.symbol.toUpperCase();
+      bySym.set(sym, {
+        symbol: sym,
+        side: 'LONG',
+        qty: c.totalQty,
+        entry: c.avgEntry,
+        tp: c.tpPrice,
+        sl: c.slPrice,
+        slIsBe: isBreakevenSl('LONG', c.avgEntry, c.slPrice),
+        safetyFilled: c.safetyFilled,
+        maxSafetyOrders: c.maxSafetyOrders,
+      });
+    }
+    for (const pos of positions) {
+      const amt = Math.abs(parseNum(pos.positionAmt));
+      if (!(amt > 0)) continue;
+      const sym = pos.symbol.toUpperCase();
+      const entry = parseNum(pos.entryPrice);
+      const side = String(pos.positionSide || 'LONG').toUpperCase();
+      const existing = bySym.get(sym);
+      bySym.set(sym, {
+        symbol: sym,
+        side,
+        qty: amt,
+        entry: existing?.entry || entry,
+        tp: existing?.tp ?? null,
+        sl: existing?.sl ?? null,
+        slIsBe: existing?.slIsBe,
+        uPnl: parseNum(pos.unrealizedProfit),
+        safetyFilled: existing?.safetyFilled,
+        maxSafetyOrders: existing?.maxSafetyOrders,
+      });
+    }
+    return [...bySym.values()];
+  }, [extended.bots, positions]);
+
   const handleRefresh = () => {
     refetch();
     loadChartData();
@@ -98,10 +143,7 @@ export default function DashboardPage() {
             <p className="eyebrow mb-1.5">Sessão activa</p>
             <h2 className="display-title text-text1 text-[22px] sm:text-2xl">Painel de Controlo</h2>
             <p className="font-mono text-[10px] text-text2 tracking-[0.08em] mt-1.5 leading-relaxed">
-              Dados Binance em tempo real
-              {!Number.isNaN(updatedAt.getTime()) && (
-                <> · Actualizado: {updatedAt.toLocaleTimeString('pt-PT')}{refreshing ? ' · a sincronizar…' : ''}</>
-              )}
+              Actualizado {updatedAt.toLocaleTimeString('pt-PT')} · exchange em tempo real
             </p>
           </div>
           <button
@@ -115,11 +157,15 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <QuickGuide title="Painel em tempo real" steps={[
-        'Saldo disponível, P&L aberto, resultado de hoje e saldo líquido (Binance)',
-        'Actualização automática a cada 10 segundos',
-        'Gráfico e posições abertas na exchange',
-      ]} />
+      <QuickGuide
+        title="Painel em tempo real"
+        steps={[
+          'Gráfico lightweight-charts com klines Binance (REST + WebSocket) e linhas ENTRY (amarelo), TP (verde), SL (vermelho)',
+          'Card por posição: par, lado, qty, entry, TP, SL, uPnL, idade e safeties',
+          'Na Binance: Futures → Positions (posição) e Open Orders → Algo Orders (TP/SL condicionais). Filtra por símbolo.',
+          'Notificações: formato «ENTRY x · TP y · SL z (BE)»',
+        ]}
+      />
 
       <EnablePushButton />
 
@@ -132,12 +178,16 @@ export default function DashboardPage() {
       {!binance.exchangeConnected ? (
         <div className="bg-gold-dim border border-gold-30 p-6 text-center">
           <p className="font-mono text-[11px] text-gold mb-4">Nenhuma exchange conectada</p>
-          <Link to="/exchanges"
-            className="inline-block font-mono text-[9px] uppercase px-6 py-3 border border-cyan-30 bg-cyan-dim text-cyan">
+          <Link
+            to="/exchanges"
+            className="inline-block font-mono text-[9px] uppercase px-6 py-3 border border-cyan-30 bg-cyan-dim text-cyan"
+          >
             Conectar Exchange
           </Link>
-          <Link to="/api-guide"
-            className="inline-block font-mono text-[9px] uppercase px-6 py-3 border border-border2 text-text2 hover:border-cyan hover:text-cyan ml-2">
+          <Link
+            to="/api-guide"
+            className="inline-block font-mono text-[9px] uppercase px-6 py-3 border border-border2 text-text2 hover:border-cyan hover:text-cyan ml-2"
+          >
             Ver Guia API
           </Link>
         </div>
@@ -159,14 +209,16 @@ export default function DashboardPage() {
               sub={posCount > 0 ? `${posCount} posição(ões) · Binance` : 'Posições actuais'}
               accent={pnlAccent(binance.pnlAberto)}
               delay={80}
+              pulse={binance.activeBots > 0}
               icon={binance.pnlAberto >= 0 ? <IconTrendUp size={16} /> : <IconTrendDown size={16} />}
             />
             <AnimatedStat
-              label="Resultado de Hoje"
+              label="Resultado Hoje"
               value={fmtSignedUsd(binance.resultadoHoje)}
-              sub="Realizado + funding − comissões (24h)"
+              sub="Realizado · Binance"
               accent={pnlAccent(binance.resultadoHoje)}
               delay={160}
+              pulse={binance.activeBots > 0}
               icon={binance.resultadoHoje >= 0 ? <IconTrendUp size={16} /> : <IconTrendDown size={16} />}
             />
             <AnimatedStat
@@ -191,45 +243,16 @@ export default function DashboardPage() {
               onFollowAuto={followAuto}
               height={560}
               title="Gráfico"
-              drawings
+              overlays={overlays}
             />
           </div>
 
-          {positions.length > 0 && (
-            <div className="bg-bg1 border border-border1 p-4 space-y-3">
-              <h3 className="text-sm font-bold text-text1">
-                Posições abertas ({positions.length})
-              </h3>
-              {positions.map((pos, idx) => {
-                const pnl = parseNum(pos.unrealizedProfit);
-                return (
-                  <div
-                    key={`${pos.symbol}-${idx}`}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => selectSymbol(pos.symbol)}
-                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') selectSymbol(pos.symbol); }}
-                    className="bg-bg2 border border-border1 p-4 cursor-pointer hover:border-cyan-30 transition-colors"
-                  >
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="font-bold text-text1">{pos.symbol}</span>
-                      <span className={`font-mono text-[10px] px-2 py-0.5 border ${pnl >= 0 ? 'border-cyan-30 text-cyan' : 'border-red-30 text-red'}`}>
-                        ${pnl.toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 font-mono text-[10px] text-text2">
-                      <span>Lado: <span className="text-text1">{pos.positionSide}</span></span>
-                      <span>Qtd: <span className="text-text1">{pos.positionAmt}</span></span>
-                      <span>Entrada: <span className="text-text1">${parseNum(pos.entryPrice).toFixed(2)}</span></span>
-                      <span>Marca: <span className="text-text1">${parseNum(pos.markPrice).toFixed(2)}</span></span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <OpenPositionCards
+            positions={overlays}
+            selectedSymbol={chartSymbol}
+            onSelect={selectSymbol}
+          />
 
-          {/* Novas secções — layout existente intacto acima */}
           <DashboardExtendedSections enabled />
         </>
       )}

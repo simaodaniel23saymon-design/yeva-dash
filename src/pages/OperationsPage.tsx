@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PageLoader, YevaTradeLoader } from '../components/YevaTradeLoader';
 import { Link } from 'react-router-dom';
 import { QuickGuide } from '../components/QuickGuide';
 import { LiveOrders } from '../components/LiveOrders';
 import { LiveChart } from '../components/LiveChart';
+import { OpenPositionCards } from '../components/OpenPositionCards';
 import { ProPositionDetails } from '../components/pro/ProPositionDetails';
 import { useChartSymbol } from '../hooks/useChartSymbol';
+import { useDashboardExtended } from '../hooks/useDashboardExtended';
+import { isBreakevenSl, type PositionOverlay } from '../utils/chartOverlays';
 import {
   fetchBotsList,
   fetchExchangePositions,
@@ -37,6 +40,7 @@ export default function OperationsPage() {
   const [loading, setLoading] = useState(true);
   const [tradesLoading, setTradesLoading] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const { data: extended } = useDashboardExtended(true, '24h', 15000);
 
   const loadData = useCallback(async () => {
     const [botsList, posList] = await Promise.all([
@@ -90,6 +94,45 @@ export default function OperationsPage() {
     positions,
   );
 
+  const overlays: PositionOverlay[] = useMemo(() => {
+    const bySym = new Map<string, PositionOverlay>();
+    for (const bot of extended.bots) {
+      const c = bot.dcaCycle;
+      if (!c || !(c.avgEntry > 0)) continue;
+      const sym = bot.symbol.toUpperCase();
+      bySym.set(sym, {
+        symbol: sym,
+        side: 'LONG',
+        qty: c.totalQty,
+        entry: c.avgEntry,
+        tp: c.tpPrice,
+        sl: c.slPrice,
+        slIsBe: isBreakevenSl('LONG', c.avgEntry, c.slPrice),
+        safetyFilled: c.safetyFilled,
+        maxSafetyOrders: c.maxSafetyOrders,
+      });
+    }
+    for (const pos of positions) {
+      const amt = Math.abs(parseNum(pos.positionAmt));
+      if (!(amt > 0)) continue;
+      const sym = pos.symbol.toUpperCase();
+      const existing = bySym.get(sym);
+      bySym.set(sym, {
+        symbol: sym,
+        side: String(pos.positionSide || 'LONG').toUpperCase(),
+        qty: amt,
+        entry: existing?.entry || parseNum(pos.entryPrice),
+        tp: existing?.tp ?? null,
+        sl: existing?.sl ?? null,
+        slIsBe: existing?.slIsBe,
+        uPnl: parseNum(pos.unrealizedProfit),
+        safetyFilled: existing?.safetyFilled,
+        maxSafetyOrders: existing?.maxSafetyOrders,
+      });
+    }
+    return [...bySym.values()];
+  }, [extended.bots, positions]);
+
   if (loading) {
     return (
       <PageLoader />
@@ -99,9 +142,9 @@ export default function OperationsPage() {
   return (
     <div className="space-y-4">
       <QuickGuide title="Operações em tempo real" steps={[
-        'Grade hedge: compras e vendas activas — posições negativas não são fechadas sozinhas',
-        'PnL global: o bot só encerra quando o lucro total atinge o TP configurado',
-        'Após fecho global, a grade é reconstruída automaticamente',
+        'Gráfico com ENTRY (amarelo), TP (verde) e SL (vermelho) sobre klines Binance',
+        'Na Binance: Futures → Open Orders → Algo Orders para ver TP/SL condicionais',
+        'Cards abaixo do gráfico mostram qty, uPnL, idade e safeties preenchidas',
       ]} />
 
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -124,9 +167,15 @@ export default function OperationsPage() {
           onFollowAuto={followAuto}
           height={560}
           title="Gráfico"
-          drawings
+          overlays={overlays}
         />
       </div>
+
+      <OpenPositionCards
+        positions={overlays}
+        selectedSymbol={chartSymbol}
+        onSelect={selectSymbol}
+      />
 
       {runningBots.length === 0 ? (
         <div className="bg-bg1 border border-border1 p-8 text-center">
