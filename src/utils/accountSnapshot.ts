@@ -14,6 +14,9 @@ export interface AccountLiveStatus {
   dailyProfit: number;
   dailyLoss: number;
   margin: number;
+  circuitBreakerActive: boolean;
+  circuitBreakerLossPct: number;
+  circuitBreakerLimitPct: number;
   updatedAt: string;
 }
 
@@ -31,6 +34,9 @@ const EMPTY: AccountLiveStatus = {
   dailyProfit: 0,
   dailyLoss: 0,
   margin: 0,
+  circuitBreakerActive: false,
+  circuitBreakerLossPct: 0,
+  circuitBreakerLimitPct: 5,
   updatedAt: new Date().toISOString(),
 };
 
@@ -92,6 +98,10 @@ export function normalizeAccountLiveStatus(raw: Record<string, unknown>): Accoun
     dailyProfit,
     dailyLoss,
     margin: num(raw, ['margin', 'usedMargin', 'used_margin']),
+    circuitBreakerActive: Boolean(raw.circuitBreakerActive ?? raw.circuit_breaker_active),
+    circuitBreakerLossPct: num(raw, ['circuitBreakerLossPct', 'circuit_breaker_loss_pct']),
+    circuitBreakerLimitPct:
+      num(raw, ['circuitBreakerLimitPct', 'circuit_breaker_limit_pct']) || 5,
     updatedAt: String(raw.updatedAt ?? raw.updated_at ?? new Date().toISOString()),
   };
 }

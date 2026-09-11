@@ -69,6 +69,18 @@ export function AccountLiveStatusPanel({
         </div>
       </div>
 
+      {data.circuitBreakerActive && (
+        <div className="mx-4 mt-3 mb-1 border border-red-30 bg-red-dim px-3 py-2">
+          <p className="font-mono text-[10px] uppercase tracking-wider text-red font-bold">
+            🛑 Circuit breaker activo
+          </p>
+          <p className="font-mono text-[10px] text-text2 mt-1 leading-relaxed">
+            Perda diária {data.circuitBreakerLossPct.toFixed(1)}% ≥ limite{' '}
+            {data.circuitBreakerLimitPct}% — sem novos ciclos DCA até 00:00 UTC.
+          </p>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border1">
         <Metric
           label="Saldo disponível"
