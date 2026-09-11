@@ -4,9 +4,10 @@ import { api } from '../lib/api';
 type Msg = { role: 'user' | 'assistant'; content: string };
 
 const DEFAULT_SUGGESTIONS = [
+  'Que moedas estão a mover mais agora?',
+  'Onde está a melhor oportunidade neste momento?',
+  'Resume o radar de hoje',
   'Como está o meu risco?',
-  'Porque fechei em perda?',
-  'Quanto ganhei este mês?',
 ];
 
 export function AssistantChat() {
@@ -111,11 +112,11 @@ export function AssistantChat() {
         >
           <div className="flex items-center justify-between px-3 py-2.5 border-b border-border1 bg-bg2">
             <div>
-              <div className="text-[13px] font-semibold text-text1">Assistente Yeva</div>
+              <div className="text-[13px] font-semibold text-text1">AI Analyst Yeva</div>
               <div className="font-mono text-[8px] text-text3 tracking-wider uppercase">
                 {quota
                   ? `${quota.remaining}/${quota.limit} msgs hoje`
-                  : 'Conta · risco · PnL'}
+                  : 'Radar · momentum · conta'}
               </div>
             </div>
             <button
@@ -132,7 +133,7 @@ export function AssistantChat() {
             {messages.length === 0 && (
               <div className="space-y-2">
                 <p className="text-[12px] text-text2 leading-relaxed">
-                  Pergunta sobre o teu risco, posições, TP/SL ou resultados. Não executo ordens.
+                  Pergunta sobre o radar, oportunidades, risco ou bots. Não executo ordens.
                 </p>
                 <p className="font-mono text-[9px] text-text3 leading-relaxed">{disclaimer}</p>
                 <div className="flex flex-col gap-1.5 pt-1">

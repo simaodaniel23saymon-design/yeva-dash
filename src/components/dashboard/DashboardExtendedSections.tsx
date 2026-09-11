@@ -22,6 +22,7 @@ import {
   useDashboardExtended,
   useDashboardLogs,
 } from '../../hooks/useDashboardExtended';
+import { MarketRadarSection } from './MarketRadarSection';
 
 type TradeFilter = 'all' | 'trend' | 'grid' | 'profit' | 'loss';
 type LogFilter = 'ALL' | 'INFO' | 'WARN' | 'ERROR' | 'TRADE' | 'GRID' | 'RECONCILE';
@@ -878,9 +879,11 @@ function LogsTerminal({ enabled }: { enabled: boolean }) {
 export function DashboardExtendedSections({
   enabled,
   showLogs = false,
+  onSelectSymbol,
 }: {
   enabled: boolean;
   showLogs?: boolean;
+  onSelectSymbol?: (symbol: string) => void;
 }) {
   const [range, setRange] = useState<PerfRange>('24h');
   const { data, loading, error, refetch } = useDashboardExtended(enabled, range, 10000);
@@ -907,6 +910,7 @@ export function DashboardExtendedSections({
           {error}
         </div>
       )}
+      <MarketRadarSection onSelectSymbol={onSelectSymbol} />
       <MarketIndicatorsSection
         indicators={data.marketIndicators}
         mlPrediction={data.mlPrediction}

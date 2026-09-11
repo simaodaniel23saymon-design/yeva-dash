@@ -261,7 +261,11 @@ export default function DashboardPage() {
             onSelect={selectSymbol}
           />
 
-          <DashboardExtendedSections enabled showLogs={!!user?.isAdmin} />
+          <DashboardExtendedSections
+            enabled
+            showLogs={!!user?.isAdmin}
+            onSelectSymbol={selectSymbol}
+          />
         </>
       )}
     </div>
