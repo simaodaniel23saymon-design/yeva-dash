@@ -37,7 +37,15 @@ export function OpenPositionCards({ positions, selectedSymbol, onSelect }: Props
               <div className="flex justify-between items-center mb-2">
                 <span className="font-bold text-text1 font-mono text-sm">
                   {pos.symbol}{' '}
-                  <span className="text-text3 text-[10px]">{pos.side}</span>
+                  <span
+                    className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 border ${
+                      String(pos.side).toUpperCase() === 'SHORT'
+                        ? 'border-red-30 text-red'
+                        : 'border-cyan-30 text-cyan'
+                    }`}
+                  >
+                    {pos.side}
+                  </span>
                 </span>
                 <span
                   className={`font-mono text-[10px] px-2 py-0.5 border ${

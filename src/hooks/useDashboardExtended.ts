@@ -31,6 +31,7 @@ export interface DashDcaCycle {
   nextSafetyQty: number | null;
   maxLossUsdt: number | null;
   levels: number;
+  side?: 'LONG' | 'SHORT';
 }
 
 export interface DashBotRow {

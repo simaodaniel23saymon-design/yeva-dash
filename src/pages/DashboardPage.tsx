@@ -90,12 +90,16 @@ export default function DashboardPage() {
       const sym = bot.symbol.toUpperCase();
       bySym.set(sym, {
         symbol: sym,
-        side: 'LONG',
+        side: c.side === 'SHORT' ? 'SHORT' : 'LONG',
         qty: c.totalQty,
         entry: c.avgEntry,
         tp: c.tpPrice,
         sl: c.slPrice,
-        slIsBe: isBreakevenSl('LONG', c.avgEntry, c.slPrice),
+        slIsBe: isBreakevenSl(
+          c.side === 'SHORT' ? 'SHORT' : 'LONG',
+          c.avgEntry,
+          c.slPrice,
+        ),
         safetyFilled: c.safetyFilled,
         maxSafetyOrders: c.maxSafetyOrders,
       });

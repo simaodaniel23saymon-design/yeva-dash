@@ -402,8 +402,17 @@ function BotsStatusSection({
                     )}
                     {bot.dcaCycle && (
                       <div className="mt-1 text-[9px] text-text2/80 leading-relaxed">
+                        <span
+                          className={`inline-block mb-1 font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 border ${
+                            bot.dcaCycle.side === 'SHORT'
+                              ? 'border-red-30 text-red'
+                              : 'border-cyan-30 text-cyan'
+                          }`}
+                        >
+                          {bot.dcaCycle.side === 'SHORT' ? 'SHORT' : 'LONG'}
+                        </span>
                         {bot.dcaCycle.missingSl && (
-                          <span className="inline-block mb-1 font-mono text-[9px] uppercase tracking-wider text-white bg-red-600 px-1.5 py-0.5">
+                          <span className="inline-block mb-1 ml-1 font-mono text-[9px] uppercase tracking-wider text-white bg-red-600 px-1.5 py-0.5">
                             CICLO SEM SL
                           </span>
                         )}
