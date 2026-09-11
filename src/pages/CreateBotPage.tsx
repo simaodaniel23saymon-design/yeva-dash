@@ -61,7 +61,6 @@ export default function CreateBotPage() {
     setError('');
     setStartPhase('creating');
     setCapacityWarning(null);
-    setPendingConfirm(false);
 
     const pairUpper = pair.toUpperCase();
     try {

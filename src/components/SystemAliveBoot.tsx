@@ -1,15 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { BrandLogo } from './BrandLogo';
 
-const BOOT_MS = 6000;
+const BOOT_MS_DESKTOP = 6000;
+const BOOT_MS_MOBILE = 2800;
 const STORAGE_KEY = 'yeva_boot_v1';
+
+function isMobileBoot(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.matchMedia('(max-width: 768px), (pointer: coarse)').matches;
+}
+
+function bootDuration(): number {
+  return isMobileBoot() ? BOOT_MS_MOBILE : BOOT_MS_DESKTOP;
+}
 
 const PHASES = [
   { at: 0, label: 'A despertar o motor…' },
-  { at: 1100, label: 'A sincronizar exchange…' },
-  { at: 2200, label: 'A carregar pares e filtros…' },
-  { at: 3400, label: 'Hard SL e protecções activas…' },
-  { at: 4600, label: 'Sistema vivo · a entrar…' },
+  { at: 0.18, label: 'A sincronizar exchange…' },
+  { at: 0.36, label: 'A carregar pares e filtros…' },
+  { at: 0.56, label: 'Hard SL e protecções activas…' },
+  { at: 0.76, label: 'Sistema vivo · a entrar…' },
 ] as const;
 
 function AliveCanvas() {
@@ -27,7 +37,8 @@ function AliveCanvas() {
     const nodes: Array<{ x: number; y: number; vx: number; vy: number; r: number }> = [];
 
     const resize = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const mobile = isMobileBoot();
+      const dpr = Math.min(window.devicePixelRatio || 1, mobile ? 1.25 : 2);
       w = window.innerWidth;
       h = window.innerHeight;
       canvas.width = Math.floor(w * dpr);
@@ -36,7 +47,9 @@ function AliveCanvas() {
       canvas.style.height = `${h}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       if (!nodes.length) {
-        const count = Math.min(42, Math.floor((w * h) / 28000));
+        const count = mobile
+          ? Math.min(14, Math.floor((w * h) / 90000))
+          : Math.min(42, Math.floor((w * h) / 28000));
         for (let i = 0; i < count; i++) {
           nodes.push({
             x: Math.random() * w,
@@ -79,13 +92,14 @@ function AliveCanvas() {
       }
 
       for (let i = 0; i < nodes.length; i++) {
-        for (let j = i + 1; j < nodes.length; j++) {
+        const linkLimit = isMobileBoot() ? Math.min(nodes.length, i + 4) : nodes.length;
+        for (let j = i + 1; j < linkLimit; j++) {
           const a = nodes[i];
           const b = nodes[j];
           const dx = a.x - b.x;
           const dy = a.y - b.y;
           const d = Math.hypot(dx, dy);
-          if (d < 120) {
+          if (d < (isMobileBoot() ? 80 : 120)) {
             ctx.strokeStyle = `rgba(0, 212, 160, ${0.08 * (1 - d / 120)})`;
             ctx.beginPath();
             ctx.moveTo(a.x, a.y);
@@ -150,18 +164,20 @@ export function markSystemBootDone(): void {
   }
 }
 
-/** Splash de entrada — 6s, mostra que o sistema está vivo. */
+/** Splash de entrada — curto em mobile para poupar memória/GPU. */
 export function SystemAliveBoot({ onDone }: { onDone: () => void }) {
   const [elapsed, setElapsed] = useState(0);
   const doneRef = useRef(false);
+  const bootMs = useMemo(() => bootDuration(), []);
+  const skipCanvas = isMobileBoot();
 
   useEffect(() => {
     const start = performance.now();
     let raf = 0;
     const loop = (now: number) => {
-      const e = Math.min(BOOT_MS, now - start);
+      const e = Math.min(bootMs, now - start);
       setElapsed(e);
-      if (e >= BOOT_MS) {
+      if (e >= bootMs) {
         if (!doneRef.current) {
           doneRef.current = true;
           markSystemBootDone();
@@ -173,16 +189,16 @@ export function SystemAliveBoot({ onDone }: { onDone: () => void }) {
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [onDone]);
+  }, [onDone, bootMs]);
 
-  const progress = elapsed / BOOT_MS;
+  const progress = elapsed / bootMs;
   const phase = useMemo(() => {
     let cur: (typeof PHASES)[number] = PHASES[0];
     for (const p of PHASES) {
-      if (elapsed >= p.at) cur = p;
+      if (elapsed >= p.at * bootMs) cur = p;
     }
     return cur;
-  }, [elapsed]);
+  }, [elapsed, bootMs]);
 
   return (
     <div
@@ -192,7 +208,7 @@ export function SystemAliveBoot({ onDone }: { onDone: () => void }) {
       aria-busy="true"
       aria-label="A iniciar YevaTrade"
     >
-      <AliveCanvas />
+      {!skipCanvas && <AliveCanvas />}
 
       <div className="relative z-10 flex flex-col items-center px-6 text-center max-w-md animate-fade-in">
         <BrandLogo variant="auth" subtitle="Trading Engine" />
@@ -221,17 +237,17 @@ export function SystemAliveBoot({ onDone }: { onDone: () => void }) {
           </div>
           <div className="mt-2 flex justify-between font-mono text-[9px] text-text3 tracking-wider uppercase">
             <span>Boot</span>
-            <span>{Math.ceil((BOOT_MS - elapsed) / 1000)}s</span>
+            <span>{Math.ceil((bootMs - elapsed) / 1000)}s</span>
           </div>
         </div>
 
         <ul className="mt-8 space-y-1.5 text-left w-full max-w-[280px]">
           {PHASES.map((p) => {
-            const done = elapsed >= p.at + 400;
+            const done = elapsed >= p.at * bootMs + 200;
             const active = phase.label === p.label;
             return (
               <li
-                key={p.at}
+                key={p.label}
                 className={`font-mono text-[10px] tracking-wide transition-colors ${
                   done ? 'text-cyan' : active ? 'text-text1' : 'text-text3'
                 }`}

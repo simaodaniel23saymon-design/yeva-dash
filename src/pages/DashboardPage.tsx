@@ -139,7 +139,9 @@ export default function DashboardPage() {
   return (
     <div className="space-y-4 relative">
       <div className="relative overflow-hidden border border-border1 bg-bg1 px-4 py-5 sm:px-5">
-        <AmbientAliveCanvas />
+        {!window.matchMedia('(max-width: 768px), (pointer: coarse)').matches && (
+          <AmbientAliveCanvas />
+        )}
         <div className="relative z-10 flex items-start justify-between flex-wrap gap-3">
           <div>
             <p className="eyebrow mb-1.5">Sessão activa</p>
@@ -261,3 +263,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

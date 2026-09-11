@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../lib/api';
 
+import { SW_CACHE_VERSION } from '../../lib/swClient';
+
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -14,7 +16,10 @@ async function ensureServiceWorker(): Promise<ServiceWorkerRegistration> {
   if (!('serviceWorker' in navigator)) {
     throw new Error('Service Worker não suportado neste browser');
   }
-  const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+  const reg = await navigator.serviceWorker.register(
+    `/sw.js?v=${encodeURIComponent(SW_CACHE_VERSION)}`,
+    { scope: '/' }
+  );
   await navigator.serviceWorker.ready;
   return reg;
 }

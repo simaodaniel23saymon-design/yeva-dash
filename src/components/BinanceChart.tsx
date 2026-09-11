@@ -86,16 +86,34 @@ function toChartTime(ms: number): UTCTimestamp {
   return Math.floor(ms / 1000) as UTCTimestamp;
 }
 
+function isMobileChart(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.matchMedia('(max-width: 768px), (pointer: coarse)').matches;
+}
+
+/** Em mobile limita a ~300 candles para evitar OOM no Chrome Android. */
+function downsampleKlines(klines: KlinePoint[], maxPoints = 300): KlinePoint[] {
+  if (klines.length <= maxPoints) return klines;
+  const step = klines.length / maxPoints;
+  const out: KlinePoint[] = [];
+  for (let i = 0; i < maxPoints - 1; i++) {
+    out.push(klines[Math.floor(i * step)]);
+  }
+  out.push(klines[klines.length - 1]);
+  return out;
+}
+
 function buildSeriesData(klines: KlinePoint[]) {
+  const pts = downsampleKlines(klines, isMobileChart() ? 300 : 500);
   return {
-    candles: klines.map((k) => ({
+    candles: pts.map((k) => ({
       time: toChartTime(k.time),
       open: k.open,
       high: k.high,
       low: k.low,
       close: k.close,
     })),
-    volume: klines.map((k) => ({
+    volume: pts.map((k) => ({
       time: toChartTime(k.time),
       value: k.volume,
       color: k.close >= k.open ? 'rgba(14, 203, 129, 0.45)' : 'rgba(246, 70, 93, 0.45)',
@@ -150,11 +168,12 @@ export function BinanceChart({
 
   const load = useCallback(async () => {
     try {
+      const limit = isMobileChart() ? 300 : 300;
       const [candles, tick] = await Promise.all([
-        fetchBinanceKlines(symbol, interval, 300, market),
+        fetchBinanceKlines(symbol, interval, limit, market),
         fetchBinanceTicker(symbol, market),
       ]);
-      setKlines(candles);
+      setKlines(downsampleKlines(candles, 300));
       setTicker(tick);
       setError('');
     } catch {
@@ -200,7 +219,8 @@ export function BinanceChart({
               next[next.length - 1] = point;
             } else if (!last || point.time > last.time) {
               next.push(point);
-              if (next.length > 400) next.shift();
+              const maxPts = isMobileChart() ? 300 : 400;
+              while (next.length > maxPts) next.shift();
             }
             return next;
           });
