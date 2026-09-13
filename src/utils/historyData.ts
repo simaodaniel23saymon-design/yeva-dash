@@ -20,6 +20,7 @@ export interface HistoryTransaction {
   netAmount: number;
   status: string;
   network?: string;
+  note?: string;
   createdAt: string;
 }
 
@@ -57,6 +58,7 @@ function normalizeTransaction(raw: Record<string, unknown>, index: number): Hist
   const amount = Number(raw.amount ?? 0);
   const fee = Number(raw.fee ?? 0);
   const netAmount = Number(raw.netAmount ?? raw.net ?? amount - fee);
+  const note = raw.note != null ? String(raw.note) : undefined;
   return {
     id: String(raw.id ?? raw._id ?? `tx-${index}`),
     type: String(raw.type ?? raw.kind ?? '—'),
@@ -65,6 +67,7 @@ function normalizeTransaction(raw: Record<string, unknown>, index: number): Hist
     netAmount,
     status: String(raw.status ?? '—'),
     network: raw.network ? String(raw.network) : undefined,
+    note: note || undefined,
     createdAt: String(raw.createdAt ?? raw.date ?? new Date().toISOString()),
   };
 }

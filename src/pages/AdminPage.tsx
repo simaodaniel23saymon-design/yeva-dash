@@ -331,13 +331,13 @@ export default function AdminPage() {
             <StatBox label="Total Bots" value={stats.bots.total} sub={`${stats.bots.active} activos`} color="text-gold" />
             <StatBox label="Transacções" value={stats.transactions.total} color="text-text1" />
             <StatBox
-              label="Total Taxas"
+              label="TOTAL TAXAS"
               value={formatPerformanceFee(feeStats?.total.amount ?? stats.revenue.performanceFees)}
               sub={feeStats ? `${feeStats.total.count} taxas cobradas` : 'A carregar taxas…'}
               color="text-cyan"
             />
             <StatBox
-              label="Taxas Hoje"
+              label="TAXAS HOJE"
               value={formatPerformanceFee(feeStats?.today.amount ?? 0)}
               sub={feeStats ? `${feeStats.today.count} taxas hoje` : '—'}
               color="text-cyan"

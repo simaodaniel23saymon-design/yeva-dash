@@ -35,8 +35,8 @@ export default function HistoryPage() {
     <div className="space-y-4">
       <QuickGuide title="Histórico" steps={[
         'Rounds: ciclos fechados dos teus bots',
-        'Transacções: depósitos, saques e movimentos da carteira',
-        'Dados carregados da API de histórico e pagamentos',
+        'Transacções: depósitos, saques e performance fees',
+        'Em fees: Lucro · performance 20% · líquido',
       ]} />
 
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -109,7 +109,7 @@ export default function HistoryPage() {
             <table className="w-full text-xs">
               <thead className="border-b border-border1">
                 <tr>
-                  {['Tipo', 'Valor', 'Taxa', 'Líquido', 'Rede', 'Estado', 'Data'].map(h => (
+                  {['Tipo', 'Valor', 'Taxa', 'Líquido', 'Detalhe', 'Estado', 'Data'].map(h => (
                     <th key={h} className="px-4 py-2.5 text-left font-mono text-[8px] uppercase tracking-widest text-text2">{h}</th>
                   ))}
                 </tr>
@@ -117,11 +117,15 @@ export default function HistoryPage() {
               <tbody className="divide-y divide-border1">
                 {transactions.map(tx => (
                   <tr key={tx.id}>
-                    <td className="px-4 py-3 font-mono font-bold text-text1">{tx.type}</td>
+                    <td className="px-4 py-3 font-mono font-bold text-text1">
+                      {tx.type === 'PERFORMANCE_FEE' ? 'Performance' : tx.type}
+                    </td>
                     <td className="px-4 py-3 font-mono text-text2">{formatMoney(tx.amount)}</td>
                     <td className="px-4 py-3 font-mono text-text2">{formatMoney(tx.fee)}</td>
                     <td className="px-4 py-3 font-mono text-cyan">{formatMoney(tx.netAmount)}</td>
-                    <td className="px-4 py-3 font-mono text-text2">{tx.network ?? '—'}</td>
+                    <td className="px-4 py-3 font-mono text-[10px] text-text2 max-w-[280px]">
+                      {tx.note || tx.network || '—'}
+                    </td>
                     <td className="px-4 py-3 font-mono text-text2">{tx.status}</td>
                     <td className="px-4 py-3 font-mono text-text2">{new Date(tx.createdAt).toLocaleString('pt-PT')}</td>
                   </tr>
