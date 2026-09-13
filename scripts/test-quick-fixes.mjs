@@ -82,6 +82,7 @@ ok(auto.includes('AUTO EM:'), 'badge AUTO EM');
 ok(auto.includes('Entrar'), 'botão Entrar manual');
 ok(auto.includes('capacity-check') || auto.includes('Capacidade'), 'aviso capacidade');
 ok(auto.includes('/auto-ops/status'), 'fetch /auto-ops/status');
+ok(auto.includes('MODO ON') || auto.includes('Modo Estáveis') || auto.includes('Ciclos activos'), 'card Estáveis com modo/ciclos');
 
 if (failed) {
   console.error(`\n${failed} falha(s)`);

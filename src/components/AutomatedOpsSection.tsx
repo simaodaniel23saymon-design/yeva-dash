@@ -18,6 +18,15 @@ type Candidate = {
   trigger: Trigger;
 };
 
+type StableCycle = {
+  id: string;
+  symbol: string;
+  side: string;
+  avgEntry: number;
+  stableMode: boolean;
+  openedAt: string;
+};
+
 type ModuleCard = {
   id: AutoOpsModuleId;
   emoji: string;
@@ -35,6 +44,13 @@ type ModuleCard = {
   autoBadge: string | null;
   candidates: Candidate[];
   rules: { title: string; side: string; bullets: string[] };
+  stable?: {
+    pairs: string[];
+    preset: { deviationPct: number; takeProfitPct: number; stopLossPct: number };
+    bidirectional: boolean;
+    activeCycles: StableCycle[];
+    cyclesCount: number;
+  };
 };
 
 function fmtVol(n: number): string {
@@ -48,6 +64,7 @@ function stateLabel(s: string): string {
   if (s === 'IN') return 'EM POSIÇÃO';
   if (s === 'PAPER') return 'PAPER';
   if (s === 'PAPER_SOON') return 'PAPER (em breve)';
+  if (s === 'STABLE') return 'MODO ESTÁVEIS';
   if (s === 'KILL') return 'KILL SWITCH';
   if (s === 'OFF') return 'OFF';
   if (s === 'AUTO') return 'AUTO';
@@ -227,7 +244,13 @@ export function AutomatedOpsSection({
                     : 'border-border2 text-text3'
                 }`}
               >
-                {m.enabled ? 'AUTO ON' : 'AUTO OFF'}
+                {m.id === 'stable'
+                  ? m.enabled
+                    ? 'MODO ON'
+                    : 'MODO OFF'
+                  : m.enabled
+                    ? 'AUTO ON'
+                    : 'AUTO OFF'}
               </button>
             </div>
 
@@ -237,15 +260,59 @@ export function AutomatedOpsSection({
               </div>
             )}
 
+            {m.id === 'stable' && m.stable && (
+              <div className="space-y-2">
+                <p className="font-mono text-[9px] text-text2">
+                  Preset · dev {m.stable.preset.deviationPct}% · TP{' '}
+                  {m.stable.preset.takeProfitPct}% · SL{' '}
+                  {m.stable.preset.stopLossPct}%
+                  {m.stable.bidirectional ? ' · LONG+SHORT' : ' · LONG'}
+                </p>
+                <p className="font-mono text-[8px] text-text3 uppercase tracking-wider">
+                  Ciclos activos ({m.stable.cyclesCount})
+                </p>
+                {m.stable.activeCycles.length === 0 ? (
+                  <p className="font-mono text-[10px] text-text3">
+                    Nenhum ciclo DCA nos majores
+                  </p>
+                ) : (
+                  <ul className="space-y-1">
+                    {m.stable.activeCycles.map((c) => (
+                      <li
+                        key={c.id}
+                        className="flex items-center justify-between gap-2 font-mono text-[10px] border border-border2 px-2 py-1"
+                      >
+                        <button
+                          type="button"
+                          className="text-text1 hover:text-cyan font-semibold"
+                          onClick={() => onSelectSymbol?.(c.symbol)}
+                        >
+                          {c.side} {c.symbol.replace('USDT', '')}
+                        </button>
+                        <span className="text-text3">
+                          @ {c.avgEntry > 10 ? c.avgEntry.toFixed(2) : c.avgEntry.toFixed(4)}
+                          {c.stableMode ? ' · preset' : ''}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-2 font-mono text-[10px]">
               <div className="border border-border2 p-2">
-                <div className="text-text3 text-[8px] uppercase">Posição</div>
-                <div className="text-text1">
-                  {m.open
-                    ? `${m.open.side} ${m.open.symbol}`
-                    : '—'}
+                <div className="text-text3 text-[8px] uppercase">
+                  {m.id === 'stable' ? 'Ciclos' : 'Posição'}
                 </div>
-                {m.open?.unrealizedPnl != null && (
+                <div className="text-text1">
+                  {m.id === 'stable'
+                    ? `${m.stable?.cyclesCount ?? 0} activos`
+                    : m.open
+                      ? `${m.open.side} ${m.open.symbol}`
+                      : '—'}
+                </div>
+                {m.open?.unrealizedPnl != null && m.id !== 'stable' && (
                   <div
                     className={
                       m.open.unrealizedPnl >= 0 ? 'text-cyan' : 'text-red'
@@ -267,6 +334,7 @@ export function AutomatedOpsSection({
               </div>
             </div>
 
+            {m.id !== 'stable' && (
             <div className="overflow-x-auto flex-1">
               <table className="w-full text-left font-mono text-[10px]">
                 <thead>
@@ -334,6 +402,13 @@ export function AutomatedOpsSection({
                 </tbody>
               </table>
             </div>
+            )}
+            {m.id === 'stable' && (
+              <p className="font-mono text-[9px] text-text3 leading-relaxed">
+                Majors: {(m.stable?.pairs || []).map((p) => p.replace('USDT', '')).join(', ')}.
+                Liga o modo para novos ciclos DCA nestes pares usarem o preset lento.
+              </p>
+            )}
           </div>
         ))}
       </div>
