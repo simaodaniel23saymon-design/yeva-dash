@@ -93,6 +93,19 @@ const spotUi = fs.readFileSync(
 ok(spotUi.includes('Manter posição'), 'OFF pergunta manter posição');
 ok(spotUi.includes('Vender tudo'), 'OFF pergunta vender tudo');
 ok(spotUi.includes('/spot-bots/'), 'API spot-bots');
+ok(spotUi.includes('BotEditModal') || spotUi.includes('✏️'), 'Spot UI tem editar');
+ok(botsPage.includes('BotEditModal'), 'BotsPage modal editar');
+ok(botsPage.includes('/bots/') && botsPage.includes('/power'), 'BotsPage ON/OFF power');
+
+const editModal = fs.readFileSync(
+  path.join(root, 'src/components/BotEditModal.tsx'),
+  'utf8'
+);
+ok(editModal.includes('takeProfitPct'), 'modal TP');
+ok(editModal.includes('stopLossPct'), 'modal SL');
+ok(editModal.includes('ciclos novos') || editModal.includes('ciclo aberto'), 'nota ciclos novos');
+ok(editModal.includes('Histórico de edições'), 'histórico edições');
+ok(editModal.includes('capacity-check'), 'aviso capacidade no edit');
 
 if (failed) {
   console.error(`\n${failed} falha(s)`);

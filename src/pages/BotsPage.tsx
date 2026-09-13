@@ -16,7 +16,6 @@ import { useBotEligibility } from '../hooks/useBotCreationBalance';
 import { getFriendlyError } from '../utils/errorHandler';
 import {
   resolveBotId,
-  startBotById,
   stopAllBots,
   stopBotById,
   deleteBotById,
@@ -32,6 +31,7 @@ import { ProBotConfigFields } from '../components/pro/ProBotConfigFields';
 import { MarketProtectionBanner } from '../components/MarketProtectionBanner';
 import { buildCreateBotPayload } from '../utils/botPayload';
 import { SpotAutoBotsPanel } from '../components/SpotAutoBotsPanel';
+import { BotEditModal } from '../components/BotEditModal';
 
 interface Bot {
   id: string;
@@ -91,6 +91,8 @@ export default function BotsPage() {
   const [takeProfit, setTakeProfit] = useState(60);
   const [stopLoss, setStopLoss] = useState(30);
   const [proConfig, setProConfig] = useState<BotConfig>({ ...DEFAULT_PRO_CONFIG });
+  const [editBot, setEditBot] = useState<{ id: string; label: string } | null>(null);
+  const [offAsk, setOffAsk] = useState<{ id: string; label: string } | null>(null);
 
   const normalizeBot = (b: Bot): Bot => normalizeLiveBot(b);
 
@@ -203,16 +205,27 @@ export default function BotsPage() {
     }
   };
 
-  const stopBot = async (id: string) => {
+  const stopBot = async (id: string, action?: 'keep' | 'close') => {
     if (!id) {
       showFlash('Bot sem ID válido.');
       return;
     }
-    if (!window.confirm('Parar este bot?')) return;
     try {
-      await stopBotById(id);
+      const { data } = await api.post<{
+        needsConfirm?: boolean;
+        message?: string;
+      }>(`/bots/${id}/power`, { on: false, action });
+      if (data.needsConfirm) {
+        const bot = bots.find((b) => resolveBotId(b) === id);
+        setOffAsk({
+          id,
+          label: String(bot?.symbol ?? bot?.pair ?? id.slice(0, 8)),
+        });
+        return;
+      }
+      setOffAsk(null);
       await loadBots();
-      showFlash('Bot parado com sucesso.');
+      showFlash(data.message || 'Bot parado com sucesso.');
     } catch (err: unknown) {
       showFlash(getFriendlyError(err).message);
     }
@@ -224,15 +237,16 @@ export default function BotsPage() {
       showFlash('Bot sem ID válido.');
       return;
     }
-    if (!window.confirm('Iniciar este bot?')) return;
     try {
-      await startBotById(id);
+      const { data } = await api.post<{ message?: string }>(`/bots/${id}/power`, {
+        on: true,
+      });
       await loadBots();
       setStartedBot({
         pair: bot.symbol ?? bot.pair ?? 'Bot',
         market: bot.market ?? 'FUTURES',
       });
-      showFlash('Bot iniciado — sistema activo.');
+      showFlash(data.message || 'Bot iniciado — sistema activo.');
     } catch (err: unknown) {
       showFlash(getFriendlyError(err).message);
     }
@@ -448,15 +462,28 @@ export default function BotsPage() {
                     <LiveOrders botId={botId} active={running} />
                   </div>
                   <div className="flex flex-col sm:flex-row gap-2 shrink-0 min-w-[7.5rem]">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditBot({
+                          id: botId,
+                          label: String(sym).replace(/USDT$/i, ''),
+                        })
+                      }
+                      title="Editar TP/SL/size"
+                      className="font-mono text-[9px] uppercase px-3 py-2 border border-border2 text-text2 hover:border-cyan hover:text-cyan whitespace-nowrap"
+                    >
+                      ✏️ Editar
+                    </button>
                     {running ? (
-                      <button type="button" onClick={() => stopBot(botId)}
-                        className="font-mono text-[9px] uppercase px-3 py-2 border border-red-30 text-red whitespace-nowrap">
-                        Parar Este
+                      <button type="button" onClick={() => void stopBot(botId)}
+                        className="font-mono text-[9px] uppercase px-3 py-2 border border-cyan text-cyan bg-cyan-dim whitespace-nowrap">
+                        ON
                       </button>
                     ) : (
-                      <button type="button" onClick={() => startBot(bot)}
-                        className="font-mono text-[9px] uppercase px-3 py-2 border border-cyan-30 text-cyan whitespace-nowrap">
-                        Iniciar Este
+                      <button type="button" onClick={() => void startBot(bot)}
+                        className="font-mono text-[9px] uppercase px-3 py-2 border border-border2 text-text3 whitespace-nowrap">
+                        OFF
                       </button>
                     )}
                     <button
@@ -612,6 +639,51 @@ export default function BotsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {editBot && (
+        <BotEditModal
+          botId={editBot.id}
+          pairLabel={editBot.label}
+          onClose={() => setEditBot(null)}
+          onSaved={(msg) => showFlash(msg)}
+        />
+      )}
+
+      {offAsk && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="bg-bg1 border border-border1 max-w-md w-full p-5 space-y-4">
+            <h3 className="text-text1 font-bold text-base">
+              Desligar {offAsk.label}?
+            </h3>
+            <p className="font-mono text-[11px] text-text2 leading-relaxed">
+              Há posição ou ciclo aberto. Manter a posição ou fechar tudo a mercado?
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => void stopBot(offAsk.id, 'keep')}
+                className="w-full py-3 border border-cyan text-cyan font-mono text-[11px] uppercase hover:bg-cyan-dim"
+              >
+                Manter posição
+              </button>
+              <button
+                type="button"
+                onClick={() => void stopBot(offAsk.id, 'close')}
+                className="w-full py-3 border border-red text-red font-mono text-[11px] uppercase hover:bg-red-dim"
+              >
+                Fechar tudo
+              </button>
+              <button
+                type="button"
+                onClick={() => setOffAsk(null)}
+                className="w-full py-2 border border-border2 text-text3 font-mono text-[10px] uppercase"
+              >
+                Cancelar
+              </button>
+            </div>
           </div>
         </div>
       )}

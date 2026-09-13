@@ -1,9 +1,10 @@
 /**
- * Spot Auto Bot — ON/OFF grande por moeda (+ futures simples).
+ * Spot Auto Bot — ON/OFF grande por moeda (+ futures + editar).
  */
 
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../lib/api';
+import { BotEditModal } from './BotEditModal';
 
 type SpotPairRow = {
   pair: string;
@@ -30,6 +31,10 @@ export function SpotAutoBotsPanel() {
   const [busy, setBusy] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [offAsk, setOffAsk] = useState<SpotPairRow | null>(null);
+  const [futOffAsk, setFutOffAsk] = useState<FutRow | null>(null);
+  const [editBot, setEditBot] = useState<{ id: string; label: string } | null>(
+    null
+  );
 
   const load = useCallback(async () => {
     try {
@@ -96,13 +101,24 @@ export function SpotAutoBotsPanel() {
     }
   };
 
-  const toggleFutures = async (row: FutRow) => {
+  const toggleFutures = async (row: FutRow, action?: 'keep' | 'close') => {
     setBusy(row.botId);
     try {
-      await api.post(`/spot-bots/futures/${row.botId}/toggle`, {
-        on: !row.on,
-      });
-      show(`${row.pair} futures ${!row.on ? 'ON' : 'OFF'}`);
+      if (row.on) {
+        const { data } = await api.post<{
+          needsConfirm?: boolean;
+          message?: string;
+        }>(`/bots/${row.botId}/power`, { on: false, action });
+        if (data.needsConfirm) {
+          setFutOffAsk(row);
+          return;
+        }
+        setFutOffAsk(null);
+        show(data.message || `${row.pair} OFF`);
+      } else {
+        await api.post(`/bots/${row.botId}/power`, { on: true });
+        show(`${row.pair} futures ON`);
+      }
       await load();
     } catch (err: any) {
       show(err?.response?.data?.error || 'Falha no toggle');
@@ -153,21 +169,38 @@ export function SpotAutoBotsPanel() {
                   {p.hasOpenCycle ? 'ciclo aberto' : p.on ? 'a vigiar' : 'off'}
                 </span>
               </div>
-              <button
-                type="button"
-                disabled={busy === p.pair || !enabled}
-                onClick={() => {
-                  if (p.on) setOffAsk(p);
-                  else void turnOn(p.pair);
-                }}
-                className={`w-full py-4 font-mono text-sm font-bold uppercase tracking-wider border transition-colors disabled:opacity-40 ${
-                  p.on
-                    ? 'border-cyan text-cyan bg-cyan-dim'
-                    : 'border-border2 text-text2 hover:border-cyan hover:text-cyan'
-                }`}
-              >
-                {busy === p.pair ? '…' : p.on ? 'ON' : 'OFF'}
-              </button>
+              <div className="flex gap-2">
+                {p.botId && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditBot({
+                        id: p.botId!,
+                        label: p.pair.replace('USDT', ''),
+                      })
+                    }
+                    className="px-3 py-4 border border-border2 text-text2 font-mono text-[10px] hover:border-cyan hover:text-cyan"
+                    title="Editar"
+                  >
+                    ✏️
+                  </button>
+                )}
+                <button
+                  type="button"
+                  disabled={busy === p.pair || !enabled}
+                  onClick={() => {
+                    if (p.on) setOffAsk(p);
+                    else void turnOn(p.pair);
+                  }}
+                  className={`flex-1 py-4 font-mono text-sm font-bold uppercase tracking-wider border transition-colors disabled:opacity-40 ${
+                    p.on
+                      ? 'border-cyan text-cyan bg-cyan-dim'
+                      : 'border-border2 text-text2 hover:border-cyan hover:text-cyan'
+                  }`}
+                >
+                  {busy === p.pair ? '…' : p.on ? 'ON' : 'OFF'}
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -176,7 +209,7 @@ export function SpotAutoBotsPanel() {
       {futures.length > 0 && (
         <div className="space-y-2">
           <h4 className="text-text2 font-mono text-[10px] uppercase tracking-wider">
-            Futuros — ON/OFF simples
+            Futuros — ON/OFF + editar
           </h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
             {futures.map((f) => (
@@ -187,18 +220,32 @@ export function SpotAutoBotsPanel() {
                 <span className="font-mono text-[11px] text-text1 font-semibold">
                   {f.pair.replace('USDT', '')}
                 </span>
-                <button
-                  type="button"
-                  disabled={busy === f.botId}
-                  onClick={() => void toggleFutures(f)}
-                  className={`px-4 py-2 font-mono text-[10px] uppercase border ${
-                    f.on
-                      ? 'border-cyan text-cyan bg-cyan-dim'
-                      : 'border-border2 text-text3'
-                  }`}
-                >
-                  {f.on ? 'ON' : 'OFF'}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditBot({
+                        id: f.botId,
+                        label: f.pair.replace('USDT', ''),
+                      })
+                    }
+                    className="px-2 py-2 border border-border2 text-text3 font-mono text-[10px] hover:text-cyan"
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy === f.botId}
+                    onClick={() => void toggleFutures(f)}
+                    className={`px-4 py-2 font-mono text-[10px] uppercase border ${
+                      f.on
+                        ? 'border-cyan text-cyan bg-cyan-dim'
+                        : 'border-border2 text-text3'
+                    }`}
+                  >
+                    {f.on ? 'ON' : 'OFF'}
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -240,6 +287,54 @@ export function SpotAutoBotsPanel() {
             </div>
           </div>
         </div>
+      )}
+
+      {futOffAsk && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="bg-bg1 border border-border1 max-w-md w-full p-5 space-y-4">
+            <h3 className="text-text1 font-bold text-base">
+              Desligar {futOffAsk.pair.replace('USDT', '')}?
+            </h3>
+            <p className="font-mono text-[11px] text-text2 leading-relaxed">
+              Posição aberta. Manter ou fechar tudo?
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => void toggleFutures(futOffAsk, 'keep')}
+                className="w-full py-3 border border-cyan text-cyan font-mono text-[11px] uppercase hover:bg-cyan-dim"
+              >
+                Manter posição
+              </button>
+              <button
+                type="button"
+                onClick={() => void toggleFutures(futOffAsk, 'close')}
+                className="w-full py-3 border border-red text-red font-mono text-[11px] uppercase hover:bg-red-dim"
+              >
+                Fechar tudo
+              </button>
+              <button
+                type="button"
+                onClick={() => setFutOffAsk(null)}
+                className="w-full py-2 border border-border2 text-text3 font-mono text-[10px] uppercase"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editBot && (
+        <BotEditModal
+          botId={editBot.id}
+          pairLabel={editBot.label}
+          onClose={() => setEditBot(null)}
+          onSaved={(msg) => {
+            show(msg);
+            void load();
+          }}
+        />
       )}
     </div>
   );
