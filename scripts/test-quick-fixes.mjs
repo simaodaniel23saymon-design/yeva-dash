@@ -66,6 +66,23 @@ const app = fs.readFileSync(path.join(root, 'src/App.tsx'), 'utf8');
 ok(app.includes('path="/pro/signals"') && app.includes('Navigate to="/pro"'), 'signals → /pro');
 ok(app.includes('path="/market-analysis"') && app.includes('Navigate to="/pro"'), 'análise → /pro');
 
+// 4) Operações Automatizadas
+const ops = fs.readFileSync(path.join(root, 'src/pages/OperationsPage.tsx'), 'utf8');
+ok(ops.includes('AutomatedOpsSection'), 'OperationsPage inclui AutomatedOpsSection');
+ok(ops.includes('OpenPositionCards'), 'OperationsPage mantém operações manuais/live');
+
+const auto = fs.readFileSync(
+  path.join(root, 'src/components/AutomatedOpsSection.tsx'),
+  'utf8'
+);
+ok(auto.includes('Gainers'), 'card Gainers');
+ok(auto.includes('Losers'), 'card Losers');
+ok(auto.includes('Estáveis'), 'card Estáveis');
+ok(auto.includes('AUTO EM:'), 'badge AUTO EM');
+ok(auto.includes('Entrar'), 'botão Entrar manual');
+ok(auto.includes('capacity-check') || auto.includes('Capacidade'), 'aviso capacidade');
+ok(auto.includes('/auto-ops/status'), 'fetch /auto-ops/status');
+
 if (failed) {
   console.error(`\n${failed} falha(s)`);
   process.exit(1);

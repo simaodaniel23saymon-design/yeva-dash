@@ -18,6 +18,7 @@ import {
   type ExchangePosition,
   type LiveBot,
 } from '../utils/liveData';
+import { AutomatedOpsSection } from '../components/AutomatedOpsSection';
 
 interface Trade {
   id: string | number;
@@ -161,6 +162,8 @@ export default function OperationsPage() {
           )}
         </div>
       </div>
+
+      <AutomatedOpsSection onSelectSymbol={selectSymbol} />
 
       <div className="bg-bg1 border border-border1 p-4 animate-fade-in-up">
         <LiveChart
