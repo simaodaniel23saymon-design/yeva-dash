@@ -12,36 +12,34 @@ const imgClass: Record<Variant, string> = {
   auth: 'h-14 sm:h-16 w-auto max-w-[min(100%,320px)] object-contain mx-auto',
 };
 
-const LOGO_SVG = '/yeva-logo.svg';
+/** Logo oficial YevaTrade (Y dourado) — PNG do branding, sem placeholder SVG. */
 const LOGO_PNG = '/yeva-logo-horizontal.png';
+const LOGO_ICON = '/favicon.png';
 
 /**
- * Logo da marca — SVG primeiro (fiável em mobile/PWA), PNG como fallback.
+ * Logo da marca — asset oficial horizontal (commit branding).
  */
 export function BrandLogo({ variant = 'header', subtitle, className = '' }: Props) {
   return (
     <div
       className={`flex flex-col ${variant === 'auth' ? 'items-center text-center' : 'items-start'} ${className}`}
     >
-      <picture>
-        <source srcSet={LOGO_SVG} type="image/svg+xml" />
-        <img
-          src={LOGO_SVG}
-          alt="Yeva Trade"
-          width={variant === 'auth' ? 280 : variant === 'sidebar' ? 190 : 150}
-          height={variant === 'auth' ? 48 : variant === 'sidebar' ? 36 : 28}
-          className={imgClass[variant]}
-          draggable={false}
-          decoding="async"
-          fetchPriority={variant === 'auth' ? 'high' : 'auto'}
-          onError={(e) => {
-            const el = e.currentTarget;
-            if (el.dataset.fallback === '1') return;
-            el.dataset.fallback = '1';
-            el.src = LOGO_PNG;
-          }}
-        />
-      </picture>
+      <img
+        src={LOGO_PNG}
+        alt="Yeva Trade"
+        width={variant === 'auth' ? 280 : variant === 'sidebar' ? 190 : 150}
+        height={variant === 'auth' ? 48 : variant === 'sidebar' ? 36 : 28}
+        className={imgClass[variant]}
+        draggable={false}
+        decoding="async"
+        fetchPriority={variant === 'auth' ? 'high' : 'auto'}
+        onError={(e) => {
+          const el = e.currentTarget;
+          if (el.dataset.fallback === '1') return;
+          el.dataset.fallback = '1';
+          el.src = LOGO_ICON;
+        }}
+      />
       {subtitle ? (
         <p className="font-mono text-[9px] text-text2 tracking-[0.22em] uppercase mt-1.5 alive-breath">
           {subtitle}
@@ -51,4 +49,8 @@ export function BrandLogo({ variant = 'header', subtitle, className = '' }: Prop
   );
 }
 
-export const BRAND_LOGO_SOURCES = { svg: LOGO_SVG, png: LOGO_PNG } as const;
+export const BRAND_LOGO_SOURCES = {
+  svg: LOGO_PNG,
+  png: LOGO_PNG,
+  icon: LOGO_ICON,
+} as const;

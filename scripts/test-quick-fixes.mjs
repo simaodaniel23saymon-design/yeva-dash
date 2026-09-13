@@ -17,8 +17,8 @@ function ok(cond, msg) {
   }
 }
 
-// 1) Logo + PWA icons
-ok(fs.existsSync(path.join(root, 'public/yeva-logo.svg')), 'yeva-logo.svg existe');
+// 1) Logo oficial + PWA icons (Y dourado — sem placeholder A)
+ok(fs.existsSync(path.join(root, 'public/favicon.png')), 'favicon oficial existe');
 ok(fs.existsSync(path.join(root, 'public/yeva-logo-horizontal.png')), 'PNG horizontal existe');
 ok(fs.existsSync(path.join(root, 'public/icon-192-maskable.png')), 'icon-192-maskable existe');
 ok(fs.existsSync(path.join(root, 'public/icon-512-maskable.png')), 'icon-512-maskable existe');
@@ -36,11 +36,13 @@ ok(
 );
 
 const indexHtml = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-ok(indexHtml.includes('yeva-logo.svg'), 'index.html referencia SVG');
+ok(indexHtml.includes('favicon.png'), 'index.html favicon oficial PNG');
+ok(!indexHtml.includes('yeva-logo.svg'), 'index sem SVG placeholder');
+ok(indexHtml.includes('og:image'), 'og:image partilha');
 
 const brand = fs.readFileSync(path.join(root, 'src/components/BrandLogo.tsx'), 'utf8');
-ok(brand.includes('yeva-logo.svg'), 'BrandLogo usa SVG');
-ok(brand.includes('yeva-logo-horizontal.png'), 'BrandLogo tem fallback PNG');
+ok(brand.includes('yeva-logo-horizontal.png'), 'BrandLogo PNG oficial');
+ok(!brand.includes('yeva-logo.svg'), 'BrandLogo sem placeholder SVG A');
 
 // 2) Boot 12s
 const boot = fs.readFileSync(path.join(root, 'src/utils/bootTiming.ts'), 'utf8');
@@ -106,6 +108,10 @@ ok(editModal.includes('stopLossPct'), 'modal SL');
 ok(editModal.includes('ciclos novos') || editModal.includes('ciclo aberto'), 'nota ciclos novos');
 ok(editModal.includes('Histórico de edições'), 'histórico edições');
 ok(editModal.includes('capacity-check'), 'aviso capacidade no edit');
+
+ok(botsPage.includes('BotAllocateModal') || botsPage.includes('Alocado:'), 'BotsPage alocação');
+ok(spotUi.includes('BotAllocateModal') || spotUi.includes('Alocado:'), 'Spot UI alocação');
+ok(spotUi.includes('Em uso:'), 'Spot UI em uso');
 
 if (failed) {
   console.error(`\n${failed} falha(s)`);

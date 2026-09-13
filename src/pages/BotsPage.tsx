@@ -32,6 +32,7 @@ import { MarketProtectionBanner } from '../components/MarketProtectionBanner';
 import { buildCreateBotPayload } from '../utils/botPayload';
 import { SpotAutoBotsPanel } from '../components/SpotAutoBotsPanel';
 import { BotEditModal } from '../components/BotEditModal';
+import { BotAllocateModal } from '../components/BotAllocateModal';
 
 interface Bot {
   id: string;
@@ -48,6 +49,8 @@ interface Bot {
   riskMode?: string;
   leverage?: number;
   capitalPerSide?: number;
+  allocatedUsdt?: number;
+  inUseUsdt?: number;
   entryPercent?: number;
   takeProfitPercent?: number;
   stopLossPercent?: number;
@@ -93,6 +96,13 @@ export default function BotsPage() {
   const [proConfig, setProConfig] = useState<BotConfig>({ ...DEFAULT_PRO_CONFIG });
   const [editBot, setEditBot] = useState<{ id: string; label: string } | null>(null);
   const [offAsk, setOffAsk] = useState<{ id: string; label: string } | null>(null);
+  const [allocAsk, setAllocAsk] = useState<{
+    id: string;
+    label: string;
+    minNotional: number;
+    availableBalanceUsdt: number;
+    defaultValue?: number;
+  } | null>(null);
 
   const normalizeBot = (b: Bot): Bot => normalizeLiveBot(b);
 
@@ -231,22 +241,43 @@ export default function BotsPage() {
     }
   };
 
-  const startBot = async (bot: Bot) => {
+  const startBot = async (bot: Bot, allocationUsdt?: number) => {
     const id = resolveBotId(bot);
     if (!id) {
       showFlash('Bot sem ID válido.');
       return;
     }
     try {
-      const { data } = await api.post<{ message?: string }>(`/bots/${id}/power`, {
+      const { data } = await api.post<{
+        message?: string;
+        needsAllocation?: boolean;
+        minNotional?: number;
+        availableBalanceUsdt?: number;
+        capacityWarning?: string | null;
+      }>(`/bots/${id}/power`, {
         on: true,
+        allocationUsdt,
       });
+      if (data.needsAllocation) {
+        setAllocAsk({
+          id,
+          label: String(bot.symbol ?? bot.pair ?? '').replace(/USDT$/i, ''),
+          minNotional: data.minNotional || 5,
+          availableBalanceUsdt: data.availableBalanceUsdt || 0,
+          defaultValue: bot.allocatedUsdt || bot.capitalPerSide,
+        });
+        return;
+      }
+      setAllocAsk(null);
       await loadBots();
       setStartedBot({
         pair: bot.symbol ?? bot.pair ?? 'Bot',
         market: bot.market ?? 'FUTURES',
       });
-      showFlash(data.message || 'Bot iniciado — sistema activo.');
+      const msg = [data.message || 'Bot iniciado', data.capacityWarning]
+        .filter(Boolean)
+        .join(' · ');
+      showFlash(msg);
     } catch (err: unknown) {
       showFlash(getFriendlyError(err).message);
     }
@@ -456,7 +487,11 @@ export default function BotsPage() {
                       {bot.mode && <span>Modo: {bot.mode}</span>}
                       {bot.riskMode && <span>Risco: {bot.riskMode}</span>}
                       {bot.leverage != null && <span>Alavancagem: {bot.leverage}x</span>}
-                      {bot.capitalPerSide != null && <span>Capital: ${bot.capitalPerSide}</span>}
+                      <span className="text-cyan">
+                        Alocado: ${Number(bot.allocatedUsdt ?? bot.capitalPerSide ?? 0).toFixed(0)}
+                        {' · '}
+                        Em uso: ${Number(bot.inUseUsdt ?? 0).toFixed(0)}
+                      </span>
                       {bot.entryPercent != null && <span>Entrada: {bot.entryPercent}%</span>}
                     </div>
                     <LiveOrders botId={botId} active={running} />
@@ -649,6 +684,21 @@ export default function BotsPage() {
           pairLabel={editBot.label}
           onClose={() => setEditBot(null)}
           onSaved={(msg) => showFlash(msg)}
+        />
+      )}
+
+      {allocAsk && (
+        <BotAllocateModal
+          label={allocAsk.label}
+          minNotional={allocAsk.minNotional}
+          availableBalanceUsdt={allocAsk.availableBalanceUsdt}
+          defaultValue={allocAsk.defaultValue}
+          onCancel={() => setAllocAsk(null)}
+          onConfirm={async (allocationUsdt) => {
+            const bot = bots.find((b) => resolveBotId(b) === allocAsk.id);
+            if (!bot) return;
+            await startBot(bot, allocationUsdt);
+          }}
         />
       )}
 

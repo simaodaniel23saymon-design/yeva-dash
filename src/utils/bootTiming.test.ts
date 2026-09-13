@@ -40,8 +40,9 @@ describe('bootTiming', () => {
 });
 
 describe('BrandLogo sources', () => {
-  it('usa SVG com fallback PNG', () => {
-    expect(BRAND_LOGO_SOURCES.svg).toBe('/yeva-logo.svg');
+  it('usa logo oficial PNG (Y dourado), sem placeholder SVG A', () => {
     expect(BRAND_LOGO_SOURCES.png).toBe('/yeva-logo-horizontal.png');
+    expect(BRAND_LOGO_SOURCES.icon).toBe('/favicon.png');
+    expect(BRAND_LOGO_SOURCES.svg).toBe('/yeva-logo-horizontal.png');
   });
 });
