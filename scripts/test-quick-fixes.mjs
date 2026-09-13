@@ -84,6 +84,16 @@ ok(auto.includes('capacity-check') || auto.includes('Capacidade'), 'aviso capaci
 ok(auto.includes('/auto-ops/status'), 'fetch /auto-ops/status');
 ok(auto.includes('MODO ON') || auto.includes('Modo Estáveis') || auto.includes('Ciclos activos'), 'card Estáveis com modo/ciclos');
 
+const botsPage = fs.readFileSync(path.join(root, 'src/pages/BotsPage.tsx'), 'utf8');
+ok(botsPage.includes('SpotAutoBotsPanel'), 'BotsPage inclui Spot Auto');
+const spotUi = fs.readFileSync(
+  path.join(root, 'src/components/SpotAutoBotsPanel.tsx'),
+  'utf8'
+);
+ok(spotUi.includes('Manter posição'), 'OFF pergunta manter posição');
+ok(spotUi.includes('Vender tudo'), 'OFF pergunta vender tudo');
+ok(spotUi.includes('/spot-bots/'), 'API spot-bots');
+
 if (failed) {
   console.error(`\n${failed} falha(s)`);
   process.exit(1);

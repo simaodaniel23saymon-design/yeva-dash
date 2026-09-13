@@ -31,6 +31,7 @@ import { DEFAULT_PRO_CONFIG } from '../types/trading';
 import { ProBotConfigFields } from '../components/pro/ProBotConfigFields';
 import { MarketProtectionBanner } from '../components/MarketProtectionBanner';
 import { buildCreateBotPayload } from '../utils/botPayload';
+import { SpotAutoBotsPanel } from '../components/SpotAutoBotsPanel';
 
 interface Bot {
   id: string;
@@ -311,6 +312,8 @@ export default function BotsPage() {
         'Define alavancagem e capital por ordem',
         'Cria e inicia o bot — monitoriza em tempo real abaixo',
       ]} />
+
+      <SpotAutoBotsPanel />
 
       {!isConnected ? (
         <div className="bg-gold-dim border border-gold-30 p-6 text-center">
