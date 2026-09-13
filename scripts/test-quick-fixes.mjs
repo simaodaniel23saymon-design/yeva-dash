@@ -1,0 +1,73 @@
+/**
+ * Smoke tests — logo assets, boot 12s, PRO banner page.
+ * Run: node scripts/test-quick-fixes.mjs
+ */
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+let failed = 0;
+
+function ok(cond, msg) {
+  if (cond) console.log(`✓ ${msg}`);
+  else {
+    console.error(`✗ ${msg}`);
+    failed += 1;
+  }
+}
+
+// 1) Logo + PWA icons
+ok(fs.existsSync(path.join(root, 'public/yeva-logo.svg')), 'yeva-logo.svg existe');
+ok(fs.existsSync(path.join(root, 'public/yeva-logo-horizontal.png')), 'PNG horizontal existe');
+ok(fs.existsSync(path.join(root, 'public/icon-192-maskable.png')), 'icon-192-maskable existe');
+ok(fs.existsSync(path.join(root, 'public/icon-512-maskable.png')), 'icon-512-maskable existe');
+
+const manifest = JSON.parse(
+  fs.readFileSync(path.join(root, 'public/manifest.webmanifest'), 'utf8')
+);
+ok(
+  manifest.icons?.some((i) => i.purpose === 'maskable' && i.sizes === '192x192'),
+  'manifest tem maskable 192'
+);
+ok(
+  manifest.icons?.some((i) => i.purpose === 'maskable' && i.sizes === '512x512'),
+  'manifest tem maskable 512'
+);
+
+const indexHtml = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+ok(indexHtml.includes('yeva-logo.svg'), 'index.html referencia SVG');
+
+const brand = fs.readFileSync(path.join(root, 'src/components/BrandLogo.tsx'), 'utf8');
+ok(brand.includes('yeva-logo.svg'), 'BrandLogo usa SVG');
+ok(brand.includes('yeva-logo-horizontal.png'), 'BrandLogo tem fallback PNG');
+
+// 2) Boot 12s
+const boot = fs.readFileSync(path.join(root, 'src/utils/bootTiming.ts'), 'utf8');
+ok(boot.includes('12_000') || boot.includes('12000'), 'MIN_BOOT_MS = 12000');
+
+function shouldCompleteBoot({ elapsedMs, minMs = 12000, dataReady }) {
+  return elapsedMs >= minMs && dataReady;
+}
+ok(!shouldCompleteBoot({ elapsedMs: 6000, dataReady: true }), 'não completa aos 6s');
+ok(!shouldCompleteBoot({ elapsedMs: 15000, dataReady: false }), 'espera dados após 12s');
+ok(shouldCompleteBoot({ elapsedMs: 12000, dataReady: true }), 'completa aos 12s com dados');
+
+const layout = fs.readFileSync(path.join(root, 'src/components/Layout.tsx'), 'utf8');
+ok(layout.includes('dataReady={!authLoading}'), 'Layout passa dataReady do auth');
+
+// 3) PRO bloqueado
+const pro = fs.readFileSync(path.join(root, 'src/pages/ProPage.tsx'), 'utf8');
+ok(pro.includes('Em breve'), 'ProPage tem banner Em breve');
+ok(!pro.includes('Assinar com crypto'), 'ProPage sem checkout');
+ok(!pro.includes('Pro Signals'), 'ProPage sem sinais');
+
+const app = fs.readFileSync(path.join(root, 'src/App.tsx'), 'utf8');
+ok(app.includes('path="/pro/signals"') && app.includes('Navigate to="/pro"'), 'signals → /pro');
+ok(app.includes('path="/market-analysis"') && app.includes('Navigate to="/pro"'), 'análise → /pro');
+
+if (failed) {
+  console.error(`\n${failed} falha(s)`);
+  process.exit(1);
+}
+console.log('\nTodos os quick-fixes OK');

@@ -1,17 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { BrandLogo } from './BrandLogo';
+import {
+  MIN_BOOT_MS,
+  bootProgressPct,
+  shouldCompleteBoot,
+} from '../utils/bootTiming';
 
-const BOOT_MS_DESKTOP = 6000;
-const BOOT_MS_MOBILE = 2800;
 const STORAGE_KEY = 'yeva_boot_v1';
 
 function isMobileBoot(): boolean {
   if (typeof window === 'undefined') return false;
   return window.matchMedia('(max-width: 768px), (pointer: coarse)').matches;
-}
-
-function bootDuration(): number {
-  return isMobileBoot() ? BOOT_MS_MOBILE : BOOT_MS_DESKTOP;
 }
 
 const PHASES = [
@@ -69,7 +68,6 @@ function AliveCanvas() {
       ctx.clearRect(0, 0, w, h);
       const pulse = 0.5 + 0.5 * Math.sin(t / 900);
 
-      // grelha subtil
       ctx.strokeStyle = `rgba(0, 212, 160, ${0.035 + pulse * 0.02})`;
       ctx.lineWidth = 1;
       const step = 56;
@@ -116,7 +114,6 @@ function AliveCanvas() {
         ctx.fill();
       }
 
-      // heartbeat central suave
       const cx = w / 2;
       const cy = h * 0.42;
       const beat = 0.55 + 0.45 * Math.sin(t / 420);
@@ -164,20 +161,31 @@ export function markSystemBootDone(): void {
   }
 }
 
-/** Splash de entrada — curto em mobile para poupar memória/GPU. */
-export function SystemAliveBoot({ onDone }: { onDone: () => void }) {
+/**
+ * Splash de entrada — mínimo MIN_BOOT_MS (12s).
+ * Se `dataReady` ainda for false após 12s, espera pelos dados.
+ */
+export function SystemAliveBoot({
+  onDone,
+  dataReady = true,
+  minMs = MIN_BOOT_MS,
+}: {
+  onDone: () => void;
+  /** Auth/dados críticos prontos — se demorar > minMs, o splash espera. */
+  dataReady?: boolean;
+  minMs?: number;
+}) {
   const [elapsed, setElapsed] = useState(0);
   const doneRef = useRef(false);
-  const bootMs = useMemo(() => bootDuration(), []);
   const skipCanvas = isMobileBoot();
 
   useEffect(() => {
     const start = performance.now();
     let raf = 0;
     const loop = (now: number) => {
-      const e = Math.min(bootMs, now - start);
+      const e = now - start;
       setElapsed(e);
-      if (e >= bootMs) {
+      if (shouldCompleteBoot({ elapsedMs: e, minMs, dataReady })) {
         if (!doneRef.current) {
           doneRef.current = true;
           markSystemBootDone();
@@ -189,16 +197,26 @@ export function SystemAliveBoot({ onDone }: { onDone: () => void }) {
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [onDone, bootMs]);
+  }, [onDone, minMs, dataReady]);
 
-  const progress = elapsed / bootMs;
+  const progress =
+    bootProgressPct({ elapsedMs: elapsed, minMs, dataReady }) / 100;
+  const waitingData = elapsed >= minMs && !dataReady;
+
   const phase = useMemo(() => {
+    if (waitingData) {
+      return { at: 1, label: 'A esperar dados da conta…' } as const;
+    }
     let cur: (typeof PHASES)[number] = PHASES[0];
     for (const p of PHASES) {
-      if (elapsed >= p.at * bootMs) cur = p;
+      if (elapsed >= p.at * minMs) cur = p;
     }
     return cur;
-  }, [elapsed, bootMs]);
+  }, [elapsed, minMs, waitingData]);
+
+  const remainLabel = waitingData
+    ? '…'
+    : `${Math.max(0, Math.ceil((minMs - elapsed) / 1000))}s`;
 
   return (
     <div
@@ -237,14 +255,14 @@ export function SystemAliveBoot({ onDone }: { onDone: () => void }) {
           </div>
           <div className="mt-2 flex justify-between font-mono text-[9px] text-text3 tracking-wider uppercase">
             <span>Boot</span>
-            <span>{Math.ceil((bootMs - elapsed) / 1000)}s</span>
+            <span>{remainLabel}</span>
           </div>
         </div>
 
         <ul className="mt-8 space-y-1.5 text-left w-full max-w-[280px]">
           {PHASES.map((p) => {
-            const done = elapsed >= p.at * bootMs + 200;
-            const active = phase.label === p.label;
+            const done = elapsed >= p.at * minMs + 200;
+            const active = !waitingData && phase.label === p.label;
             return (
               <li
                 key={p.label}
@@ -257,6 +275,12 @@ export function SystemAliveBoot({ onDone }: { onDone: () => void }) {
               </li>
             );
           })}
+          {waitingData && (
+            <li className="font-mono text-[10px] tracking-wide text-gold">
+              <span className="inline-block w-3">▸</span>
+              A esperar dados da conta
+            </li>
+          )}
         </ul>
       </div>
     </div>
@@ -314,9 +338,7 @@ export function AmbientAliveCanvas({ className = '' }: { className?: string }) {
       ctx.strokeStyle = `rgba(212, 168, 67, ${0.05 + Math.abs(wave) * 0.03})`;
       ctx.beginPath();
       for (let x = 0; x <= w; x += 4) {
-        const y =
-          h * 0.62 +
-          Math.sin(x / 62 + t / 900 + 1.2) * 8;
+        const y = h * 0.62 + Math.sin(x / 62 + t / 900 + 1.2) * 8;
         if (x === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       }

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 48" role="img" aria-label="Yeva Trade">
+  <title>Yeva Trade</title>
+  <!-- Mark -->
+  <rect x="2" y="6" width="36" height="36" rx="2" fill="none" stroke="#00d4a0" stroke-width="2"/>
+  <path d="M10 30 L18 14 L26 30" fill="none" stroke="#00d4a0" stroke-width="2.2" stroke-linecap="square" stroke-linejoin="miter"/>
+  <path d="M14 24 H22" stroke="#d4a843" stroke-width="2" stroke-linecap="square"/>
+  <!-- Wordmark -->
+  <text x="50" y="32" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="26" font-weight="700" letter-spacing="0.04em" fill="#e8f5ef">YEVA</text>
+  <text x="138" y="32" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="26" font-weight="500" letter-spacing="0.08em" fill="#00d4a0">TRADE</text>
+</svg>

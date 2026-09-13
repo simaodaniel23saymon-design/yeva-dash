@@ -21,11 +21,8 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import CreateBotPage from './pages/CreateBotPage';
 import ApiGuidePage from './pages/ApiGuidePage';
-import MarketAnalysisPage from './pages/MarketAnalysisPage';
-import BotStatsPage from './pages/BotStatsPage';
 import PerformancePage from './pages/PerformancePage';
 import ProPage from './pages/ProPage';
-import ProSignalsPage from './pages/ProSignalsPage';
 
 function ProtectedRoute({ children, requireAdmin = false }: { children: React.ReactNode; requireAdmin?: boolean }) {
   const { user, loading } = useAuth();
@@ -76,7 +73,8 @@ export default function App() {
           <Route path="/legal/terms" element={<TermsOfUse />} />
           <Route path="/legal/privacy" element={<PrivacyPolicy />} />
           <Route path="/performance" element={<PerformancePage />} />
-          <Route path="/pro" element={<ProPage />} />
+          <Route path="/pro" element={<AppRoute element={<ProPage />} />} />
+          <Route path="/pro/signals" element={<Navigate to="/pro" replace />} />
           <Route path="/dashboard" element={<AppRoute element={<DashboardPage />} />} />
           <Route path="/bots" element={<AppRoute element={<BotsPage />} />} />
           <Route path="/create-bot" element={<AppRoute element={<CreateBotPage />} />} />
@@ -85,9 +83,8 @@ export default function App() {
           <Route path="/api-guide" element={<AppRoute element={<ApiGuidePage />} />} />
           <Route path="/operations" element={<AppRoute element={<OperationsPage />} />} />
           <Route path="/positions" element={<AppRoute element={<OperationsPage />} />} />
-          <Route path="/market-analysis" element={<AppRoute element={<MarketAnalysisPage />} />} />
-          <Route path="/bot-stats" element={<AppRoute element={<BotStatsPage />} />} />
-          <Route path="/pro/signals" element={<AppRoute element={<ProSignalsPage />} />} />
+          <Route path="/market-analysis" element={<Navigate to="/pro" replace />} />
+          <Route path="/bot-stats" element={<Navigate to="/pro" replace />} />
           <Route path="/history" element={<AppRoute element={<HistoryPage />} />} />
           <Route path="/wallet" element={<AppRoute element={<WalletPage />} />} />
           <Route path="/deposit" element={<AppRoute element={<DepositPage />} />} />

@@ -84,10 +84,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
         <NavLink to="/dashboard" className={navLinkClass} onClick={close}><IconGrid /><span>Dashboard</span></NavLink>
         <NavLink to="/bots"      className={navLinkClass} onClick={close}><IconBot /><span>Bots</span></NavLink>
         <NavLink to="/operations" className={navLinkClass} onClick={close}><IconChart /><span>Operações</span></NavLink>
-        <NavLink to="/market-analysis" className={navLinkClass} onClick={close}><IconChart /><span>Análise PRO</span></NavLink>
-        <NavLink to="/bot-stats" className={navLinkClass} onClick={close}><IconBot /><span>Stats PRO</span></NavLink>
-        <NavLink to="/pro/signals" className={navLinkClass} onClick={close}><IconChart /><span>Pro Signals</span></NavLink>
-        <NavLink to="/pro" className={navLinkClass} onClick={close}><IconNetwork /><span>BOTS PRO</span></NavLink>
+        <NavLink to="/pro" className={navLinkClass} onClick={close}><IconNetwork /><span>PRO</span></NavLink>
         <NavLink to="/performance" className={navLinkClass} onClick={close}><IconChart /><span>Performance</span></NavLink>
         <NavLink to="/history"   className={navLinkClass} onClick={close}><IconChart /><span>Histórico</span></NavLink>
 
@@ -148,7 +145,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [booting, setBooting] = useState(() => shouldShowSystemBoot());
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   const finishBoot = useCallback(() => setBooting(false), []);
 
@@ -162,7 +159,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   ];
 
   if (booting) {
-    return <SystemAliveBoot onDone={finishBoot} />;
+    return (
+      <SystemAliveBoot onDone={finishBoot} dataReady={!authLoading} />
+    );
   }
 
   return (
