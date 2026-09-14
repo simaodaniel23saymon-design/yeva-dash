@@ -142,13 +142,16 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-4 relative">
-      <div className="relative overflow-hidden border border-border1 bg-bg1 px-4 py-5 sm:px-5">
+      <div className="dashboard-panel rounded-[28px] px-4 py-5 sm:px-5">
         {!window.matchMedia('(max-width: 768px), (pointer: coarse)').matches && (
           <AmbientAliveCanvas />
         )}
         <div className="relative z-10 flex items-start justify-between flex-wrap gap-3">
           <div>
-            <p className="eyebrow mb-1.5">Sessão activa</p>
+            <div className="mb-2 flex items-center gap-2">
+              <span className="inline-flex h-2.5 w-2.5 rounded-full bg-cyan shadow-[0_0_14px_rgba(0,212,160,0.8)]" />
+              <p className="eyebrow mb-0 text-[10px] tracking-[0.22em] text-cyan">Sessão activa</p>
+            </div>
             <h2 className="display-title text-text1 text-[22px] sm:text-2xl">Painel de Controlo</h2>
             <p className="font-mono text-[10px] text-text2 tracking-[0.08em] mt-1.5 leading-relaxed">
               Actualizado {updatedAt.toLocaleTimeString('pt-PT')} · exchange em tempo real
@@ -158,7 +161,7 @@ export default function DashboardPage() {
             type="button"
             onClick={handleRefresh}
             disabled={refreshing}
-            className="font-mono text-[9px] uppercase tracking-[0.14em] px-4 py-2 border border-border2 text-text2 hover:border-cyan hover:text-cyan disabled:opacity-50"
+            className="font-mono text-[9px] uppercase tracking-[0.14em] px-4 py-2 border border-cyan-30 bg-cyan-dim text-cyan hover:shadow-[0_0_18px_rgba(0,212,160,0.18)] disabled:opacity-50"
           >
             {refreshing ? 'A actualizar...' : 'Actualizar'}
           </button>
@@ -202,42 +205,50 @@ export default function DashboardPage() {
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <AnimatedStat
-              label="Saldo Disponível"
-              value={formatMoney(binance.saldoDisponivel)}
-              sub="Binance · exchange"
-              accent={pnlAccent(binance.saldoDisponivel)}
-              delay={0}
-              pulse={binance.activeBots > 0}
-              icon={<IconWallet size={16} />}
-            />
-            <AnimatedStat
-              label="P&L Aberto"
-              value={fmtSignedUsd(binance.pnlAberto)}
-              sub={posCount > 0 ? `${posCount} posição(ões) · Binance` : 'Posições actuais'}
-              accent={pnlAccent(binance.pnlAberto)}
-              delay={80}
-              pulse={binance.activeBots > 0}
-              icon={binance.pnlAberto >= 0 ? <IconTrendUp size={16} /> : <IconTrendDown size={16} />}
-            />
-            <AnimatedStat
-              label="Resultado Hoje"
-              value={fmtSignedUsd(binance.resultadoHoje)}
-              sub="Realizado · Binance"
-              accent={pnlAccent(binance.resultadoHoje)}
-              delay={160}
-              pulse={binance.activeBots > 0}
-              icon={binance.resultadoHoje >= 0 ? <IconTrendUp size={16} /> : <IconTrendDown size={16} />}
-            />
-            <AnimatedStat
-              label="Saldo Líquido Total"
-              value={formatMoney(binance.saldoLiquido)}
-              sub="Saldo de margem · Binance"
-              accent={pnlAccent(binance.saldoLiquido)}
-              delay={240}
-              pulse={binance.activeBots > 0}
-              icon={<IconActivity size={16} />}
-            />
+            <div className="dashboard-kpi rounded-[22px] p-3">
+              <AnimatedStat
+                label="Saldo Disponível"
+                value={formatMoney(binance.saldoDisponivel)}
+                sub="Binance · exchange"
+                accent={pnlAccent(binance.saldoDisponivel)}
+                delay={0}
+                pulse={binance.activeBots > 0}
+                icon={<IconWallet size={16} />}
+              />
+            </div>
+            <div className="dashboard-kpi rounded-[22px] p-3">
+              <AnimatedStat
+                label="P&L Aberto"
+                value={fmtSignedUsd(binance.pnlAberto)}
+                sub={posCount > 0 ? `${posCount} posição(ões) · Binance` : 'Posições actuais'}
+                accent={pnlAccent(binance.pnlAberto)}
+                delay={80}
+                pulse={binance.activeBots > 0}
+                icon={binance.pnlAberto >= 0 ? <IconTrendUp size={16} /> : <IconTrendDown size={16} />}
+              />
+            </div>
+            <div className="dashboard-kpi rounded-[22px] p-3">
+              <AnimatedStat
+                label="Resultado Hoje"
+                value={fmtSignedUsd(binance.resultadoHoje)}
+                sub="Realizado · Binance"
+                accent={pnlAccent(binance.resultadoHoje)}
+                delay={160}
+                pulse={binance.activeBots > 0}
+                icon={binance.resultadoHoje >= 0 ? <IconTrendUp size={16} /> : <IconTrendDown size={16} />}
+              />
+            </div>
+            <div className="dashboard-kpi rounded-[22px] p-3">
+              <AnimatedStat
+                label="Saldo Líquido Total"
+                value={formatMoney(binance.saldoLiquido)}
+                sub="Saldo de margem · Binance"
+                accent={pnlAccent(binance.saldoLiquido)}
+                delay={240}
+                pulse={binance.activeBots > 0}
+                icon={<IconActivity size={16} />}
+              />
+            </div>
           </div>
 
           <ProStrategyCardsLive />

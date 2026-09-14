@@ -26,6 +26,7 @@ import CreateBotPage from './pages/CreateBotPage';
 import ApiGuidePage from './pages/ApiGuidePage';
 import PerformancePage from './pages/PerformancePage';
 import ProPage from './pages/ProPage';
+import LandingPage from './pages/LandingPage';
 
 function ProtectedRoute({ children, requireAdmin = false }: { children: React.ReactNode; requireAdmin?: boolean }) {
   const { user, loading } = useAuth();
@@ -68,6 +69,7 @@ export default function App() {
       <ScrollToTop />
       <AuthProvider>
         <Routes>
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupRedirect />} />
           <Route path="/ref/:code" element={<ReferralRedirect />} />
@@ -99,7 +101,7 @@ export default function App() {
           <Route path="/settings/delete-account" element={<AppRoute element={<DeleteAccountPage />} />} />
           <Route path="/affiliates" element={<AppRoute element={<AffiliateHub />} />} />
           <Route path="/admin" element={<AppRoute element={<AdminPage />} requireAdmin />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

@@ -71,9 +71,10 @@ body {
   font-weight: 400;
   letter-spacing: 0.01em;
   line-height: 1.55;
+  font-size: 18px;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  overflow: hidden;
+  overflow-x: hidden;
   overscroll-behavior-y: none;
   touch-action: manipulation;
 }
@@ -134,6 +135,74 @@ h1, h2, h3, .display-title {
   .page-scroll {
     padding-bottom: 32px;
   }
+}
+
+@media (max-width: 767px) {
+  h1 {
+    font-size: 48px !important;
+  }
+
+  h2 {
+    font-size: 36px !important;
+  }
+
+  h3 {
+    font-size: 28px !important;
+  }
+
+  .landing-page-shell p,
+  .landing-page-shell li,
+  .landing-page-shell span,
+  .landing-page-shell a,
+  .landing-page-shell button {
+    font-size: 18px;
+  }
+
+  .landing-page-shell .font-mono {
+    font-size: 10px !important;
+  }
+}
+
+.dashboard-shell {
+  position: relative;
+  background:
+    radial-gradient(circle at top left, rgba(0, 212, 160, 0.12), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(212, 168, 67, 0.08), transparent 24%),
+    #060a08;
+}
+
+.dashboard-panel {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(30, 43, 31, 0.9);
+  background: linear-gradient(180deg, rgba(12, 18, 15, 0.95), rgba(11, 16, 13, 0.9));
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.2);
+}
+
+.dashboard-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(0, 212, 160, 0.08), transparent 38%, rgba(212, 168, 67, 0.05));
+  pointer-events: none;
+}
+
+.dashboard-surface {
+  background: rgba(11, 16, 13, 0.8);
+  border: 1px solid rgba(30, 43, 31, 0.9);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.dashboard-kpi {
+  background: rgba(10, 15, 12, 0.85);
+  border: 1px solid rgba(30, 43, 31, 0.7);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dashboard-kpi:hover {
+  transform: translateY(-2px);
+  border-color: rgba(0, 212, 160, 0.3);
+  box-shadow: 0 8px 24px rgba(0, 212, 160, 0.08);
 }
 
 /* Scroll vertical suave em painéis internos */
@@ -224,6 +293,43 @@ h1, h2, h3, .display-title {
 @keyframes tickerFlash {
   0% { background-color: rgba(0, 212, 160, 0.15); }
   100% { background-color: transparent; }
+}
+
+@keyframes tickerScroll {
+  0% { transform: translate3d(0, 0, 0); }
+  100% { transform: translate3d(-50%, 0, 0); }
+}
+
+@keyframes floatCandle {
+  0%, 100% { transform: translateY(0px); opacity: 0.55; }
+  50% { transform: translateY(-10px); opacity: 1; }
+}
+
+.landing-page-shell {
+  min-height: 100vh;
+}
+
+.market-ticker-track {
+  animation: tickerScroll 30s linear infinite;
+}
+
+.market-ticker-track:hover {
+  animation-play-state: paused;
+}
+
+.hero-candle-scene {
+  animation: floatCandle 6s ease-in-out infinite;
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .animate-fade-in {

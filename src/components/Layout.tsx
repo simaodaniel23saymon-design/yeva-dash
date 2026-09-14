@@ -174,38 +174,41 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Topbar */}
-      <header className="h-[52px] flex-shrink-0 bg-bg0/95 border-b border-border1 z-[100] flex items-center px-4 gap-3 backdrop-blur-xl">
-        <button onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="w-[34px] h-[34px] border border-border2 flex items-center justify-center text-text2 hover:border-cyan hover:text-cyan transition-all flex-shrink-0">
-          <svg width="16" height="12" viewBox="0 0 16 12" fill="none">
-            <path d="M0 1h16M0 6h16M0 11h16" stroke="currentColor" strokeWidth="1.5"/>
-          </svg>
-        </button>
-
-        <BrandLogo variant="header" />
-
-        <div className="ml-auto flex items-center gap-2">
-          <div className="hidden sm:flex items-center gap-1.5 text-cyan bg-cyan-dim border border-cyan-20 px-2.5 py-1 font-mono text-[9px] tracking-[0.18em] uppercase alive-breath">
-            <span className="relative flex h-[6px] w-[6px]">
-              <span className="alive-ping absolute inline-flex h-full w-full rounded-full bg-cyan opacity-50" />
-              <span className="relative inline-flex rounded-full h-[6px] w-[6px] bg-cyan" />
-            </span>
-            Sistema vivo
-          </div>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 border border-red-30 bg-red-dim text-red font-mono text-[9px] tracking-widest uppercase hover:bg-red/15 transition-all">
-            ✕ <span className="hidden sm:inline">Fechar Tudo</span>
-          </button>
-          <button className="relative w-[34px] h-[34px] border border-border2 flex items-center justify-center text-text2 hover:border-cyan hover:text-cyan transition-all">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M8 1a4.5 4.5 0 0 1 4.5 4.5c0 3 1.5 4 1.5 4H2S3.5 8.5 3.5 5.5A4.5 4.5 0 0 1 8 1ZM6 13a2 2 0 0 0 4 0" stroke="currentColor" strokeWidth="1.2"/>
+      <header className="relative h-[64px] flex-shrink-0 z-[100] flex items-center px-4 gap-3 backdrop-blur-xl border-b border-border1 bg-bg0/80">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_left,_rgba(0,212,160,0.10),_transparent_36%)]" />
+        <div className="relative z-10 flex w-full items-center gap-3">
+          <button onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="w-[34px] h-[34px] border border-border2 flex items-center justify-center text-text2 hover:border-cyan hover:text-cyan transition-all flex-shrink-0 bg-bg1/70">
+            <svg width="16" height="12" viewBox="0 0 16 12" fill="none">
+              <path d="M0 1h16M0 6h16M0 11h16" stroke="currentColor" strokeWidth="1.5"/>
             </svg>
-            <span className="absolute top-[8px] right-[8px] w-[5px] h-[5px] rounded-full bg-red border border-bg0" />
           </button>
+
+          <BrandLogo variant="header" />
+
+          <div className="ml-auto flex items-center gap-2">
+            <div className="hidden sm:flex items-center gap-1.5 text-cyan bg-cyan-dim border border-cyan-20 px-2.5 py-1 font-mono text-[9px] tracking-[0.18em] uppercase alive-breath">
+              <span className="relative flex h-[6px] w-[6px]">
+                <span className="alive-ping absolute inline-flex h-full w-full rounded-full bg-cyan opacity-50" />
+                <span className="relative inline-flex rounded-full h-[6px] w-[6px] bg-cyan" />
+              </span>
+              Sistema vivo
+            </div>
+            <button className="flex items-center gap-1.5 px-3 py-1.5 border border-red-30 bg-red-dim text-red font-mono text-[9px] tracking-widest uppercase hover:bg-red/15 transition-all">
+              ✕ <span className="hidden sm:inline">Fechar Tudo</span>
+            </button>
+            <button className="relative w-[34px] h-[34px] border border-border2 flex items-center justify-center text-text2 hover:border-cyan hover:text-cyan transition-all bg-bg1/70">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M8 1a4.5 4.5 0 0 1 4.5 4.5c0 3 1.5 4 1.5 4H2S3.5 8.5 3.5 5.5A4.5 4.5 0 0 1 8 1ZM6 13a2 2 0 0 0 4 0" stroke="currentColor" strokeWidth="1.2"/>
+              </svg>
+              <span className="absolute top-[8px] right-[8px] w-[5px] h-[5px] rounded-full bg-red border border-bg0" />
+            </button>
+          </div>
         </div>
       </header>
 
       {/* Conteúdo scrollável entre header e nav inferior */}
-      <main id="app-main" className="app-main page-scroll p-3 sm:p-4 md:p-5">
+      <main id="app-main" className="app-main page-scroll p-3 sm:p-4 md:p-5 dashboard-shell">
         {children}
       </main>
 
