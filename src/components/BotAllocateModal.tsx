@@ -80,12 +80,12 @@ export function BotAllocateModal({
           Alocar a {label}
         </h3>
         <p className="font-mono text-[11px] text-text2 leading-relaxed">
-          Valor a alocar a este bot (USDT). O motor opera só dentro deste
-          mandato (base + safeties + grid).
+          Capital (margem) a alocar a este bot em USDT. Em futures o notional
+          máximo = alocado × alavancagem. O motor opera só dentro deste mandato.
         </p>
         <label className="block space-y-1">
           <span className="font-mono text-[9px] uppercase text-text3">
-            USDT · min ${minN.toFixed(2)}
+            Margem USDT · min ${minN.toFixed(2)}
             {availableBalanceUsdt > 0
               ? ` · max $${maxN.toFixed(2)}`
               : ''}
