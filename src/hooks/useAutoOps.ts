@@ -4,7 +4,11 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../lib/api';
-import type { AutoOpsModule, AutoOpsModuleId } from '../types/autoOps';
+import type {
+  AutoOpsExecMode,
+  AutoOpsModule,
+  AutoOpsModuleId,
+} from '../types/autoOps';
 
 export function fmtVol(n: number): string {
   if (n >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
@@ -26,6 +30,7 @@ export function fmtAge(ms?: number): string {
 export function stateLabel(s: string): string {
   if (s === 'IN') return 'EM POSIÇÃO';
   if (s === 'PAPER') return 'PAPER';
+  if (s === 'REAL') return 'REAL';
   if (s === 'STABLE') return 'MODO ESTÁVEIS';
   if (s === 'KILL') return 'KILL SWITCH';
   if (s === 'OFF') return 'OFF';
@@ -71,37 +76,76 @@ export function useAutoOps(moduleId?: AutoOpsModuleId) {
 
   const showFlash = (msg: string) => {
     setFlash(msg);
-    window.setTimeout(() => setFlash(null), 4000);
+    window.setTimeout(() => setFlash(null), 4500);
   };
 
   const module = moduleId
     ? modules.find((m) => m.id === moduleId) || null
     : null;
 
-  const onToggle = async () => {
-    if (!module) return;
+  const enableOn = async (allocationUsdt: number) => {
+    if (!module) throw new Error('módulo em falta');
     setBusyToggle(true);
     try {
-      await api.post(`/auto-ops/${module.id}/toggle`, { enabled: !module.enabled });
-      await load();
-      showFlash(
-        `${module.label}: ${!module.enabled ? 'AUTO ON' : 'AUTO OFF'}`
+      const { data } = await api.post<{ toast?: string }>(
+        `/auto-ops/${module.id}/toggle`,
+        { enabled: true, allocationUsdt }
       );
-    } catch (err: any) {
-      showFlash(err?.response?.data?.error || 'Falha no toggle');
+      await load();
+      showFlash(data.toast || `AUTO ON · $${allocationUsdt}`);
     } finally {
       setBusyToggle(false);
     }
   };
 
-  const manualEnter = async (symbol: string) => {
+  const disableOff = async (input: {
+    cancelOrders: boolean;
+    positionAction: 'keep' | 'close';
+  }) => {
+    if (!module) throw new Error('módulo em falta');
+    setBusyToggle(true);
+    try {
+      const { data } = await api.post<{ toast?: string }>(
+        `/auto-ops/${module.id}/toggle`,
+        {
+          enabled: false,
+          cancelOrders: input.cancelOrders,
+          positionAction: input.positionAction,
+        }
+      );
+      await load();
+      showFlash(data.toast || 'AUTO OFF confirmado');
+    } finally {
+      setBusyToggle(false);
+    }
+  };
+
+  const setMode = async (mode: AutoOpsExecMode) => {
+    if (!module) return;
+    try {
+      await api.post(`/auto-ops/${module.id}/mode`, { mode });
+      await load();
+      showFlash(`Modo ${mode}`);
+    } catch (err: any) {
+      showFlash(
+        err?.response?.data?.error || 'Não foi possível mudar o modo'
+      );
+    }
+  };
+
+  const manualEnter = async (input: {
+    symbol: string;
+    allocationUsdt: number;
+    tpPrice?: number;
+    slPrice?: number;
+  }) => {
     if (!module) return { ok: false, reason: 'módulo em falta' };
     try {
       const { data } = await api.post<{
         ok: boolean;
         reason: string;
         capacityWarning?: string | null;
-      }>(`/auto-ops/${module.id}/manual-enter`, { symbol });
+      }>(`/auto-ops/${module.id}/manual-enter`, input);
       if (data.ok) await load();
       return data;
     } catch (err: any) {
@@ -116,28 +160,6 @@ export function useAutoOps(moduleId?: AutoOpsModuleId) {
     }
   };
 
-  const capacityCheck = async () => {
-    try {
-      const cap = await api.get<{ exceeds?: boolean; warning?: string | null }>(
-        '/bots/capacity-check',
-        {
-          params: {
-            capitalPerSide: 20,
-            leverage: 3,
-            market: 'FUTURES',
-            adding: 1,
-          },
-        }
-      );
-      return (
-        cap.data.warning ||
-        'Aviso de capacidade: confirma se a banca aguenta esta entrada em paralelo com bots DCA.'
-      );
-    } catch {
-      return 'Não foi possível verificar a banca — podes continuar na mesma (não bloqueia).';
-    }
-  };
-
   return {
     modules,
     module,
@@ -148,8 +170,9 @@ export function useAutoOps(moduleId?: AutoOpsModuleId) {
     flash,
     showFlash,
     load,
-    onToggle,
+    enableOn,
+    disableOff,
+    setMode,
     manualEnter,
-    capacityCheck,
   };
 }

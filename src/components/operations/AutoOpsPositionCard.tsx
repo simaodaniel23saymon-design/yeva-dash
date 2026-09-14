@@ -59,7 +59,7 @@ export function AutoOpsPositionCard({
           </span>
         </span>
         <span>
-          Margem:{' '}
+          Em uso:{' '}
           <span className="text-text1">${px(open.marginUsdt, 2)}</span>
         </span>
         <span>

@@ -4,14 +4,6 @@
 
 import type { AutoOpsFeedEvent } from '../../types/autoOps';
 
-function actionLabel(a: AutoOpsFeedEvent['action']): string {
-  if (a === 'entrada') return 'Entrada';
-  if (a === 'saida') return 'Saída';
-  if (a === 'cancel') return 'Cancelamento';
-  if (a === 'parcial') return 'Parcial';
-  return a;
-}
-
 export function AutoOpsActionFeed({
   events,
   modulePnl,
@@ -41,28 +33,20 @@ export function AutoOpsActionFeed({
             {events.map((e) => (
               <li
                 key={e.id}
-                className="px-3 py-2 font-mono text-[10px] flex flex-wrap gap-x-3 gap-y-1 text-text2"
+                className="px-3 py-2 font-mono text-[10px] text-text2"
               >
-                <span className="text-text3">
-                  {new Date(e.at).toLocaleString('pt-PT')}
-                </span>
-                <span className="text-text1 uppercase">{actionLabel(e.action)}</span>
-                <span>
-                  {e.side} {e.symbol.replace(/USDT$/, '')}
-                </span>
-                <span>
-                  qty {e.qty > 0 ? e.qty.toPrecision(4) : '—'} @ $
-                  {e.price >= 100 ? e.price.toFixed(2) : e.price.toFixed(4)}
-                </span>
+                {e.line ||
+                  `[${new Date(e.at).toLocaleTimeString('pt-PT', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}] ${e.side} ${e.symbol} @ ${e.price}`}
                 {e.pnl != null && (
-                  <span className={e.pnl >= 0 ? 'text-cyan' : 'text-red'}>
+                  <span
+                    className={`ml-2 ${e.pnl >= 0 ? 'text-cyan' : 'text-red'}`}
+                  >
                     PnL ${e.pnl.toFixed(2)}
                   </span>
                 )}
-                {e.reason && (
-                  <span className="text-text3">{e.reason}</span>
-                )}
-                <span className="text-text3">{e.mode}</span>
               </li>
             ))}
           </ul>

@@ -3,6 +3,7 @@
  */
 
 export type AutoOpsModuleId = 'gainers' | 'losers' | 'stable';
+export type AutoOpsExecMode = 'PAPER' | 'REAL';
 
 export type Trigger = { label: string; tone: 'green' | 'red' | 'neutral' };
 
@@ -32,21 +33,34 @@ export type AutoOpsOpen = {
   allocatedUsdt?: number;
   marginUsdt?: number;
   ageMs?: number;
-  mode?: 'PAPER' | 'REAL';
+  mode?: AutoOpsExecMode;
   manual?: boolean;
 };
 
 export type AutoOpsFeedEvent = {
   id: string;
   at: string;
-  action: 'entrada' | 'saida' | 'cancel' | 'parcial';
+  action: string;
   symbol: string;
   side: string;
   qty: number;
   price: number;
   pnl: number | null;
   reason: string | null;
-  mode: 'PAPER' | 'REAL';
+  mode: AutoOpsExecMode;
+  line?: string;
+  allocatedUsdt?: number | null;
+  tpPrice?: number | null;
+  slPrice?: number | null;
+};
+
+export type AutoOpsRealGate = {
+  ready: boolean;
+  reason: string;
+  override: boolean;
+  paperDays: number;
+  profitFactor: number;
+  maxDrawdownPct: number;
 };
 
 export type StableCycle = {
@@ -78,6 +92,14 @@ export type AutoOpsModule = {
   open: AutoOpsOpen | null;
   modulePnl: number;
   modulePnlDay?: number;
+  allocationUsdt?: number;
+  execMode?: AutoOpsExecMode;
+  minNotionalUsdt?: number;
+  availableBalanceUsdt?: number;
+  defaultTpPct?: number;
+  defaultSlPct?: number;
+  onSummary?: string;
+  realGate?: AutoOpsRealGate;
   autoBadge: string | null;
   candidates: AutoOpsCandidate[];
   feed?: AutoOpsFeedEvent[];

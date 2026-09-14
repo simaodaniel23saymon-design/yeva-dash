@@ -1,7 +1,8 @@
 /**
- * Página Estáveis — majors, ciclos activos, preset lento, ON/OFF.
+ * Página Estáveis — majors, ciclos, preset, ON/OFF com alocação.
  */
 
+import { useState } from 'react';
 import {
   fmtAge,
   stateLabel,
@@ -10,6 +11,8 @@ import {
 import { OperationsSubNav } from './OperationsSubNav';
 import { AutoOpsPositionCard } from './AutoOpsPositionCard';
 import { AutoOpsActionFeed } from './AutoOpsActionFeed';
+import { AutoOpsAllocateModal } from './AutoOpsAllocateModal';
+import { AutoOpsOffModal } from './AutoOpsOffModal';
 
 export function AutoOpsStablePage() {
   const {
@@ -19,8 +22,12 @@ export function AutoOpsStablePage() {
     error,
     busyToggle,
     flash,
-    onToggle,
+    enableOn,
+    disableOff,
   } = useAutoOps('stable');
+
+  const [showOnModal, setShowOnModal] = useState(false);
+  const [showOffModal, setShowOffModal] = useState(false);
 
   return (
     <div className="space-y-4 animate-fade-in-up">
@@ -62,13 +69,16 @@ export function AutoOpsStablePage() {
                   {module.title}
                 </p>
                 <span className="font-mono text-[8px] uppercase tracking-wider text-text3">
-                  Estado: {stateLabel(module.state)}
+                  Estado: {stateLabel(module.state)} · REAL (DCA)
                 </span>
               </div>
               <button
                 type="button"
                 disabled={busyToggle || module.state === 'KILL'}
-                onClick={() => void onToggle()}
+                onClick={() => {
+                  if (module.enabled) setShowOffModal(true);
+                  else setShowOnModal(true);
+                }}
                 className={`font-mono text-[10px] uppercase px-3 py-1.5 border transition-colors disabled:opacity-40 ${
                   module.enabled
                     ? 'border-cyan-30 bg-cyan-dim text-cyan'
@@ -79,6 +89,10 @@ export function AutoOpsStablePage() {
               </button>
             </div>
 
+            <p className="font-mono text-[9px] text-text3 leading-relaxed border border-border2 p-2">
+              Este módulo opera em REAL (DCA na Binance). PAPER não se aplica.
+            </p>
+
             {module.stable && (
               <p className="font-mono text-[10px] text-text2">
                 Preset lento · desvio {module.stable.preset.deviationPct}% · TP{' '}
@@ -86,21 +100,6 @@ export function AutoOpsStablePage() {
                 {module.stable.preset.stopLossPct}%
                 {module.stable.bidirectional ? ' · LONG+SHORT' : ' · LONG'}
               </p>
-            )}
-
-            <p className="font-mono text-[9px] text-text3">
-              Majors:{' '}
-              {(module.stable?.pairs || [])
-                .map((p) => p.replace(/USDT$/, ''))
-                .join(', ')}
-              . Com o modo ligado, novos ciclos DCA nestes pares usam o preset
-              lento.
-            </p>
-
-            {module.autoBadge && (
-              <div className="font-mono text-[9px] uppercase tracking-wider px-2 py-1 border border-cyan-30 bg-cyan-dim text-cyan">
-                {module.autoBadge}
-              </div>
             )}
 
             <AutoOpsPositionCard
@@ -136,24 +135,9 @@ export function AutoOpsStablePage() {
                       <span>
                         Alocado ${(c.allocatedUsdt ?? 0).toFixed(2)}
                       </span>
-                      <span>Margem ${(c.marginUsdt ?? 0).toFixed(2)}</span>
-                      <span>
-                        TP{' '}
-                        {c.tpPrice != null
-                          ? `$${c.tpPrice > 10 ? c.tpPrice.toFixed(2) : c.tpPrice.toFixed(4)}`
-                          : `${c.tpPct ?? '—'}%`}
-                      </span>
-                      <span>
-                        SL{' '}
-                        {c.slPrice != null
-                          ? `$${c.slPrice > 10 ? c.slPrice.toFixed(2) : c.slPrice.toFixed(4)}`
-                          : `${c.slPct ?? '—'}%`}
-                      </span>
+                      <span>Em uso ${(c.marginUsdt ?? 0).toFixed(2)}</span>
                       <span>Idade {fmtAge(c.ageMs)}</span>
-                      <span className="uppercase text-text3">
-                        {c.mode || 'REAL'}
-                        {c.stableMode ? ' · preset' : ''}
-                      </span>
+                      <span className="uppercase text-text3">REAL</span>
                     </li>
                   ))}
                 </ul>
@@ -172,6 +156,33 @@ export function AutoOpsStablePage() {
             />
           </div>
         </div>
+      )}
+
+      {showOnModal && module && (
+        <AutoOpsAllocateModal
+          title="MODO ON · Estáveis"
+          minNotional={module.minNotionalUsdt || 10}
+          availableBalanceUsdt={module.availableBalanceUsdt || 0}
+          defaultAllocation={module.allocationUsdt || module.minNotionalUsdt}
+          confirmLabel="Confirmar MODO ON"
+          onCancel={() => setShowOnModal(false)}
+          onConfirm={async ({ allocationUsdt }) => {
+            await enableOn(allocationUsdt);
+            setShowOnModal(false);
+          }}
+        />
+      )}
+
+      {showOffModal && module && (
+        <AutoOpsOffModal
+          label="Estáveis"
+          hasOpen={(module.stable?.cyclesCount || 0) > 0}
+          onCancel={() => setShowOffModal(false)}
+          onConfirm={async (opts) => {
+            await disableOff(opts);
+            setShowOffModal(false);
+          }}
+        />
       )}
     </div>
   );
