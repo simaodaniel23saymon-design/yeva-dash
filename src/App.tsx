@@ -8,6 +8,9 @@ import DashboardPage from './pages/DashboardPage';
 import BotsPage from './pages/BotsPage';
 import ExchangesPage from './pages/ExchangesPage';
 import OperationsPage from './pages/OperationsPage';
+import OperationsGainersPage from './pages/OperationsGainersPage';
+import OperationsLosersPage from './pages/OperationsLosersPage';
+import OperationsEstaveisPage from './pages/OperationsEstaveisPage';
 import HistoryPage from './pages/HistoryPage';
 import WalletPage from './pages/WalletPage';
 import DepositPage from './pages/DepositPage';
@@ -81,8 +84,12 @@ export default function App() {
           <Route path="/exchanges" element={<AppRoute element={<ExchangesPage />} />} />
           <Route path="/exchange" element={<AppRoute element={<ExchangesPage />} />} />
           <Route path="/api-guide" element={<AppRoute element={<ApiGuidePage />} />} />
-          <Route path="/operations" element={<AppRoute element={<OperationsPage />} />} />
-          <Route path="/positions" element={<AppRoute element={<OperationsPage />} />} />
+          <Route path="/operations" element={<Navigate to="/operations/manual" replace />} />
+          <Route path="/operations/manual" element={<AppRoute element={<OperationsPage />} />} />
+          <Route path="/operations/gainers" element={<AppRoute element={<OperationsGainersPage />} />} />
+          <Route path="/operations/losers" element={<AppRoute element={<OperationsLosersPage />} />} />
+          <Route path="/operations/estaveis" element={<AppRoute element={<OperationsEstaveisPage />} />} />
+          <Route path="/positions" element={<Navigate to="/operations/manual" replace />} />
           <Route path="/market-analysis" element={<Navigate to="/pro" replace />} />
           <Route path="/bot-stats" element={<Navigate to="/pro" replace />} />
           <Route path="/history" element={<AppRoute element={<HistoryPage />} />} />
