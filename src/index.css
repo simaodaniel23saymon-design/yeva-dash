@@ -205,6 +205,42 @@ h1, h2, h3, .display-title {
   box-shadow: 0 8px 24px rgba(0, 212, 160, 0.08);
 }
 
+/* Dashboard focado — tipografia e espaçamento */
+.dashboard-focus .dash-saldo {
+  font-size: 48px;
+}
+.dashboard-focus .dash-pnl {
+  font-size: 36px;
+}
+.dashboard-focus .dash-label {
+  font-size: 16px;
+  font-weight: 600;
+}
+.dashboard-focus,
+.dashboard-focus p,
+.dashboard-focus li,
+.dashboard-focus span:not(.font-mono) {
+  font-size: 18px;
+}
+.dashboard-focus .dash-btn,
+.dashboard-focus button.dash-btn {
+  font-size: 18px;
+}
+.dashboard-focus .dash-section {
+  margin-bottom: 48px;
+}
+.dashboard-focus .gap-6 {
+  gap: 24px;
+}
+@media (max-width: 640px) {
+  .dashboard-focus .dash-saldo {
+    font-size: 36px;
+  }
+  .dashboard-focus .dash-pnl {
+    font-size: 28px;
+  }
+}
+
 /* Scroll vertical suave em painéis internos */
 .scroll-area {
   overflow-y: auto;

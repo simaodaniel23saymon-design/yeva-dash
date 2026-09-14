@@ -11,6 +11,7 @@ import OperationsPage from './pages/OperationsPage';
 import OperationsGainersPage from './pages/OperationsGainersPage';
 import OperationsLosersPage from './pages/OperationsLosersPage';
 import OperationsEstaveisPage from './pages/OperationsEstaveisPage';
+import MarketPage from './pages/MarketPage';
 import HistoryPage from './pages/HistoryPage';
 import WalletPage from './pages/WalletPage';
 import DepositPage from './pages/DepositPage';
@@ -81,6 +82,7 @@ export default function App() {
           <Route path="/pro" element={<AppRoute element={<ProPage />} />} />
           <Route path="/pro/signals" element={<Navigate to="/pro" replace />} />
           <Route path="/dashboard" element={<AppRoute element={<DashboardPage />} />} />
+          <Route path="/market" element={<AppRoute element={<MarketPage />} />} />
           <Route path="/bots" element={<AppRoute element={<BotsPage />} />} />
           <Route path="/create-bot" element={<AppRoute element={<CreateBotPage />} />} />
           <Route path="/exchanges" element={<AppRoute element={<ExchangesPage />} />} />

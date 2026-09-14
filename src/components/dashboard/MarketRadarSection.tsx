@@ -71,7 +71,7 @@ export function MarketRadarSection({
   return (
     <div className="bg-bg1 border border-border1 p-4 space-y-3 animate-fade-in-up">
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <h3 className="text-base font-bold text-text1">Market Radar</h3>
+        <h3 className="text-base font-bold text-text1">Radar de Mercado</h3>
         <span className="font-mono text-[9px] text-text3 tracking-wider uppercase">
           {loading
             ? 'a carregar…'

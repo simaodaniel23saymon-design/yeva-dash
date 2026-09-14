@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import {
   CartesianGrid,
   Legend,
@@ -12,24 +12,14 @@ import {
 import { api } from '../../lib/api';
 import {
   type DashBotRow,
-  type DashLog,
   type DashTrade,
-  type MarketIndicator,
-  type MlPrediction,
   type PerfRange,
   PERF_RANGE_OPTIONS,
   downloadHistoryCsv,
   useDashboardExtended,
-  useDashboardLogs,
 } from '../../hooks/useDashboardExtended';
-import { MarketRadarSection } from './MarketRadarSection';
 
 type TradeFilter = 'all' | 'trend' | 'grid' | 'profit' | 'loss';
-type LogFilter = 'ALL' | 'INFO' | 'WARN' | 'ERROR' | 'TRADE' | 'GRID' | 'RECONCILE';
-
-function fmtFunding(f: number): string {
-  return `${(f * 100).toFixed(4)}%`;
-}
 
 function SectionShell({
   title,
@@ -48,143 +38,6 @@ function SectionShell({
       </div>
       {children}
     </div>
-  );
-}
-
-function MarketIndicatorsSection({
-  indicators,
-  mlPrediction,
-  symbols,
-}: {
-  indicators: Record<string, MarketIndicator>;
-  mlPrediction?: Record<string, MlPrediction>;
-  symbols: string[];
-}) {
-  const [sym, setSym] = useState(symbols[0] || '');
-  useEffect(() => {
-    if (symbols.length && !symbols.includes(sym)) setSym(symbols[0]);
-  }, [symbols, sym]);
-
-  const ind = indicators[sym];
-  const ml = mlPrediction?.[sym];
-  if (!symbols.length) {
-    return (
-      <SectionShell title="Indicadores de Mercado">
-        <p className="font-mono text-[10px] text-text2">Sem bots / pares para analisar.</p>
-      </SectionShell>
-    );
-  }
-
-  return (
-    <SectionShell
-      title="Indicadores de Mercado"
-      right={
-        <select
-          value={sym}
-          onChange={(e) => setSym(e.target.value)}
-          className="font-mono text-[9px] uppercase bg-bg2 border border-border2 text-text1 px-2 py-1"
-        >
-          {symbols.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
-      }
-    >
-      {ind && (
-        <p className="font-mono text-[9px] text-text2 mb-1">
-          {ind.gridReason}
-          {ind.gridGate === 'OFF' ? ' · Fase 3 (tendência)' : ' · Grid elegível'}
-        </p>
-      )}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="border border-border1 bg-bg2 p-3">
-          <p className="font-mono text-[9px] uppercase text-text2">ADX (14)</p>
-          <p className="font-bold text-text1 text-lg mt-1">{ind?.adx?.toFixed(1) ?? '—'}</p>
-          <p className={`font-mono text-[10px] mt-1 ${ind?.adxLabel === 'Tendência' ? 'text-gold' : 'text-cyan'}`}>
-            {ind?.adxLabel ?? '—'}
-          </p>
-        </div>
-        <div className="border border-border1 bg-bg2 p-3">
-          <p className="font-mono text-[9px] uppercase text-text2">Funding Rate</p>
-          <p
-            className={`font-bold text-lg mt-1 ${(ind?.funding ?? 0) <= 0 ? 'text-cyan' : 'text-red'}`}
-          >
-            {ind ? fmtFunding(ind.funding) : '—'}
-          </p>
-          <p className="font-mono text-[10px] text-text3 mt-1">
-            {(ind?.funding ?? 0) <= 0 ? 'Negativo / neutro' : 'Positivo'}
-          </p>
-        </div>
-        <div className="border border-border1 bg-bg2 p-3">
-          <p className="font-mono text-[9px] uppercase text-text2">Open Interest</p>
-          <p
-            className={`font-bold text-lg mt-1 ${(ind?.oiChange ?? 0) >= 0 ? 'text-cyan' : 'text-red'}`}
-          >
-            {ind ? `${ind.oiChange >= 0 ? '↑' : '↓'} ${Math.abs(ind.oiChange).toFixed(2)}%` : '—'}
-          </p>
-          <p className="font-mono text-[10px] text-text3 mt-1">Variação recente</p>
-        </div>
-        <div className="border border-border1 bg-bg2 p-3">
-          <p className="font-mono text-[9px] uppercase text-text2">Volatilidade (ATR)</p>
-          <p className="font-bold text-text1 text-lg mt-1">
-            {ind ? `${ind.atrPct.toFixed(2)}%` : '—'}
-          </p>
-          <p
-            className={`font-mono text-[10px] mt-1 ${ind?.atrLabel === 'Alta' ? 'text-gold' : 'text-text2'}`}
-          >
-            {ind?.atrLabel ?? '—'}
-          </p>
-        </div>
-      </div>
-
-      {ml && (
-        <div
-          className={`border p-3 mt-1 ${
-            ml.shadowMode || !ml.enabled
-              ? 'border-gold-30 bg-gold-dim'
-              : 'border-cyan-20 bg-cyan-dim'
-          }`}
-        >
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <p
-              className={`font-mono text-[9px] uppercase tracking-wider ${
-                ml.shadowMode || !ml.enabled ? 'text-gold' : 'text-cyan'
-              }`}
-            >
-              Inteligência ML-1
-            </p>
-            <span
-              className={`font-mono text-[9px] uppercase px-2 py-0.5 border ${
-                ml.shadowMode || !ml.enabled
-                  ? 'border-gold-30 text-gold'
-                  : 'border-cyan-30 text-cyan'
-              }`}
-              title="ML observa e prevê; o motor usa regras rígidas"
-            >
-              {ml.shadowMode || !ml.enabled ? '\u{1F441} Shadow Mode' : 'Execution ON'}
-            </span>
-          </div>
-          <p className="font-bold text-text1 text-base mt-1">
-            {ml.regime}{' '}
-            <span
-              className={`font-mono text-sm ${
-                ml.shadowMode || !ml.enabled ? 'text-gold' : 'text-cyan'
-              }`}
-            >
-              {(ml.confidence * 100).toFixed(0)}%
-            </span>
-          </p>
-          <p className="font-mono text-[10px] text-text2 mt-1">{ml.recommendedAction}</p>
-          {(ml.shadowMode || !ml.enabled) && (
-            <p className="font-mono text-[9px] text-gold mt-2">
-              Observação apenas — o bot opera com regras rígidas (Fases 1–4).
-            </p>
-          )}
-        </div>
-      )}
-    </SectionShell>
   );
 }
 
@@ -788,98 +641,10 @@ function PerformanceSection({
   );
 }
 
-function LogsTerminal({ enabled }: { enabled: boolean }) {
-  const { logs } = useDashboardLogs(enabled, 2000);
-  const [filter, setFilter] = useState<LogFilter>('ALL');
-  const [autoScroll, setAutoScroll] = useState(true);
-  const endRef = useRef<HTMLDivElement>(null);
-
-  const filtered = useMemo(() => {
-    if (filter === 'ALL') return logs;
-    return logs.filter((l) => l.level === filter || l.module === filter);
-  }, [logs, filter]);
-
-  useEffect(() => {
-    if (autoScroll) endRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [filtered, autoScroll]);
-
-  const clear = async () => {
-    try {
-      await api.delete('/dashboard/logs');
-    } catch {
-      /* ignore */
-    }
-  };
-
-  const color = (l: DashLog) => {
-    if (l.level === 'ERROR') return 'text-red';
-    if (l.level === 'WARN') return 'text-gold';
-    if (l.level === 'TRADE' || l.level === 'GRID') return 'text-cyan';
-    if (l.level === 'RECONCILE') return 'text-pro-blue';
-    return 'text-text2';
-  };
-
-  const filters: LogFilter[] = ['ALL', 'INFO', 'WARN', 'ERROR', 'TRADE', 'GRID', 'RECONCILE'];
-
-  return (
-    <SectionShell
-      title="Terminal de Logs"
-      right={
-        <div className="flex gap-1.5 flex-wrap items-center">
-          {filters.map((f) => (
-            <button
-              key={f}
-              type="button"
-              onClick={() => setFilter(f)}
-              className={`font-mono text-[9px] uppercase px-2 py-1 border ${
-                filter === f
-                  ? 'border-cyan text-cyan'
-                  : 'border-border2 text-text2 hover:border-cyan-30'
-              }`}
-            >
-              {f}
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => setAutoScroll((v) => !v)}
-            className={`font-mono text-[9px] uppercase px-2 py-1 border ${
-              autoScroll ? 'border-cyan text-cyan' : 'border-border2 text-text2'
-            }`}
-          >
-            Auto-scroll {autoScroll ? 'ON' : 'OFF'}
-          </button>
-          <button
-            type="button"
-            onClick={() => void clear()}
-            className="font-mono text-[9px] uppercase px-2 py-1 border border-border2 text-text2 hover:border-red hover:text-red"
-          >
-            Limpar
-          </button>
-        </div>
-      }
-    >
-      <div className="bg-bg0 border border-border1 h-64 overflow-y-auto p-3 font-mono text-[10px] space-y-0.5">
-        {filtered.length === 0 && (
-          <p className="text-text3">A aguardar logs do motor…</p>
-        )}
-        {filtered.map((l, i) => (
-          <div key={`${l.timestamp}-${i}`} className={color(l)}>
-            <span className="text-text3">[{new Date(l.timestamp).toLocaleTimeString('pt-PT')}]</span>{' '}
-            <span className="text-text2">[{l.level}]</span>{' '}
-            <span className="text-text2">[{l.module}]</span> {l.message}
-          </div>
-        ))}
-        <div ref={endRef} />
-      </div>
-    </SectionShell>
-  );
-}
-
 export function DashboardExtendedSections({
   enabled,
   showLogs = false,
-  onSelectSymbol,
+  onSelectSymbol: _onSelectSymbol,
 }: {
   enabled: boolean;
   showLogs?: boolean;
@@ -888,10 +653,9 @@ export function DashboardExtendedSections({
   const [range, setRange] = useState<PerfRange>('24h');
   const { data, loading, error, refetch } = useDashboardExtended(enabled, range, 10000);
 
-  const symbols = useMemo(
-    () => Object.keys(data.marketIndicators).sort(),
-    [data.marketIndicators]
-  );
+  // Radar / indicadores → página Mercado. Logs → DashboardLogsTerminal (admin).
+  void _onSelectSymbol;
+  void showLogs;
 
   if (!enabled) return null;
 
@@ -910,12 +674,6 @@ export function DashboardExtendedSections({
           {error}
         </div>
       )}
-      <MarketRadarSection onSelectSymbol={onSelectSymbol} />
-      <MarketIndicatorsSection
-        indicators={data.marketIndicators}
-        mlPrediction={data.mlPrediction}
-        symbols={symbols}
-      />
       <DcaPairsSection
         pairs={data.dcaPairs || []}
         onChanged={() => void refetch()}
@@ -929,7 +687,6 @@ export function DashboardExtendedSections({
         metrics={data.metrics}
         periodCards={data.periodCards}
       />
-      {showLogs ? <LogsTerminal enabled={enabled && showLogs} /> : null}
     </div>
   );
 }
