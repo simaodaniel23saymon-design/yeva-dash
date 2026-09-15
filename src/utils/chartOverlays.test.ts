@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildSrOverlayLines,
   calcEma,
   calcSma,
+  formatAPlusSetupBadge,
   formatEntryTpSlNotify,
   formatLevelTitle,
+  formatPlannedRrCard,
+  formatSrLevelTitle,
   isBreakevenSl,
 } from './chartOverlays';
 
@@ -12,6 +16,15 @@ describe('formatLevelTitle', () => {
     expect(formatLevelTitle('ENTRY', 103.33)).toBe('ENTRY 103.33');
     expect(formatLevelTitle('TP', 104.88)).toBe('TP 104.88');
     expect(formatLevelTitle('SL', 103.41, { be: true })).toBe('SL 103.41 (BE)');
+  });
+
+  it('A+ SETUP e R:R card + S1/R1', () => {
+    expect(formatAPlusSetupBadge()).toBe('A+ SETUP');
+    expect(formatPlannedRrCard({ rr: 2.1, slPct: 3.2, tpPct: 6.4 })).toBe(
+      'R:R 2.1 · SL 3.2% · TP 6.4%'
+    );
+    expect(formatSrLevelTitle('S1', 0.1698)).toMatch(/^S1 /);
+    expect(buildSrOverlayLines({ s1: 10, r1: 12 })).toHaveLength(2);
   });
 });
 

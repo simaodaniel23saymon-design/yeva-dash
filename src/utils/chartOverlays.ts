@@ -128,3 +128,36 @@ export const MA_DEFS: Array<{ key: MaKey; kind: 'sma' | 'ema'; period: number; c
   { key: 'EMA9', kind: 'ema', period: 9, color: '#26a69a' },
   { key: 'EMA21', kind: 'ema', period: 21, color: '#ff7043' },
 ];
+
+/** Badge Conservative Mode */
+export function formatAPlusSetupBadge(): string {
+  return 'A+ SETUP';
+}
+
+/** "R:R 2.1 · SL 3.2% · TP 6.4%" */
+export function formatPlannedRrCard(input: {
+  rr: number;
+  slPct: number;
+  tpPct: number;
+}): string {
+  return `R:R ${input.rr.toFixed(1)} · SL ${input.slPct.toFixed(1)}% · TP ${input.tpPct.toFixed(1)}%`;
+}
+
+/** Títulos S1 / R1 no gráfico */
+export function formatSrLevelTitle(kind: 'S1' | 'R1', price: number): string {
+  return `${kind} ${formatPriceLabel(price)}`;
+}
+
+export function buildSrOverlayLines(input: {
+  s1?: number | null;
+  r1?: number | null;
+}): Array<{ kind: 'S1' | 'R1'; price: number; title: string }> {
+  const out: Array<{ kind: 'S1' | 'R1'; price: number; title: string }> = [];
+  if (input.s1 != null && Number.isFinite(input.s1) && input.s1 > 0) {
+    out.push({ kind: 'S1', price: input.s1, title: formatSrLevelTitle('S1', input.s1) });
+  }
+  if (input.r1 != null && Number.isFinite(input.r1) && input.r1 > 0) {
+    out.push({ kind: 'R1', price: input.r1, title: formatSrLevelTitle('R1', input.r1) });
+  }
+  return out;
+}

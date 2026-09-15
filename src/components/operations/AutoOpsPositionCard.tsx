@@ -39,6 +39,18 @@ export function AutoOpsPositionCard({
           {open.manual ? ' · manual' : ''}
         </span>
       </div>
+      {(open as any).setupBadge || (open as any).rrCard ? (
+        <div className="flex flex-wrap gap-2 font-mono text-[9px]">
+          {(open as any).setupBadge ? (
+            <span className="px-1.5 py-0.5 border border-cyan text-cyan">
+              {(open as any).setupBadge}
+            </span>
+          ) : null}
+          {(open as any).rrCard ? (
+            <span className="text-text2">{(open as any).rrCard}</span>
+          ) : null}
+        </div>
+      ) : null}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 font-mono text-[10px] text-text2">
         <span>
           Par: <span className="text-text1 font-semibold">{open.symbol}</span>
