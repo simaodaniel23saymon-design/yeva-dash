@@ -26,6 +26,7 @@ import {
 } from 'recharts';
 import { useAuth } from '../context/AuthContext';
 import { DashboardLogsTerminal } from '../components/dashboard/DashboardLogsTerminal';
+import { MomentumWinnersLosersSection } from '../components/dashboard/MomentumWinnersLosersSection';
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -134,6 +135,8 @@ export default function DashboardPage() {
       {error && (
         <div className="bg-red-dim border border-red-30 p-4 text-red text-lg">{error}</div>
       )}
+
+      <MomentumWinnersLosersSection />
 
       {!binance.exchangeConnected ? (
         <div className="bg-gold-dim border border-gold-30 p-8 text-center">
