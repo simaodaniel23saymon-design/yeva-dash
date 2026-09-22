@@ -4,6 +4,7 @@
  */
 
 import { Fragment, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { YevaTradeLoader } from '../YevaTradeLoader';
 import { useMomentumRanking } from '../../hooks/useMomentumRanking';
 import {
@@ -255,6 +256,12 @@ export function MomentumWinnersLosersSection() {
             {scannedAt
               ? ` · radar ${new Date(scannedAt).toLocaleTimeString('pt-PT')}`
               : ''}
+          </p>
+          <p className="text-text2 text-sm mt-2">
+            Este bloco não é o Spot. Rejeitar aqui não é uma ordem.{' '}
+            <Link to="/spot-paper" className="text-cyan">
+              Abrir Spot Paper
+            </Link>
           </p>
         </div>
         <button

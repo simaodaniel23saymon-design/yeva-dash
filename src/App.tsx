@@ -28,6 +28,7 @@ import ApiGuidePage from './pages/ApiGuidePage';
 import PerformancePage from './pages/PerformancePage';
 import ProPage from './pages/ProPage';
 import LandingPage from './pages/LandingPage';
+import SpotPaperPage from './pages/SpotPaperPage';
 
 function ProtectedRoute({ children, requireAdmin = false }: { children: React.ReactNode; requireAdmin?: boolean }) {
   const { user, loading } = useAuth();
@@ -82,6 +83,7 @@ export default function App() {
           <Route path="/pro" element={<AppRoute element={<ProPage />} />} />
           <Route path="/pro/signals" element={<Navigate to="/pro" replace />} />
           <Route path="/dashboard" element={<AppRoute element={<DashboardPage />} />} />
+          <Route path="/spot-paper" element={<AppRoute element={<SpotPaperPage />} />} />
           <Route path="/market" element={<AppRoute element={<MarketPage />} />} />
           <Route path="/bots" element={<AppRoute element={<BotsPage />} />} />
           <Route path="/create-bot" element={<AppRoute element={<CreateBotPage />} />} />
