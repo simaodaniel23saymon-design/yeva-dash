@@ -260,6 +260,22 @@ export default function ExchangesPage() {
         </div>
       </div>
 
+      {exchange === 'Bybit' && (
+        <div className="bg-gold-dim border border-gold-30 p-3 font-mono text-[10px] text-gold">
+          Bybit: só teste de ligação e saldo. Os bots da YevaTrade operam apenas na Binance.
+        </div>
+      )}
+
+      {market === 'SPOT' && (
+        <div className="bg-bg2 border border-border1 p-3 font-mono text-[10px] text-text2 space-y-1">
+          <p>Spot nesta ligação é usado pelo Spot Auto Bot (DCA) — envia ordens reais quando o ligas.</p>
+          <p>
+            O Spot Momentum (<Link to="/spot-paper" className="text-cyan hover:underline">Spot Paper</Link>) é simulação:
+            não usa esta chave e não envia ordens.
+          </p>
+        </div>
+      )}
+
       {accountType === 'demo' && (
         <div className="bg-gold-dim border border-gold-30 p-3 font-mono text-[10px] text-gold">
           Modo Demo: usa Testnet — nenhuma ordem real será enviada.
