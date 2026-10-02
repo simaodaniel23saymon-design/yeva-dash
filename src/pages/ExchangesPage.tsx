@@ -277,8 +277,8 @@ export default function ExchangesPage() {
         <div className="bg-bg2 border border-border1 p-3 font-mono text-[10px] text-text2 space-y-1">
           <p>Spot nesta ligação é usado pelo Spot Auto Bot (DCA) — envia ordens reais quando o ligas.</p>
           <p>
-            O Spot Momentum (<Link to="/spot-paper" className="text-cyan hover:underline">Spot Paper</Link>) é simulação:
-            não usa esta chave e não envia ordens.
+            O Spot Momentum (<Link to="/spot" className="text-cyan hover:underline">Spot</Link>) tem a execução real desativada:
+            não envia ordens com esta chave.
           </p>
         </div>
       )}

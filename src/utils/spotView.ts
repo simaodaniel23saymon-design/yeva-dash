@@ -3,12 +3,21 @@
  * estados e PnL vêm do backend, nada é calculado aqui.
  */
 
-import type { SpotCoin, SpotCoinDisplayState, SpotCoinStrategyState, SpotVenue, SpotVenueStatus } from '../types/spot';
+import type {
+  SpotCoin,
+  SpotCoinDisplayState,
+  SpotCoinStrategyState,
+  SpotExecutionStatus,
+  SpotRealAccount,
+  SpotRealPosition,
+  SpotVenue,
+  SpotVenueStatus,
+} from '../types/spot';
 
 export const VENUE_STATUS_LABEL: Record<SpotVenueStatus, string> = {
-  CONNECTED: 'Ligada',
+  CONNECTED: 'CONNECTED',
   AVAILABLE: 'Disponível',
-  NOT_CONNECTED: 'Não ligada',
+  NOT_CONNECTED: 'NOT CONNECTED',
   COMING_SOON: 'Em breve',
   NOT_SUPPORTED: 'Não suportada',
 };
@@ -31,10 +40,10 @@ export function venueAction(v: SpotVenue): VenueAction {
 export function venueFacts(v: SpotVenue): Array<[string, string]> {
   return [
     ['Ligação', VENUE_STATUS_LABEL[v.status]],
-    ['Conta', v.accountConnected ? 'Ligada' : v.auth === 'WALLET' ? 'Carteira (futuro)' : 'Não ligada'],
+    ['Conta', v.accountConnected ? 'CONNECTED' : v.auth === 'WALLET' ? 'Carteira (futuro)' : 'NOT CONNECTED'],
     ['Dados de mercado', v.marketDataAvailable ? 'Disponíveis' : 'Indisponíveis'],
-    ['Trading Spot', v.tradingAvailable ? 'Ativo' : 'Não ativo'],
-    ['LIVE', v.liveEnabled ? 'Ligado' : 'Desligado'],
+    ['Trading Spot', v.tradingAvailable ? 'LIVE' : 'DISABLED'],
+    ['LIVE', v.liveEnabled ? 'LIVE' : 'DISABLED'],
   ];
 }
 
@@ -42,23 +51,16 @@ export const COIN_STATE_LABEL: Record<SpotCoinDisplayState, string> = {
   OFF: 'OFF',
   ON: 'ON',
   WATCHING: 'A observar',
-  POSITION_OPEN: 'Posição aberta',
   OUTSIDE_RANKING: 'Fora do ranking',
-  INVALIDATED: 'Invalidada',
-  EXITED: 'Saiu',
 };
 
 export function coinStateTone(s: SpotCoinDisplayState): string {
-  if (s === 'POSITION_OPEN') return 'text-cyan border-cyan-30';
   if (s === 'WATCHING' || s === 'ON') return 'text-text1 border-border2';
-  if (s === 'INVALIDATED') return 'text-red border-red-30';
-  if (s === 'EXITED') return 'text-gold border-gold-30';
   return 'text-text3 border-border1';
 }
 
 /** Igual a deriveDisplayState do backend — usado só na atualização otimista do toggle. */
 export function displayStateFor(enabled: boolean, s: SpotCoinStrategyState): SpotCoinDisplayState {
-  if (s === 'POSITION_OPEN') return 'POSITION_OPEN';
   if (!enabled) return 'OFF';
   return s === 'UNKNOWN' ? 'ON' : s;
 }
@@ -94,7 +96,40 @@ export function signTone(n: number | null): string {
   return n > 0 ? 'text-cyan' : 'text-red';
 }
 
-export function modeLabel(mode: 'PAPER' | 'REAL', liveEnabled: boolean): string {
-  if (mode === 'PAPER' || !liveEnabled) return 'PAPER · simulação';
-  return 'LIVE';
+/** LIVE só quando o backend diz LIVE e o LIVE está ligado; tudo o resto é DISABLED. */
+export function isExecutionLive(execution: SpotExecutionStatus | undefined, liveEnabled: boolean): boolean {
+  return execution === 'LIVE' && liveEnabled;
+}
+
+export function executionLabel(execution: SpotExecutionStatus | undefined, liveEnabled: boolean): string {
+  return isExecutionLive(execution, liveEnabled) ? 'LIVE' : 'Trading Disabled';
+}
+
+export const NOT_AVAILABLE = 'Não disponível';
+
+const orNA = (s: string) => (s === '—' ? NOT_AVAILABLE : s);
+
+/** Resumo REAL da conta. Valores null ficam "Não disponível" (nunca zero). */
+export function accountFacts(a: SpotRealAccount, execution: SpotExecutionStatus | undefined, liveEnabled: boolean): Array<[string, string]> {
+  return [
+    ['Conta', a.status === 'CONNECTED' ? 'CONNECTED' : 'NOT CONNECTED'],
+    ['Balance', orNA(fmtUsd(a.balanceUsdt))],
+    ['REAL PnL não realizado', orNA(fmtSignedUsd(a.unrealizedPnl))],
+    ['REAL PnL realizado', orNA(fmtSignedUsd(a.realizedPnl))],
+    ['ROI', orNA(fmtSignedPct(a.roiPct))],
+    ['Execução', isExecutionLive(execution, liveEnabled) ? 'LIVE' : 'Execution not enabled'],
+  ];
+}
+
+/** Campos da posição REAL. Sem posição ⇒ null (a UI mostra "No active position"). */
+export function positionFacts(p: SpotRealPosition | null): Array<[string, string]> | null {
+  if (!p) return null;
+  return [
+    ['Quantidade', p.quantity.toLocaleString('en-US', { maximumFractionDigits: 8 })],
+    ['Entrada', fmtPrice(p.entryPrice)],
+    ['Preço atual', fmtPrice(p.currentPrice)],
+    ['REAL PnL não realizado', fmtSignedUsd(p.unrealizedPnl)],
+    ['REAL PnL realizado', fmtSignedUsd(p.realizedPnl)],
+    ['ROI', fmtSignedPct(p.roiPct)],
+  ];
 }

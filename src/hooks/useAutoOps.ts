@@ -1,5 +1,6 @@
 /**
- * Hook + helpers Auto-Ops.
+ * Hook + helpers Auto-Ops. Admin recebe o laboratório Paper completo;
+ * utilizador normal recebe só mercado + ciclos REAL (marketModule, restricted=true).
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -8,7 +9,10 @@ import type {
   AutoOpsExecMode,
   AutoOpsModule,
   AutoOpsModuleId,
+  AutoOpsStatusResponse,
+  AutoOpsUserModule,
 } from '../types/autoOps';
+import { splitAutoOpsStatus } from '../utils/autoOpsScope';
 
 export function fmtVol(n: number): string {
   if (n >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
@@ -46,6 +50,8 @@ export function badgeClass(tone: string): string {
 
 export function useAutoOps(moduleId?: AutoOpsModuleId) {
   const [modules, setModules] = useState<AutoOpsModule[]>([]);
+  const [marketModules, setMarketModules] = useState<AutoOpsUserModule[]>([]);
+  const [restricted, setRestricted] = useState(true);
   const [scannedAt, setScannedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,11 +61,11 @@ export function useAutoOps(moduleId?: AutoOpsModuleId) {
   const load = useCallback(async () => {
     try {
       setError(null);
-      const { data } = await api.get<{
-        scannedAt: string | null;
-        modules: AutoOpsModule[];
-      }>('/auto-ops/status');
-      setModules(data.modules || []);
+      const { data } = await api.get<AutoOpsStatusResponse>('/auto-ops/status');
+      const view = splitAutoOpsStatus(data);
+      setRestricted(view.restricted);
+      setModules(view.adminModules);
+      setMarketModules(view.marketModules);
       setScannedAt(data.scannedAt);
     } catch (err: any) {
       setError(err?.response?.data?.error || 'Auto-Ops indisponível');
@@ -81,6 +87,9 @@ export function useAutoOps(moduleId?: AutoOpsModuleId) {
 
   const module = moduleId
     ? modules.find((m) => m.id === moduleId) || null
+    : null;
+  const marketModule = moduleId
+    ? marketModules.find((m) => m.id === moduleId) || null
     : null;
 
   const enableOn = async (allocationUsdt: number) => {
@@ -163,6 +172,8 @@ export function useAutoOps(moduleId?: AutoOpsModuleId) {
   return {
     modules,
     module,
+    marketModule,
+    restricted,
     scannedAt,
     loading,
     error,

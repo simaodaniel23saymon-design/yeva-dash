@@ -104,11 +104,28 @@ export type AutoOpsModule = {
   candidates: AutoOpsCandidate[];
   feed?: AutoOpsFeedEvent[];
   rules: { title: string; side: string; bullets: string[] };
-  stable?: {
-    pairs: string[];
-    preset: { deviationPct: number; takeProfitPct: number; stopLossPct: number };
-    bidirectional: boolean;
-    activeCycles: StableCycle[];
-    cyclesCount: number;
-  };
+  stable?: AutoOpsStableInfo;
 };
+
+export type AutoOpsStableInfo = {
+  pairs: string[];
+  preset: { deviationPct: number; takeProfitPct: number; stopLossPct: number };
+  bidirectional: boolean;
+  activeCycles: StableCycle[];
+  cyclesCount: number;
+};
+
+/** Vista de utilizador normal: só mercado + ciclos REAL do próprio. Sem dados Paper. */
+export type AutoOpsUserModule = {
+  id: AutoOpsModuleId;
+  emoji: string;
+  label: string;
+  title: string;
+  candidates: AutoOpsCandidate[];
+  rules: { title: string; side: string; bullets: string[] };
+  stable?: AutoOpsStableInfo;
+};
+
+export type AutoOpsAdminStatus = { scope: 'PAPER_ADMIN'; scannedAt: string | null; modules: AutoOpsModule[] };
+export type AutoOpsUserStatus = { scope: 'REAL_USER'; paperRestricted: true; scannedAt: string | null; modules: AutoOpsUserModule[] };
+export type AutoOpsStatusResponse = AutoOpsAdminStatus | AutoOpsUserStatus;

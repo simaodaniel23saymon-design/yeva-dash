@@ -3,7 +3,7 @@ import { PageLoader } from '../components/YevaTradeLoader';
 import ExchangeList from '../components/spot/ExchangeList';
 import SpotCoinRow from '../components/spot/SpotCoinRow';
 import { useSpot } from '../hooks/useSpot';
-import { modeLabel, venueFacts } from '../utils/spotView';
+import { accountFacts, executionLabel, venueFacts } from '../utils/spotView';
 
 function when(iso: string | null): string {
   if (!iso) return '—';
@@ -24,6 +24,7 @@ export default function SpotPage() {
   const otherBots = bots.filter((b) => !b.selectable);
   const botDef = bots.find((b) => b.id === bot) ?? null;
   const live = coins?.liveEnabled ?? false;
+  const execution = coins?.execution ?? botDef?.execution;
   const list = coins?.coins ?? [];
   const activeCount = list.filter((c) => c.enabled).length;
   const openCount = list.filter((c) => c.position).length;
@@ -33,13 +34,33 @@ export default function SpotPage() {
     <div className="space-y-6 mb-12">
       <div>
         <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-cyan mb-2" data-testid="spot-mode-banner">
-          Spot · {modeLabel(coins?.mode ?? botDef?.mode ?? 'PAPER', live)} · sem ordens reais
+          Spot · REAL · {executionLabel(execution, live)}
         </p>
         <h2 className="text-text1 font-bold text-[28px] leading-tight">Spot</h2>
         <p className="text-text2 mt-2 max-w-2xl">
           Escolhe a exchange, o bot e as moedas. ON/OFF guarda só a tua preferência para este bot. Não compra, não vende e não fecha posições.
+          A execução real ainda não está ativa.
         </p>
       </div>
+
+      {coins?.account && (
+        <section className="bg-bg1 border border-border1 rounded-[18px] p-4" data-testid="spot-real-account">
+          <p className="font-mono text-[10px] uppercase tracking-wider text-text3 mb-2">Conta REAL · {coins.account.exchange}</p>
+          <dl className="grid grid-cols-2 md:grid-cols-6 gap-x-3 gap-y-2 text-[12px]">
+            {accountFacts(coins.account, execution, live).map(([k, v]) => (
+              <div key={k}>
+                <dt className="text-text3">{k}</dt>
+                <dd className="text-text1 font-mono">{v}</dd>
+              </div>
+            ))}
+          </dl>
+          {coins.account.status === 'NOT_CONNECTED' && (
+            <p className="mt-2 text-text3 text-[11px]">
+              Sem conta {coins.account.exchange} ligada. <Link to="/exchanges" className="text-cyan hover:underline">Ligar exchange</Link>
+            </p>
+          )}
+        </section>
+      )}
 
       <div className="grid md:grid-cols-[1fr_1fr_1.4fr] gap-3">
         <div className="bg-bg1 border border-border1 rounded-[18px] p-4 space-y-2">
@@ -58,7 +79,7 @@ export default function SpotPage() {
           <select id="spot-bot" value={bot} onChange={(e) => setBot(e.target.value)} className={selectClass}>
             {selectableBots.length === 0 && <option value={bot}>{bot}</option>}
             {selectableBots.map((b) => (
-              <option key={b.id} value={b.id}>{b.name} · {b.mode === 'PAPER' ? 'PAPER' : 'LIVE'}</option>
+              <option key={b.id} value={b.id}>{b.name} · REAL · {b.execution === 'LIVE' ? 'LIVE' : 'DISABLED'}</option>
             ))}
           </select>
           {otherBots.map((b) => (
@@ -94,7 +115,7 @@ export default function SpotPage() {
         <div className="px-5 py-4 border-b border-border1 flex flex-wrap items-center gap-x-4 gap-y-1 justify-between">
           <h3 className="text-text1 font-semibold">Moedas</h3>
           <p className="font-mono text-[10px] uppercase tracking-wider text-text3">
-            {activeCount} ON · {openCount} com posição paper · ranking {coins?.rankingFresh ? when(coins.rankingScannedAt) : 'sem leitura recente'}
+            {activeCount} ON · {openCount} com posição REAL · ranking {coins?.rankingFresh ? when(coins.rankingScannedAt) : 'sem leitura recente'}
             {coins?.marketStale ? ' · preços antigos' : ''}
           </p>
         </div>
@@ -113,8 +134,7 @@ export default function SpotPage() {
           </ul>
         )}
         <p className="px-5 py-3 border-t border-border1 text-text3 text-[11px]">
-          O Spot Paper é uma simulação partilhada: as posições e o PnL vêm do runtime paper e a tua preferência ainda não o altera.
-          Preço e variação 24h vêm do Market Radar. <Link to="/spot-paper" className="text-cyan hover:underline">Detalhe do Spot Paper</Link>
+          Posição e REAL PnL vêm só da tua conta na exchange. Score e estado vêm do ranking Momentum; preço e variação 24h do Market Radar.
         </p>
       </section>
 

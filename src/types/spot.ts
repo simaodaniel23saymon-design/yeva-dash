@@ -1,4 +1,4 @@
-/** Contratos de GET /api/spot/venues · /bots · /coins. */
+/** Contratos de GET /api/spot/venues · /bots · /coins (contexto REAL do utilizador; sem dados Paper). */
 
 export type SpotVenueStatus = 'CONNECTED' | 'AVAILABLE' | 'NOT_CONNECTED' | 'COMING_SOON' | 'NOT_SUPPORTED';
 
@@ -17,18 +17,43 @@ export type SpotVenue = {
   note: string;
 };
 
+export type SpotExecutionStatus = 'LIVE' | 'DISABLED';
+
 export type SpotBot = {
   id: string;
   name: string;
   market: 'SPOT';
-  mode: 'PAPER' | 'REAL';
+  mode: 'REAL';
+  execution: SpotExecutionStatus;
   selectable: boolean;
   exchanges: string[];
   note: string;
 };
 
-export type SpotCoinStrategyState = 'WATCHING' | 'POSITION_OPEN' | 'OUTSIDE_RANKING' | 'INVALIDATED' | 'EXITED' | 'UNKNOWN';
+export type SpotCoinStrategyState = 'WATCHING' | 'OUTSIDE_RANKING' | 'UNKNOWN';
 export type SpotCoinDisplayState = 'OFF' | 'ON' | Exclude<SpotCoinStrategyState, 'UNKNOWN'>;
+
+/** Posição REAL na exchange do utilizador, já calculada pelo backend. */
+export type SpotRealPosition = {
+  quantity: number;
+  entryPrice: number | null;
+  currentPrice: number | null;
+  unrealizedPnl: number | null;
+  realizedPnl: number | null;
+  roiPct: number | null;
+  updatedAt: string;
+};
+
+/** Resumo REAL da conta. null = ainda não lido da exchange. */
+export type SpotRealAccount = {
+  exchange: string;
+  status: 'CONNECTED' | 'NOT_CONNECTED';
+  balanceUsdt: number | null;
+  unrealizedPnl: number | null;
+  realizedPnl: number | null;
+  roiPct: number | null;
+  dataSource: 'NONE';
+};
 
 export type SpotCoin = {
   symbol: string;
@@ -40,26 +65,18 @@ export type SpotCoin = {
   enabled: boolean;
   strategyState: SpotCoinStrategyState;
   displayState: SpotCoinDisplayState;
-  position: null | {
-    cycleId: string;
-    status: string;
-    openedAt: string | null;
-    capitalUsed: number | null;
-    paperPnl: number | null;
-    returnPct: number | null;
-    entries: number | null;
-  };
-  lastExit: null | { closedAt: string; paperPnl: number | null; reason: string | null };
-  lastDecision: null | { decision: string; reason: string; at: string };
+  position: SpotRealPosition | null;
+  execution: SpotExecutionStatus;
 };
 
 export type SpotCoinsResponse = {
   exchange: string;
   bot: string;
-  mode: 'PAPER' | 'REAL';
+  mode: 'REAL';
+  execution: SpotExecutionStatus;
   orderExecution: false;
   liveEnabled: boolean;
-  paperScope: 'GLOBAL';
+  account: SpotRealAccount;
   preferencesAvailable: boolean;
   rankingScannedAt: string | null;
   rankingFresh: boolean;

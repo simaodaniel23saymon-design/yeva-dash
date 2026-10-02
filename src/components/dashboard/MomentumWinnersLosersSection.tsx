@@ -7,6 +7,8 @@ import { Fragment, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { YevaTradeLoader } from '../YevaTradeLoader';
 import { useMomentumRanking } from '../../hooks/useMomentumRanking';
+import { useAuth } from '../../context/AuthContext';
+import { canAccessSpotPaper } from '../../utils/access';
 import {
   decisionBadgeClass,
   formatMfeMae,
@@ -42,6 +44,7 @@ function RankingTable({
   selected,
   onSelect,
   history,
+  showPaperHistory,
   emptyLabel,
 }: {
   title: string;
@@ -50,6 +53,7 @@ function RankingTable({
   selected: string | null;
   onSelect: (symbol: string) => void;
   history: Record<string, SymbolHistoryMetrics>;
+  showPaperHistory: boolean;
   emptyLabel: string;
 }) {
   const accent =
@@ -195,7 +199,7 @@ function RankingTable({
                                   : 'n/d'}
                               </span>
                             </span>
-                            {hasHist ? (
+                            {!showPaperHistory ? null : hasHist ? (
                               <>
                                 <span>
                                   MFE{' '}
@@ -231,8 +235,10 @@ function RankingTable({
 }
 
 export function MomentumWinnersLosersSection() {
+  const { user } = useAuth();
+  const isAdmin = canAccessSpotPaper(user);
   const { winners, losers, scannedAt, stale, history, loading, error, reload } =
-    useMomentumRanking();
+    useMomentumRanking(60_000, isAdmin);
   const [selected, setSelected] = useState<string | null>(null);
   const view = rankingViewState({
     loading,
@@ -258,10 +264,15 @@ export function MomentumWinnersLosersSection() {
               : ''}
           </p>
           <p className="text-text2 text-sm mt-2">
-            Este bloco não é o Spot. Rejeitar aqui não é uma ordem.{' '}
-            <Link to="/spot-paper" className="text-cyan">
-              Abrir Spot Paper
-            </Link>
+            Este bloco não é o Spot. Rejeitar aqui não é uma ordem.
+            {isAdmin && (
+              <>
+                {' '}
+                <Link to="/spot-paper" className="text-cyan">
+                  Abrir Spot Paper
+                </Link>
+              </>
+            )}
           </p>
         </div>
         <button
@@ -318,6 +329,7 @@ export function MomentumWinnersLosersSection() {
             selected={selected}
             onSelect={toggle}
             history={history}
+            showPaperHistory={isAdmin}
             emptyLabel="Sem Winners neste scan"
           />
           <RankingTable
@@ -327,6 +339,7 @@ export function MomentumWinnersLosersSection() {
             selected={selected}
             onSelect={toggle}
             history={history}
+            showPaperHistory={isAdmin}
             emptyLabel="Sem Losers neste scan"
           />
         </div>

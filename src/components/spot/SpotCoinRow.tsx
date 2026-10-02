@@ -1,13 +1,5 @@
 import type { SpotCoin } from '../../types/spot';
-import {
-  COIN_STATE_LABEL,
-  coinStateTone,
-  fmtPrice,
-  fmtSignedPct,
-  fmtSignedUsd,
-  fmtUsd,
-  signTone,
-} from '../../utils/spotView';
+import { COIN_STATE_LABEL, coinStateTone, fmtPrice, fmtSignedPct, positionFacts, signTone } from '../../utils/spotView';
 
 type Props = {
   coin: SpotCoin;
@@ -17,10 +9,10 @@ type Props = {
 };
 
 export default function SpotCoinRow({ coin, pending, disabled, onToggle }: Props) {
-  const p = coin.position;
+  const facts = positionFacts(coin.position);
   return (
     <li className="px-4 md:px-5 py-3 border-b border-border1 last:border-b-0" data-testid={`spot-coin-${coin.symbol}`}>
-      <div className="grid grid-cols-[1fr_auto] md:grid-cols-[minmax(90px,1fr)_minmax(120px,1fr)_minmax(110px,1fr)_minmax(200px,1.6fr)_auto] gap-x-4 gap-y-2 items-center">
+      <div className="grid grid-cols-[1fr_auto] md:grid-cols-[minmax(90px,1fr)_minmax(120px,1fr)_minmax(110px,1fr)_minmax(220px,1.8fr)_auto] gap-x-4 gap-y-2 items-center">
         <div className="min-w-0">
           <p className="text-text1 font-semibold">{coin.base}</p>
           <p className="font-mono text-[10px] text-text3">{coin.symbol}</p>
@@ -32,37 +24,39 @@ export default function SpotCoinRow({ coin, pending, disabled, onToggle }: Props
         </div>
 
         <div className="order-4 md:order-none">
-          <p className="font-mono text-[10px] uppercase tracking-wider text-text3">Momentum</p>
+          <p className="font-mono text-[10px] uppercase tracking-wider text-text3">Estratégia</p>
           <p className="text-text1 font-mono text-sm">
             {coin.score == null ? '—' : `Score ${coin.score.toFixed(1)}`}
             {coin.rank != null && <span className="text-text3"> · #{coin.rank}</span>}
           </p>
+          <span className={`inline-block mt-1 font-mono text-[9px] uppercase tracking-wider border px-1.5 py-0.5 ${coinStateTone(coin.displayState)}`}>
+            {COIN_STATE_LABEL[coin.displayState]}
+          </span>
         </div>
 
-        <div className="col-span-2 md:col-span-1 order-5 md:order-none grid grid-cols-3 gap-2 font-mono text-[11px]">
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-text3">Posição</p>
-            <p className="text-text1">{p ? fmtUsd(p.capitalUsed) : '—'}</p>
-          </div>
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-text3">PnL paper</p>
-            <p className={p ? signTone(p.paperPnl) : 'text-text1'}>{p ? fmtSignedUsd(p.paperPnl) : '—'}</p>
-          </div>
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-text3">Retorno</p>
-            <p className={p ? signTone(p.returnPct) : 'text-text1'}>{p ? fmtSignedPct(p.returnPct) : '—'}</p>
-          </div>
+        <div className="col-span-2 md:col-span-1 order-5 md:order-none font-mono text-[11px]" data-testid={`spot-real-position-${coin.symbol}`}>
+          <p className="text-[10px] uppercase tracking-wider text-text3 mb-1">Posição REAL</p>
+          {facts ? (
+            <dl className="grid grid-cols-3 gap-x-2 gap-y-1">
+              {facts.map(([k, v]) => (
+                <div key={k}>
+                  <dt className="text-[9px] uppercase tracking-wider text-text3">{k}</dt>
+                  <dd className="text-text1">{v}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : (
+            <p className="text-text2">No active position</p>
+          )}
+          <p className="mt-1 text-[10px] text-text3">Execução: {coin.execution === 'LIVE' ? 'LIVE' : 'DISABLED'}</p>
         </div>
 
         <div className="order-2 md:order-none flex items-center gap-3 justify-end">
-          <span className={`hidden sm:inline font-mono text-[10px] uppercase tracking-wider border px-2 py-0.5 ${coinStateTone(coin.displayState)}`}>
-            {COIN_STATE_LABEL[coin.displayState]}
-          </span>
           <button
             type="button"
             role="switch"
             aria-checked={coin.enabled}
-            aria-label={`${coin.base} ${coin.enabled ? 'ligada' : 'desligada'} para este bot`}
+            aria-label={`Preferência ${coin.base}: ${coin.enabled ? 'ON' : 'OFF'}`}
             disabled={disabled || pending}
             onClick={() => onToggle(coin.symbol, !coin.enabled)}
             className={`font-mono text-[10px] uppercase tracking-wider border px-3 py-1 min-w-[52px] transition-colors disabled:opacity-40 ${
@@ -73,15 +67,6 @@ export default function SpotCoinRow({ coin, pending, disabled, onToggle }: Props
           </button>
         </div>
       </div>
-      {!p && coin.lastExit && (
-        <p className="mt-2 font-mono text-[10px] text-text3">
-          Última saída paper: <span className={signTone(coin.lastExit.paperPnl)}>{fmtSignedUsd(coin.lastExit.paperPnl)}</span>
-          {coin.lastExit.reason ? ` · ${coin.lastExit.reason}` : ''}
-        </p>
-      )}
-      {p && !coin.enabled && (
-        <p className="mt-2 font-mono text-[10px] text-text3">Posição paper aberta pelo bot. OFF não a fecha.</p>
-      )}
     </li>
   );
 }

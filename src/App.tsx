@@ -30,25 +30,48 @@ import ProPage from './pages/ProPage';
 import LandingPage from './pages/LandingPage';
 import SpotPaperPage from './pages/SpotPaperPage';
 import SpotPage from './pages/SpotPage';
+import AccessDenied from './components/AccessDenied';
+import { routeAccess } from './utils/access';
 
-function ProtectedRoute({ children, requireAdmin = false }: { children: React.ReactNode; requireAdmin?: boolean }) {
+type DeniedMode = { kind: 'redirect' } | { kind: 'page'; area: string };
+
+function ProtectedRoute({
+  children,
+  requireAdmin = false,
+  denied = { kind: 'redirect' },
+}: {
+  children: React.ReactNode;
+  requireAdmin?: boolean;
+  denied?: DeniedMode;
+}) {
   const { user, loading } = useAuth();
-  if (loading) {
+  /* isAdmin vem sempre de GET /auth/me — não confiar em localStorage */
+  const access = routeAccess({ loading, user, requireAdmin });
+  if (access === 'loading') {
     return (
       <div className="min-h-screen bg-bg0 flex items-center justify-center">
         <YevaTradeLoader size="lg" label="A carregar..." />
       </div>
     );
   }
-  if (!user) return <Navigate to="/login" replace />;
-  /* isAdmin vem sempre de GET /auth/me — não confiar em localStorage */
-  if (requireAdmin && !user.isAdmin) return <Navigate to="/dashboard" replace />;
+  if (access === 'login') return <Navigate to="/login" replace />;
+  if (access === 'denied') {
+    return denied.kind === 'page' ? <Layout><AccessDenied area={denied.area} /></Layout> : <Navigate to="/dashboard" replace />;
+  }
   return <>{children}</>;
 }
 
-function AppRoute({ element, requireAdmin = false }: { element: React.ReactNode; requireAdmin?: boolean }) {
+function AppRoute({
+  element,
+  requireAdmin = false,
+  denied,
+}: {
+  element: React.ReactNode;
+  requireAdmin?: boolean;
+  denied?: DeniedMode;
+}) {
   return (
-    <ProtectedRoute requireAdmin={requireAdmin}>
+    <ProtectedRoute requireAdmin={requireAdmin} denied={denied}>
       <Layout>{element}</Layout>
     </ProtectedRoute>
   );
@@ -85,7 +108,7 @@ export default function App() {
           <Route path="/pro/signals" element={<Navigate to="/pro" replace />} />
           <Route path="/dashboard" element={<AppRoute element={<DashboardPage />} />} />
           <Route path="/spot" element={<AppRoute element={<SpotPage />} />} />
-          <Route path="/spot-paper" element={<AppRoute element={<SpotPaperPage />} />} />
+          <Route path="/spot-paper" element={<AppRoute element={<SpotPaperPage />} requireAdmin denied={{ kind: 'page', area: 'Spot Paper' }} />} />
           <Route path="/market" element={<AppRoute element={<MarketPage />} />} />
           <Route path="/bots" element={<AppRoute element={<BotsPage />} />} />
           <Route path="/create-bot" element={<AppRoute element={<CreateBotPage />} />} />
