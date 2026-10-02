@@ -10,6 +10,8 @@ import {
   type AccountMode,
 } from '../hooks/useExchange';
 import { shouldAutoTestConnection } from '../utils/exchangeStatus';
+import ExchangeHub from '../components/exchanges/ExchangeHub';
+import { useExchangeCatalog } from '../hooks/useExchangeCatalog';
 
 const inputClass = 'w-full bg-bg3 border border-border2 text-text1 font-mono text-sm px-3 py-2.5 outline-none focus:border-cyan/35 transition-colors placeholder:text-text2';
 
@@ -44,6 +46,7 @@ export default function ExchangesPage() {
   const [balanceUpdatedAt, setBalanceUpdatedAt] = useState<Date | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [checkingConnection, setCheckingConnection] = useState(false);
+  const catalog = useExchangeCatalog();
 
   const showFlash = (text: string, ok = true) => {
     setFlash({ text, ok });
@@ -142,6 +145,7 @@ export default function ExchangesPage() {
         });
       }
       await refreshStatus();
+      void catalog.reload();
       setEditMode(false);
       setApiKey('');
       setApiSecret('');
@@ -194,6 +198,7 @@ export default function ExchangesPage() {
       setMaskedKey('');
       setEditMode(false);
       await refreshStatus();
+      void catalog.reload();
       showFlash('Exchange desconectada.');
     } catch (err: unknown) {
       showFlash(getFriendlyError(err).message, false);
@@ -211,30 +216,13 @@ export default function ExchangesPage() {
   const displayBalance = testedBalance ?? exchangeBalance;
   const showForm = !isConnected || editMode;
 
-  return (
-    <div className="space-y-4 max-w-2xl">
-      <div>
-        <h2 className="text-text1 font-bold text-lg">Conexão com Exchange</h2>
-        <p className="font-mono text-[9px] uppercase tracking-wider text-text2 mt-0.5">
-          Testa antes de guardar · Chaves encriptadas AES-256-GCM ·{' '}
-          <Link to="/api-guide" className="text-cyan hover:underline">Guia API</Link>
-        </p>
-      </div>
-
-      {flash && (
-        <div className={`p-3 border font-mono text-[10px] ${flash.ok ? 'bg-cyan-dim border-cyan-20 text-cyan' : 'bg-red-dim border-red-30 text-red'}`}>
-          {flash.text}
+  const binanceConnect = (
+    <div className="space-y-4 border-t border-border1 pt-4" data-testid="binance-connect">
+      {exchange === 'Bybit' && isConnected && (
+        <div className="bg-gold-dim border border-gold-30 p-3 font-mono text-[10px] text-gold">
+          A ligação guardada é Bybit, que ainda não é suportada. Para operar, liga uma conta Binance.
         </div>
       )}
-
-      {/* Tabs Exchange */}
-      <div className="flex gap-2">
-        {(['Binance', 'Bybit'] as const).map(ex => (
-          <button key={ex} type="button" onClick={() => setExchange(ex)} className={tabClass(exchange === ex)}>
-            {ex}
-          </button>
-        ))}
-      </div>
 
       {/* IP Servidor */}
       <div className="bg-bg1 border border-gold-30 p-4 space-y-2">
@@ -266,12 +254,6 @@ export default function ExchangesPage() {
           </div>
         </div>
       </div>
-
-      {exchange === 'Bybit' && (
-        <div className="bg-gold-dim border border-gold-30 p-3 font-mono text-[10px] text-gold">
-          Bybit: só teste de ligação e saldo. Os bots da YevaTrade operam apenas na Binance.
-        </div>
-      )}
 
       {market === 'SPOT' && (
         <div className="bg-bg2 border border-border1 p-3 font-mono text-[10px] text-text2 space-y-1">
@@ -420,6 +402,32 @@ export default function ExchangesPage() {
           )}
         </>
       )}
+    </div>
+  );
+
+  return (
+    <div className="space-y-4 max-w-5xl">
+      <div>
+        <h2 className="text-text1 font-bold text-lg">Exchanges</h2>
+        <p className="font-mono text-[9px] uppercase tracking-wider text-text2 mt-0.5">
+          CEX e DEX · Aparecer na lista não significa suporte operacional · Chaves encriptadas AES-256-GCM ·{' '}
+          <Link to="/api-guide" className="text-cyan hover:underline">Guia API</Link>
+        </p>
+      </div>
+
+      {flash && (
+        <div className={`p-3 border font-mono text-[10px] ${flash.ok ? 'bg-cyan-dim border-cyan-20 text-cyan' : 'bg-red-dim border-red-30 text-red'}`}>
+          {flash.text}
+        </div>
+      )}
+
+      <ExchangeHub
+        venues={catalog.venues}
+        securityLayer={catalog.securityLayer}
+        loading={catalog.loading}
+        error={catalog.error}
+        binanceConnect={binanceConnect}
+      />
     </div>
   );
 }

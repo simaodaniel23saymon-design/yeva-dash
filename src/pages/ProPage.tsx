@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
+import ProIntelligencePreview from '../components/pro/ProIntelligencePreview';
 
 /**
  * Aba PRO bloqueada — só banner "Em breve".
@@ -29,7 +30,7 @@ export default function ProPage() {
   }, []);
 
   return (
-    <div className="min-h-[50vh] flex items-center justify-center px-4 py-16">
+    <div className="min-h-[50vh] flex flex-col items-center justify-center gap-10 px-4 py-16">
       <div className="max-w-md w-full text-center space-y-4 border border-border1 bg-bg1 px-6 py-10">
         <p className="display-title text-text1 text-xl sm:text-2xl leading-snug">
           Em breve 🚧 lançamento em preparação
@@ -40,6 +41,7 @@ export default function ProPage() {
           </p>
         )}
       </div>
+      <ProIntelligencePreview />
     </div>
   );
 }

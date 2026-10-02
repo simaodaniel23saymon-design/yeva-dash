@@ -1,5 +1,5 @@
 /**
- * Dashboard — Winners / Losers (análise only).
+ * Dashboard — diagnóstico Winners / Losers (só admin): scores, decisões, motivos e fatores.
  * Sem compra/venda · sem execução REAL.
  */
 
@@ -234,11 +234,11 @@ function RankingTable({
   );
 }
 
-export function MomentumWinnersLosersSection() {
+/** Diagnóstico de estratégia: só para admin (o Dashboard não o renderiza para utilizadores). */
+export function MomentumWinnersLosersSection({ ranking }: { ranking: ReturnType<typeof useMomentumRanking> }) {
   const { user } = useAuth();
   const isAdmin = canAccessSpotPaper(user);
-  const { winners, losers, scannedAt, stale, history, loading, error, reload } =
-    useMomentumRanking(60_000, isAdmin);
+  const { winners, losers, scannedAt, stale, history, loading, error, reload } = ranking;
   const [selected, setSelected] = useState<string | null>(null);
   const view = rankingViewState({
     loading,
@@ -256,7 +256,7 @@ export function MomentumWinnersLosersSection() {
     <section className="dash-section" data-testid="momentum-winners-losers">
       <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
         <div>
-          <h3 className="dash-label text-text1">Momentum · Winners & Losers</h3>
+          <h3 className="dash-label text-text1">Diagnóstico Momentum · admin</h3>
           <p className="font-mono text-[10px] text-text3 uppercase tracking-wider mt-1">
             Análise only · APPROVED ≠ ordem
             {scannedAt

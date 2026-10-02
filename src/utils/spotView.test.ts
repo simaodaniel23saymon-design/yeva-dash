@@ -1,11 +1,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { SpotCoin, SpotRealAccount, SpotVenue } from '../types/spot';
+import type { SpotCoin, SpotRealAccount } from '../types/spot';
 import {
   COIN_STATE_LABEL,
+  EXECUTION_PHASE_LABEL,
+  EXECUTION_STATE_LABEL,
   NOT_AVAILABLE,
-  VENUE_STATUS_LABEL,
+  POSITION_STATE_LABEL,
+  STRATEGY_STATE_LABEL,
   accountFacts,
   displayStateFor,
   executionLabel,
@@ -14,28 +17,8 @@ import {
   fmtSignedUsd,
   fmtUsd,
   positionFacts,
-  venueAction,
-  venueFacts,
   withPreference,
 } from './spotView';
-
-function venue(over: Partial<SpotVenue>): SpotVenue {
-  return {
-    exchange: 'BINANCE',
-    name: 'Binance',
-    type: 'CEX',
-    markets: ['SPOT'],
-    auth: 'API_KEY',
-    status: 'CONNECTED',
-    accountConnected: true,
-    marketDataAvailable: true,
-    spotAvailable: true,
-    tradingAvailable: false,
-    liveEnabled: false,
-    note: '',
-    ...over,
-  };
-}
 
 function coin(over: Partial<SpotCoin>): SpotCoin {
   return {
@@ -49,7 +32,10 @@ function coin(over: Partial<SpotCoin>): SpotCoin {
     strategyState: 'WATCHING',
     displayState: 'OFF',
     position: null,
+    positionState: 'NO_POSITION',
     execution: 'DISABLED',
+    executionPhase: 'DISABLED',
+    executionState: null,
     ...over,
   };
 }
@@ -57,7 +43,10 @@ function coin(over: Partial<SpotCoin>): SpotCoin {
 const account = (over: Partial<SpotRealAccount> = {}): SpotRealAccount => ({
   exchange: 'BINANCE',
   status: 'CONNECTED',
+  spotState: 'DISABLED',
+  futuresState: 'UNKNOWN',
   balanceUsdt: null,
+  availableUsdt: null,
   unrealizedPnl: null,
   realizedPnl: null,
   roiPct: null,
@@ -65,44 +54,26 @@ const account = (over: Partial<SpotRealAccount> = {}): SpotRealAccount => ({
   ...over,
 });
 
-describe('exchange selector', () => {
-  it('Binance ligada: Gerir; trading Spot DISABLED; LIVE DISABLED', () => {
-    const v = venue({});
-    expect(venueAction(v)).toEqual({ label: 'Gerir', to: '/exchanges' });
-    expect(Object.fromEntries(venueFacts(v))).toEqual({
-      Ligação: 'CONNECTED',
-      Conta: 'CONNECTED',
-      'Dados de mercado': 'Disponíveis',
-      'Trading Spot': 'DISABLED',
-      LIVE: 'DISABLED',
-    });
-  });
-
-  it('CEX não ligada: Ligar', () => {
-    expect(venueAction(venue({ exchange: 'BYBIT', status: 'NOT_CONNECTED', accountConnected: false }))).toEqual({ label: 'Ligar', to: '/exchanges' });
-  });
-
-  it('DEX em breve: só Ver, sem ligação nem conta por API key', () => {
-    const v = venue({ exchange: 'UNISWAP', name: 'Uniswap', type: 'DEX', auth: 'WALLET', status: 'COMING_SOON', accountConnected: false, marketDataAvailable: false, spotAvailable: false });
-    expect(venueAction(v)).toEqual({ label: 'Ver', to: null });
-    const facts = Object.fromEntries(venueFacts(v));
-    expect(facts['Ligação']).toBe('Em breve');
-    expect(facts['Conta']).toBe('Carteira (futuro)');
-    expect(facts['Trading Spot']).toBe('DISABLED');
-  });
-
-  it('todos os estados permitidos têm rótulo', () => {
-    expect(Object.keys(VENUE_STATUS_LABEL).sort()).toEqual(['AVAILABLE', 'COMING_SOON', 'CONNECTED', 'NOT_CONNECTED', 'NOT_SUPPORTED']);
-  });
-});
-
 describe('modo e execução', () => {
-  it('REAL com execução DISABLED ⇒ Trading Disabled; LIVE só com LIVE e liveEnabled', () => {
-    expect(executionLabel('DISABLED', false)).toBe('Trading Disabled');
-    expect(executionLabel('DISABLED', true)).toBe('Trading Disabled');
-    expect(executionLabel('LIVE', false)).toBe('Trading Disabled');
-    expect(executionLabel(undefined, true)).toBe('Trading Disabled');
-    expect(executionLabel('LIVE', true)).toBe('LIVE');
+  it('REAL com execução DISABLED ⇒ Execução desativada; disponível só com LIVE e liveEnabled', () => {
+    expect(executionLabel('DISABLED', false)).toBe('Execução desativada');
+    expect(executionLabel('DISABLED', true)).toBe('Execução desativada');
+    expect(executionLabel('LIVE', false)).toBe('Execução desativada');
+    expect(executionLabel(undefined, true)).toBe('Execução desativada');
+    expect(executionLabel('LIVE', true)).toBe('Execução disponível');
+    expect(executionLabel('PILOT', false)).toBe('Piloto controlado');
+  });
+
+  it('famílias de estado separadas e todas com rótulo', () => {
+    expect(Object.keys(STRATEGY_STATE_LABEL).sort()).toEqual(['NO_SIGNAL', 'OPPORTUNITY', 'OUTSIDE_RANKING', 'UNKNOWN', 'WATCHING']);
+    expect(Object.keys(POSITION_STATE_LABEL).sort()).toEqual(['CLOSED', 'CLOSING', 'NO_POSITION', 'OPEN']);
+    expect(Object.keys(EXECUTION_PHASE_LABEL).sort()).toEqual(['BLOCKED', 'DISABLED', 'EXECUTED', 'EXECUTING', 'READY']);
+    expect(Object.keys(EXECUTION_STATE_LABEL)).toHaveLength(10);
+  });
+
+  it('rótulos do utilizador não expõem estados internos do motor', () => {
+    const userLabels = [...Object.values(STRATEGY_STATE_LABEL), ...Object.values(POSITION_STATE_LABEL), ...Object.values(EXECUTION_PHASE_LABEL)].join(' ');
+    expect(userLabels).not.toMatch(/REJECTED|MAX_POSITIONS|STRUCTURE|EXTENSION|threshold|score/i);
   });
 });
 
@@ -129,12 +100,12 @@ describe('coin ON/OFF', () => {
     expect(displayStateFor(true, 'UNKNOWN')).toBe('ON');
     expect(displayStateFor(false, 'OUTSIDE_RANKING')).toBe('OFF');
     expect(COIN_STATE_LABEL.OUTSIDE_RANKING).toBe('Fora do ranking');
-    expect(Object.keys(COIN_STATE_LABEL).sort()).toEqual(['OFF', 'ON', 'OUTSIDE_RANKING', 'WATCHING']);
+    expect(Object.keys(COIN_STATE_LABEL).sort()).toEqual(['NO_SIGNAL', 'OFF', 'ON', 'OPPORTUNITY', 'OUTSIDE_RANKING', 'WATCHING']);
   });
 });
 
 describe('conta e posição REAL', () => {
-  it('sem posição ⇒ null (UI mostra No active position)', () => {
+  it('sem posição ⇒ null (UI mostra Sem posição aberta)', () => {
     expect(positionFacts(null)).toBeNull();
   });
 
@@ -144,23 +115,32 @@ describe('conta e posição REAL', () => {
       Quantidade: '0.5',
       Entrada: '$80,000.00',
       'Preço atual': '$84,000.00',
-      'REAL PnL não realizado': '+$2,000.00',
-      'REAL PnL realizado': '−$5.00',
+      'PnL REAL não realizado': '+$2,000.00',
+      'PnL REAL realizado': '−$5.00',
       ROI: '+5.00%',
     });
   });
 
-  it('conta sem fonte real ⇒ Não disponível, nunca zero; execução não ativa', () => {
+  it('conta sem fonte real ⇒ Não disponível, nunca zero; saldo sempre "Saldo Spot"', () => {
     const facts = Object.fromEntries(accountFacts(account(), 'DISABLED', false));
     expect(facts).toEqual({
-      Conta: 'CONNECTED',
-      Balance: NOT_AVAILABLE,
-      'REAL PnL não realizado': NOT_AVAILABLE,
-      'REAL PnL realizado': NOT_AVAILABLE,
-      ROI: NOT_AVAILABLE,
-      Execução: 'Execution not enabled',
+      Conta: 'Conectada',
+      'Saldo Spot': NOT_AVAILABLE,
+      'Disponível Spot': NOT_AVAILABLE,
+      'PnL REAL não realizado': NOT_AVAILABLE,
+      'PnL REAL realizado': NOT_AVAILABLE,
+      Execução: 'Execução desativada',
     });
-    expect(Object.fromEntries(accountFacts(account({ status: 'NOT_CONNECTED' }), 'DISABLED', false)).Conta).toBe('NOT CONNECTED');
+    expect(Object.keys(facts)).not.toContain('Saldo');
+    expect(Object.fromEntries(accountFacts(account({ status: 'NOT_CONNECTED' }), 'DISABLED', false)).Conta).toBe('Não conectada');
+  });
+
+  it('conta Binance com dados reais: saldo e disponível Spot do backend', () => {
+    const facts = Object.fromEntries(
+      accountFacts(account({ spotState: 'READY', futuresState: 'ENABLED', balanceUsdt: 120, availableUsdt: 100, dataSource: 'BINANCE_SPOT' }), 'DISABLED', false)
+    );
+    expect(facts).toMatchObject({ 'Saldo Spot': '$120.00', 'Disponível Spot': '$100.00', Execução: 'Execução desativada' });
+    expect(Object.fromEntries(accountFacts(account({ spotState: 'PILOT' }), 'PILOT', false))).toMatchObject({ Execução: 'Piloto controlado' });
   });
 });
 
@@ -173,11 +153,21 @@ describe('formatação', () => {
     expect(fmtPrice(84630)).toBe('$84,630.00');
   });
 
-  it('sem dados ⇒ traço, nunca zero inventado', () => {
+  it('sem dados ⇒ traço, nunca zero inventado, NaN ou undefined', () => {
     expect(fmtUsd(null)).toBe('—');
     expect(fmtSignedUsd(null)).toBe('—');
     expect(fmtSignedPct(null)).toBe('—');
     expect(fmtPrice(null)).toBe('—');
+    for (const f of [fmtUsd, fmtSignedUsd, fmtSignedPct, fmtPrice]) {
+      expect(f(Number.NaN)).toBe('—');
+      expect(f(undefined as unknown as null)).toBe('—');
+    }
+  });
+
+  it('nunca mostra -$0.00', () => {
+    expect(fmtSignedUsd(-0)).toBe('$0.00');
+    expect(fmtSignedUsd(-0.004)).toBe('$0.00');
+    expect(fmtSignedUsd(0.004)).toBe('$0.00');
   });
 });
 
@@ -187,7 +177,6 @@ describe('segurança do frontend Spot', () => {
     'utils/spotView.ts',
     'hooks/useSpot.ts',
     'pages/SpotPage.tsx',
-    'components/spot/ExchangeList.tsx',
     'components/spot/SpotCoinRow.tsx',
   ].map((f) => [f, fs.readFileSync(path.join(__dirname, '..', f), 'utf8')] as const);
 

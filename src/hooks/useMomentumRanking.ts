@@ -1,10 +1,11 @@
 /**
- * Ranking Momentum (análise, todos os utilizadores) + métricas dos paper tracks (só admin).
- * Só leitura.
+ * Ranking Momentum (análise) + métricas dos paper tracks (só admin). Só leitura.
+ * Utilizador recebe do backend só a projeção USER (sem scores/decisões); o admin recebe o payload completo.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../lib/api';
+import { toMarketItems } from '../utils/dashboardSummary';
 import {
   isRankingScanStale,
   splitWinnersLosers,
@@ -90,9 +91,11 @@ export function useMomentumRanking(pollMs = 60_000, includePaperMetrics = false)
   }, [load, pollMs]);
 
   const { winners, losers } = useMemo(() => splitWinnersLosers(items), [items]);
+  const marketItems = useMemo(() => toMarketItems(items), [items]);
   const stale = staleFlag || isRankingScanStale(scannedAt);
 
   return {
+    marketItems,
     winners,
     losers,
     scannedAt,

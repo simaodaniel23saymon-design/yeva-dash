@@ -30,6 +30,7 @@ import ProPage from './pages/ProPage';
 import LandingPage from './pages/LandingPage';
 import SpotPaperPage from './pages/SpotPaperPage';
 import SpotPage from './pages/SpotPage';
+import FuturesPage from './pages/FuturesPage';
 import AccessDenied from './components/AccessDenied';
 import { routeAccess } from './utils/access';
 
@@ -108,6 +109,7 @@ export default function App() {
           <Route path="/pro/signals" element={<Navigate to="/pro" replace />} />
           <Route path="/dashboard" element={<AppRoute element={<DashboardPage />} />} />
           <Route path="/spot" element={<AppRoute element={<SpotPage />} />} />
+          <Route path="/futures" element={<AppRoute element={<FuturesPage />} />} />
           <Route path="/spot-paper" element={<AppRoute element={<SpotPaperPage />} requireAdmin denied={{ kind: 'page', area: 'Spot Paper' }} />} />
           <Route path="/market" element={<AppRoute element={<MarketPage />} />} />
           <Route path="/bots" element={<AppRoute element={<BotsPage />} />} />

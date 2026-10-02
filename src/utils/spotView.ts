@@ -4,58 +4,56 @@
  */
 
 import type {
+  SpotAccountSpotState,
   SpotCoin,
   SpotCoinDisplayState,
+  SpotCoinExecutionPhase,
+  SpotCoinExecutionState,
+  SpotCoinPositionState,
   SpotCoinStrategyState,
   SpotExecutionStatus,
   SpotRealAccount,
   SpotRealPosition,
-  SpotVenue,
-  SpotVenueStatus,
 } from '../types/spot';
-
-export const VENUE_STATUS_LABEL: Record<SpotVenueStatus, string> = {
-  CONNECTED: 'CONNECTED',
-  AVAILABLE: 'Disponível',
-  NOT_CONNECTED: 'NOT CONNECTED',
-  COMING_SOON: 'Em breve',
-  NOT_SUPPORTED: 'Não suportada',
-};
-
-export function venueStatusTone(status: SpotVenueStatus): string {
-  if (status === 'CONNECTED') return 'text-cyan border-cyan-30';
-  if (status === 'COMING_SOON' || status === 'NOT_SUPPORTED') return 'text-text3 border-border2';
-  return 'text-text2 border-border2';
-}
-
-export type VenueAction = { label: string; to: string | null };
-
-export function venueAction(v: SpotVenue): VenueAction {
-  if (v.status === 'CONNECTED') return { label: 'Gerir', to: '/exchanges' };
-  if (v.status === 'NOT_CONNECTED' && v.auth === 'API_KEY') return { label: 'Ligar', to: '/exchanges' };
-  return { label: 'Ver', to: null };
-}
-
-/** Linhas do painel da exchange. "Trading Spot: ativo" só com execução real validada. */
-export function venueFacts(v: SpotVenue): Array<[string, string]> {
-  return [
-    ['Ligação', VENUE_STATUS_LABEL[v.status]],
-    ['Conta', v.accountConnected ? 'CONNECTED' : v.auth === 'WALLET' ? 'Carteira (futuro)' : 'NOT CONNECTED'],
-    ['Dados de mercado', v.marketDataAvailable ? 'Disponíveis' : 'Indisponíveis'],
-    ['Trading Spot', v.tradingAvailable ? 'LIVE' : 'DISABLED'],
-    ['LIVE', v.liveEnabled ? 'LIVE' : 'DISABLED'],
-  ];
-}
 
 export const COIN_STATE_LABEL: Record<SpotCoinDisplayState, string> = {
   OFF: 'OFF',
   ON: 'ON',
-  WATCHING: 'A observar',
+  OPPORTUNITY: 'Oportunidade',
+  WATCHING: 'Em observação',
+  NO_SIGNAL: 'Sem sinal',
   OUTSIDE_RANKING: 'Fora do ranking',
 };
 
-export function coinStateTone(s: SpotCoinDisplayState): string {
-  if (s === 'WATCHING' || s === 'ON') return 'text-text1 border-border2';
+/** Família Estratégia — independente da preferência, da posição e da execução. */
+export const STRATEGY_STATE_LABEL: Record<SpotCoinStrategyState, string> = {
+  OPPORTUNITY: 'Oportunidade',
+  WATCHING: 'Em observação',
+  NO_SIGNAL: 'Sem sinal',
+  OUTSIDE_RANKING: 'Fora do ranking',
+  UNKNOWN: 'Dados indisponíveis',
+};
+
+/** Família Posição REAL. */
+export const POSITION_STATE_LABEL: Record<SpotCoinPositionState, string> = {
+  NO_POSITION: 'Sem posição',
+  OPEN: 'Aberta',
+  CLOSING: 'A fechar',
+  CLOSED: 'Fechada',
+};
+
+/** Família Execução (vista do utilizador). Execução real desativada nesta fase. */
+export const EXECUTION_PHASE_LABEL: Record<SpotCoinExecutionPhase, string> = {
+  DISABLED: 'Desativada',
+  READY: 'Pronta',
+  BLOCKED: 'Bloqueada',
+  EXECUTING: 'Em execução',
+  EXECUTED: 'Executada',
+};
+
+export function strategyTone(s: SpotCoinStrategyState): string {
+  if (s === 'OPPORTUNITY') return 'text-cyan border-cyan-30';
+  if (s === 'WATCHING') return 'text-text1 border-border2';
   return 'text-text3 border-border1';
 }
 
@@ -85,51 +83,75 @@ export function fmtUsd(n: number | null): string {
   return `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+/** Sinal só para valores não nulos depois de arredondar: nunca "-$0.00". */
 export function fmtSignedUsd(n: number | null): string {
   if (n == null || !Number.isFinite(n)) return '—';
-  const abs = Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return `${n > 0 ? '+' : n < 0 ? '−' : ''}$${abs}`;
+  const cents = Math.round(n * 100);
+  const abs = (Math.abs(cents) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `${cents > 0 ? '+' : cents < 0 ? '−' : ''}$${abs}`;
 }
 
 export function signTone(n: number | null): string {
-  if (n == null || !Number.isFinite(n) || n === 0) return 'text-text2';
+  if (n == null || !Number.isFinite(n) || Math.round(n * 100) === 0) return 'text-text2';
   return n > 0 ? 'text-cyan' : 'text-red';
 }
 
-/** LIVE só quando o backend diz LIVE e o LIVE está ligado; tudo o resto é DISABLED. */
+/** LIVE só quando o backend diz LIVE e o LIVE está ligado; tudo o resto é desativado. */
 export function isExecutionLive(execution: SpotExecutionStatus | undefined, liveEnabled: boolean): boolean {
   return execution === 'LIVE' && liveEnabled;
 }
 
 export function executionLabel(execution: SpotExecutionStatus | undefined, liveEnabled: boolean): string {
-  return isExecutionLive(execution, liveEnabled) ? 'LIVE' : 'Trading Disabled';
+  if (isExecutionLive(execution, liveEnabled)) return 'Execução disponível';
+  return execution === 'PILOT' ? 'Piloto controlado' : 'Execução desativada';
 }
 
+export const SPOT_STATE_LABEL: Record<SpotAccountSpotState, string> = {
+  READY: 'Pronta',
+  PILOT: 'Piloto',
+  DISABLED: 'Trading desativado',
+};
+
+/** Estado interno da última ordem real — diagnóstico de admin. */
+export const EXECUTION_STATE_LABEL: Record<SpotCoinExecutionState, string> = {
+  PENDING: 'Pendente',
+  SUBMITTING: 'A enviar',
+  UNKNOWN: 'Desconhecido · a reconciliar',
+  SUBMITTED: 'Enviada',
+  PARTIALLY_FILLED: 'Parcial',
+  FILLED: 'Executada',
+  CANCELLED: 'Cancelada',
+  REJECTED: 'Rejeitada',
+  REQUIRES_RECONCILIATION: 'Requer reconciliação',
+  SETTLED: 'Liquidada',
+};
+
 export const NOT_AVAILABLE = 'Não disponível';
+export const BALANCE_UNAVAILABLE = 'Saldo indisponível';
 
 const orNA = (s: string) => (s === '—' ? NOT_AVAILABLE : s);
 
-/** Resumo REAL da conta. Valores null ficam "Não disponível" (nunca zero). */
+/** Resumo REAL da conta Spot. Valores null ficam "Não disponível" (nunca zero). */
 export function accountFacts(a: SpotRealAccount, execution: SpotExecutionStatus | undefined, liveEnabled: boolean): Array<[string, string]> {
   return [
-    ['Conta', a.status === 'CONNECTED' ? 'CONNECTED' : 'NOT CONNECTED'],
-    ['Balance', orNA(fmtUsd(a.balanceUsdt))],
-    ['REAL PnL não realizado', orNA(fmtSignedUsd(a.unrealizedPnl))],
-    ['REAL PnL realizado', orNA(fmtSignedUsd(a.realizedPnl))],
-    ['ROI', orNA(fmtSignedPct(a.roiPct))],
-    ['Execução', isExecutionLive(execution, liveEnabled) ? 'LIVE' : 'Execution not enabled'],
+    ['Conta', a.status === 'CONNECTED' ? 'Conectada' : 'Não conectada'],
+    ['Saldo Spot', orNA(fmtUsd(a.balanceUsdt))],
+    ['Disponível Spot', orNA(fmtUsd(a.availableUsdt))],
+    ['PnL REAL não realizado', orNA(fmtSignedUsd(a.unrealizedPnl))],
+    ['PnL REAL realizado', orNA(fmtSignedUsd(a.realizedPnl))],
+    ['Execução', executionLabel(execution, liveEnabled)],
   ];
 }
 
-/** Campos da posição REAL. Sem posição ⇒ null (a UI mostra "No active position"). */
+/** Campos da posição REAL. Sem posição ⇒ null (a UI mostra "Sem posição aberta"). */
 export function positionFacts(p: SpotRealPosition | null): Array<[string, string]> | null {
   if (!p) return null;
   return [
     ['Quantidade', p.quantity.toLocaleString('en-US', { maximumFractionDigits: 8 })],
-    ['Entrada', fmtPrice(p.entryPrice)],
-    ['Preço atual', fmtPrice(p.currentPrice)],
-    ['REAL PnL não realizado', fmtSignedUsd(p.unrealizedPnl)],
-    ['REAL PnL realizado', fmtSignedUsd(p.realizedPnl)],
-    ['ROI', fmtSignedPct(p.roiPct)],
+    ['Entrada', orNA(fmtPrice(p.entryPrice))],
+    ['Preço atual', orNA(fmtPrice(p.currentPrice))],
+    ['PnL REAL não realizado', orNA(fmtSignedUsd(p.unrealizedPnl))],
+    ['PnL REAL realizado', orNA(fmtSignedUsd(p.realizedPnl))],
+    ['ROI', orNA(fmtSignedPct(p.roiPct))],
   ];
 }

@@ -53,12 +53,12 @@ describe('Spot Paper na UI', () => {
   it('métricas dos paper tracks só são pedidas para admin', () => {
     const hook = read('hooks/useMomentumRanking.ts');
     expect(hook).toMatch(/includePaperMetrics\s*\?\s*api\.get<MetricsResponse>\('\/auto-ops\/momentum\/metrics'/);
-    const section = read('components/dashboard/MomentumWinnersLosersSection.tsx');
-    expect(section).toMatch(/useMomentumRanking\(60_000, isAdmin\)/);
+    expect(read('pages/DashboardPage.tsx')).toMatch(/useMomentumRanking\(60_000\)/);
+    expect(read('components/admin/StrategyLabPanel.tsx')).toMatch(/useMomentumRanking\(60_000, true\)/);
   });
 
   it('nenhum link para /spot-paper fora dos sítios protegidos', () => {
-    const allowed = new Set(['App.tsx', 'components/Layout.tsx', 'components/dashboard/MomentumWinnersLosersSection.tsx']);
+    const allowed = new Set(['App.tsx', 'components/Layout.tsx', 'components/dashboard/MomentumWinnersLosersSection.tsx', 'components/admin/StrategyLabPanel.tsx']);
     const root = path.join(__dirname, '..');
     const walk = (dir: string): string[] =>
       fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
