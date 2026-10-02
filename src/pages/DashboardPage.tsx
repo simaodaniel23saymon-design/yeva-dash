@@ -19,7 +19,6 @@ import {
   CartesianGrid,
   Line,
   LineChart,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -287,8 +286,7 @@ export default function DashboardPage() {
                   Sem dados de equity neste período
                 </p>
               ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={equityPoints}>
+                <LineChart data={equityPoints} responsive style={{ width: '100%', height: '100%' }}>
                     <CartesianGrid stroke="#1e2b1f" strokeDasharray="3 3" />
                     <XAxis
                       dataKey="label"
@@ -313,8 +311,7 @@ export default function DashboardPage() {
                       dot={false}
                       strokeWidth={2.5}
                     />
-                  </LineChart>
-                </ResponsiveContainer>
+                </LineChart>
               )}
             </div>
           </section>

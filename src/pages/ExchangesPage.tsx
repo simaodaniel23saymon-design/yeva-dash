@@ -9,6 +9,7 @@ import {
   type MarketType,
   type AccountMode,
 } from '../hooks/useExchange';
+import { shouldAutoTestConnection } from '../utils/exchangeStatus';
 
 const inputClass = 'w-full bg-bg3 border border-border2 text-text1 font-mono text-sm px-3 py-2.5 outline-none focus:border-cyan/35 transition-colors placeholder:text-text2';
 
@@ -19,9 +20,9 @@ const tabClass = (active: boolean) =>
 
 export default function ExchangesPage() {
   const {
-    status, isConnected, exchangeBalance, serverIp, loading,
+    status, isConnected, isDemoAccount, exchangeBalance, serverIp, loading,
     refreshStatus, testConnection, setExchangeBalance,
-  } = useExchange();
+  } = useExchange(0, { fetchBalance: false });
 
   const [exchange, setExchange] = useState<ExchangeName>('Binance');
   const [market, setMarket] = useState<MarketType>('FUTURES');
@@ -41,6 +42,8 @@ export default function ExchangesPage() {
   const [copied, setCopied] = useState(false);
   const [maskedKey, setMaskedKey] = useState('');
   const [balanceUpdatedAt, setBalanceUpdatedAt] = useState<Date | null>(null);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [checkingConnection, setCheckingConnection] = useState(false);
 
   const showFlash = (text: string, ok = true) => {
     setFlash({ text, ok });
@@ -68,22 +71,26 @@ export default function ExchangesPage() {
   }, [exchangeBalance, isConnected, editMode]);
 
   const fetchBalance = useCallback(async () => {
-    if (!isConnected) return;
+    if (!isConnected || isDemoAccount) return;
+    setCheckingConnection(true);
     const result = await testConnection({
       exchange, market, testnet: accountType === 'demo',
     });
+    setCheckingConnection(false);
     if (result.success && result.balance != null) {
       setTestedBalance(result.balance);
       setBalanceUpdatedAt(new Date());
+      setConnectionError(null);
+    } else {
+      setConnectionError(result.error ?? 'Falha na conexão');
     }
-  }, [isConnected, exchange, market, accountType, testConnection]);
+  }, [isConnected, isDemoAccount, exchange, market, accountType, testConnection]);
 
+  // Um teste por abertura/mudança de mercado — sem polling; nova tentativa só por clique.
   useEffect(() => {
-    if (!isConnected || editMode) return;
+    if (!shouldAutoTestConnection({ connected: isConnected, account: status.exchange, editMode })) return;
     fetchBalance();
-    const interval = setInterval(fetchBalance, 10000);
-    return () => clearInterval(interval);
-  }, [isConnected, editMode, fetchBalance]);
+  }, [isConnected, status.exchange, editMode, fetchBalance]);
 
   const copyIp = () => {
     navigator.clipboard.writeText(serverIp);
@@ -304,6 +311,23 @@ export default function ExchangesPage() {
                 </p>
               )}
             </>
+          )}
+          {isDemoAccount && (
+            <p className="font-mono text-[10px] text-text2 mt-1">
+              Conta demo: sem ligação real à exchange.
+            </p>
+          )}
+          {!isDemoAccount && connectionError && (
+            <div className="mt-2 border border-red-30 bg-red-dim p-2 font-mono text-[10px] text-red">
+              <p className="font-bold uppercase">Ligação indisponível</p>
+              <p className="mt-1 break-words">{connectionError}</p>
+            </div>
+          )}
+          {!isDemoAccount && (
+            <button type="button" onClick={fetchBalance} disabled={checkingConnection}
+              className="w-full mt-3 py-2.5 border border-cyan-30 bg-cyan-dim text-cyan font-mono text-[9px] uppercase disabled:opacity-50">
+              {checkingConnection ? 'A testar...' : 'Testar ligação'}
+            </button>
           )}
           <div className="flex gap-2 mt-4">
             <button type="button" onClick={() => { setEditMode(true); setTestedBalance(null); }}

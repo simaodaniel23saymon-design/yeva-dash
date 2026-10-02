@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { getFriendlyError } from '../utils/errorHandler';
+import { isDemoExchangeAccount } from '../utils/exchangeStatus';
 
 export type ExchangeName = 'Binance' | 'Bybit';
 export type MarketType = 'FUTURES' | 'SPOT';
@@ -69,7 +70,7 @@ export function useExchange(pollMs = 0, options?: { fetchBalance?: boolean }) {
   }, []);
 
   const refreshBalance = useCallback(async (market: MarketType = 'FUTURES') => {
-    if (!status.connected || !status.exchange?.exchange) return;
+    if (!status.connected || !status.exchange?.exchange || isDemoExchangeAccount(status.exchange)) return;
     const ex = normalizeExchange(status.exchange.exchange);
     const testnet = status.exchange.accountType === 'demo' || status.exchange.accountType === 'DEMO';
     const result = await testConnection({ exchange: ex, market, testnet });
@@ -114,6 +115,7 @@ export function useExchange(pollMs = 0, options?: { fetchBalance?: boolean }) {
   return {
     status,
     isConnected: status.connected,
+    isDemoAccount: isDemoExchangeAccount(status.exchange),
     exchangeBalance,
     serverIp,
     loading,

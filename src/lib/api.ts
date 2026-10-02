@@ -5,6 +5,7 @@ import {
   getRefreshToken,
   persistTokens,
 } from './authStorage';
+import { accessTokenExpiresWithin, bearerToken } from './authToken';
 
 const RAW_API_URL =
   import.meta.env.VITE_API_URL ||
@@ -31,9 +32,36 @@ function isAuthRequest(url: string): boolean {
 
 type RetryConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
+/** Renovar antes de expirar evita a rajada de 401 de todos os pollings quando o access token (15 min) caduca. */
+const PROACTIVE_REFRESH_WINDOW_MS = 30_000;
+
+let refreshPromise: Promise<string | null> | null = null;
+
+/** Um único /auth/refresh em voo — o endpoint tem rate limit de 5/min por IP. */
+function refreshSessionOnce(): Promise<string | null> {
+  if (!refreshPromise) {
+    refreshPromise = tryRefreshSession().finally(() => {
+      refreshPromise = null;
+    });
+  }
+  return refreshPromise;
+}
+
 /** Bearer só para sessões legacy em localStorage; cookies HttpOnly não são legíveis via JS */
-api.interceptors.request.use((config) => {
-  const token = getAccessToken();
+api.interceptors.request.use(async (config) => {
+  let token = getAccessToken();
+  if (
+    token &&
+    !isAuthRequest(String(config.url ?? '')) &&
+    accessTokenExpiresWithin(token, PROACTIVE_REFRESH_WINDOW_MS)
+  ) {
+    try {
+      token = await refreshSessionOnce();
+    } catch (refreshError) {
+      redirectToLogin(true);
+      throw refreshError;
+    }
+  }
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   } else if (config.headers.Authorization) {
@@ -41,14 +69,6 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
-
-let isRefreshing = false;
-let refreshSubscribers: Array<(token: string | null) => void> = [];
-
-function onRefreshed(token: string | null): void {
-  refreshSubscribers.forEach((cb) => cb(token));
-  refreshSubscribers = [];
-}
 
 function redirectToLogin(expired = false): void {
   if (typeof window === 'undefined' || window.location.pathname.startsWith('/login')) return;
@@ -81,36 +101,18 @@ api.interceptors.response.use(
     }
 
     if (status === 401 && !isAuthRequest(requestUrl) && !originalRequest._retry) {
-      if (isRefreshing) {
-        return new Promise((resolve) => {
-          refreshSubscribers.push((token) => {
-            if (token) {
-              originalRequest.headers.Authorization = `Bearer ${token}`;
-            } else {
-              delete originalRequest.headers.Authorization;
-            }
-            resolve(api(originalRequest));
-          });
-        });
-      }
-
       originalRequest._retry = true;
-      isRefreshing = true;
-
       try {
-        const newToken = await tryRefreshSession();
-        onRefreshed(newToken);
-        if (newToken) {
-          originalRequest.headers.Authorization = `Bearer ${newToken}`;
-        } else {
-          delete originalRequest.headers.Authorization;
+        const sentToken = bearerToken(originalRequest.headers.Authorization);
+        const currentToken = getAccessToken();
+        // Pedido saiu com um token que entretanto já foi renovado: repetir sem novo refresh.
+        if (!currentToken || currentToken === sentToken) {
+          await refreshSessionOnce();
         }
         return api(originalRequest);
       } catch (refreshError) {
         redirectToLogin(true);
         return Promise.reject(refreshError);
-      } finally {
-        isRefreshing = false;
       }
     }
 

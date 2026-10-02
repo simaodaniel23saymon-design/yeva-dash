@@ -31,7 +31,7 @@ const permissions = [
 ];
 
 export default function ApiGuidePage() {
-  const { serverIp } = useExchange();
+  const { serverIp } = useExchange(0, { fetchBalance: false });
 
   const copyIp = () => {
     navigator.clipboard.writeText(serverIp);
