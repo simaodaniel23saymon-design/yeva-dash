@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../lib/api';
 import { getFriendlyError } from '../../utils/errorHandler';
+import { readinessSummary, type PilotReadiness } from '../../utils/pilotReadinessView';
 
 type PilotState = 'DISABLED' | 'ARMED' | 'ACTIVE' | 'PAUSED' | 'BLOCKED';
 
@@ -10,6 +11,7 @@ type Safety = {
   cexLiveWriteEnabledInBuild: boolean;
   realSpotPilotEnabled: boolean;
   realSpotPilotMaxNotional: number | null;
+  realSpotPilotAccountId?: string | null;
   blockers: string[];
 };
 
@@ -39,6 +41,7 @@ export default function SpotPilotAdminPanel() {
   const [selected, setSelected] = useState<string | null>(null);
   const [detail, setDetail] = useState<Detail | null>(null);
   const [check, setCheck] = useState<unknown>(null);
+  const [readiness, setReadiness] = useState<PilotReadiness | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -101,6 +104,18 @@ export default function SpotPilotAdminPanel() {
     });
   };
 
+  async function loadReadiness(id: string) {
+    setBusy(true);
+    setMsg(null);
+    try {
+      setReadiness((await api.get<PilotReadiness>(`/spot-pilot/accounts/${id}/readiness`, { params: { symbol: 'BTCUSDT', symbols: 'ETHUSDT' } })).data);
+    } catch (e) {
+      setMsg({ ok: false, text: getFriendlyError(e).message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const s = status?.safety;
 
   return (
@@ -113,7 +128,8 @@ export default function SpotPilotAdminPanel() {
             <div><dt className="text-text3">SPOT_KILL_SWITCH</dt><dd className={s.spotKillSwitch ? 'text-red' : 'text-text1'}>{yesNo(s.spotKillSwitch)}</dd></div>
             <div><dt className="text-text3">CEX_LIVE_WRITE_ENABLED_IN_BUILD</dt><dd className="text-text1">{yesNo(s.cexLiveWriteEnabledInBuild)}</dd></div>
             <div><dt className="text-text3">REAL_SPOT_PILOT_ENABLED</dt><dd className="text-text1">{yesNo(s.realSpotPilotEnabled)}</dd></div>
-            <div><dt className="text-text3">Limite por ordem/ciclo/conta</dt><dd className="text-text1">{s.realSpotPilotMaxNotional == null ? 'não configurado' : `${s.realSpotPilotMaxNotional} USDT`}</dd></div>
+            <div><dt className="text-text3">Limite por ordem/ciclo/conta (PILOT ONLY)</dt><dd className="text-text1">{s.realSpotPilotMaxNotional == null ? 'não configurado' : `${s.realSpotPilotMaxNotional} USDT`}</dd></div>
+            <div><dt className="text-text3">Conta piloto (PILOT ONLY)</dt><dd className="text-text1 break-all">{s.realSpotPilotAccountId ?? 'não configurada'}</dd></div>
           </dl>
         ) : (
           <p className="text-text3 text-sm">A ler…</p>
@@ -160,7 +176,27 @@ export default function SpotPilotAdminPanel() {
             <button type="button" disabled={busy} onClick={() => setState('DISABLED')} className="font-mono text-[9px] uppercase border border-border2 text-text2 px-2 py-1 disabled:opacity-40">Desativar</button>
             <button type="button" disabled={busy} onClick={() => void act('Leitura da conta concluída', async () => (await api.post(`/spot-pilot/accounts/${selected}/read-check`)).data)} className="font-mono text-[9px] uppercase border border-cyan-30 text-cyan px-2 py-1 disabled:opacity-40">Verificar leitura</button>
             <button type="button" disabled={busy} onClick={() => void act('Reconciliação concluída', async () => (await api.post(`/spot-pilot/accounts/${selected}/reconcile`)).data)} className="font-mono text-[9px] uppercase border border-cyan-30 text-cyan px-2 py-1 disabled:opacity-40">Reconciliar</button>
+            <button type="button" disabled={busy} onClick={() => void loadReadiness(selected)} className="font-mono text-[9px] uppercase border border-cyan-30 text-cyan px-2 py-1 disabled:opacity-40">Readiness (dry-run)</button>
           </div>
+
+          {readiness && readiness.accountId === selected && (
+            <div data-testid="pilot-readiness">
+              <h4 className="font-mono text-[9px] uppercase tracking-wider text-text3 mb-2">
+                Readiness · <span className={readiness.readiness === 'READY' ? 'text-cyan' : 'text-gold'}>{readiness.readiness === 'READY' ? 'Pronto' : 'Não pronto'}</span> · só leitura, sem ordens
+              </h4>
+              <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 font-mono text-[10px]">
+                {readinessSummary(readiness).map(([k, v]) => (
+                  <div key={k} className="flex justify-between gap-3 border-b border-border1 py-1">
+                    <dt className="text-text3">{k}</dt>
+                    <dd className="text-text1 text-right">{v}</dd>
+                  </div>
+                ))}
+              </dl>
+              {readiness.blockers.length > 0 && <p className="mt-2 text-gold font-mono text-[10px]">Bloqueios: {readiness.blockers.join(' · ')}</p>}
+              {readiness.safety.gates.length > 0 && <p className="mt-1 text-text3 font-mono text-[10px]">Gates desta fase: {readiness.safety.gates.join(' · ')}</p>}
+              {readiness.dryRun && readiness.dryRun.reasons.length > 0 && <p className="mt-1 text-text3 font-mono text-[10px]">Dry-run: {readiness.dryRun.reasons.join(', ')}</p>}
+            </div>
+          )}
 
           <div>
             <h4 className="font-mono text-[9px] uppercase tracking-wider text-text3 mb-2">Intents por resolver</h4>

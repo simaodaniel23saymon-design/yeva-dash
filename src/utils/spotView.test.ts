@@ -130,6 +130,7 @@ describe('conta e posição REAL', () => {
       'PnL REAL não realizado · Spot': NOT_AVAILABLE,
       'PnL REAL realizado · Spot': NOT_AVAILABLE,
       Execução: 'Trading Spot desativado.',
+      Piloto: 'Não ativo',
     });
     expect(NOT_AVAILABLE).toBe('—');
     expect(Object.keys(facts)).not.toContain('Saldo');

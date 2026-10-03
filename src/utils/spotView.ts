@@ -143,7 +143,13 @@ export function accountFacts(a: SpotRealAccount, execution: SpotExecutionStatus 
     ['PnL REAL não realizado · Spot', accountValue(s, a.unrealizedPnl, (v) => fmtSignedUsd(v))],
     ['PnL REAL realizado · Spot', accountValue(s, a.realizedPnl, (v) => fmtSignedUsd(v))],
     ['Execução', execution === 'PILOT' ? executionLabel(execution, liveEnabled) : SPOT_TRADING_TEXT[spotTradingState(a)]],
+    ['Piloto', pilotLabel(execution)],
   ];
+}
+
+/** Piloto só aparece ativo quando o backend reporta PILOT; qualquer outro estado é "Não ativo". */
+export function pilotLabel(execution: SpotExecutionStatus | undefined): string {
+  return execution === 'PILOT' ? 'Piloto controlado' : 'Não ativo';
 }
 
 /** Campos da posição REAL. Sem posição ⇒ null (a UI mostra "Sem posição aberta"). */
