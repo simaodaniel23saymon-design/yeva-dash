@@ -55,7 +55,13 @@ export function marketOverview(items: readonly MarketItem[]): MarketOverview {
   };
 }
 
-export const NO_OPPORTUNITY_TEXT = 'Sem oportunidade no momento';
+export const NO_OPPORTUNITY_TEXT = 'Sem oportunidade elegível no momento.';
+export const MARKET_MONITORED_TEXT = 'Mercado monitorado';
+export const OPPORTUNITY_LIMIT = 5;
+
+export function eligibleCountText(n: number): string {
+  return `${n} ${n === 1 ? 'oportunidade elegível' : 'oportunidades elegíveis'}`;
+}
 
 export const OPPORTUNITY_LABEL: Record<OpportunityStatus, string> = {
   OPPORTUNITY: 'Oportunidade',
@@ -109,8 +115,8 @@ export type DashboardOpportunity = {
   to: '/spot' | '/futures';
 };
 
-/** Só oportunidades relevantes (Spot: estratégia OPPORTUNITY · Futures: projeção OPPORTUNITY). */
-export function dashboardOpportunities(coins: readonly SpotCoinLike[], items: readonly MarketItem[]): DashboardOpportunity[] {
+/** Só oportunidades relevantes (Spot: estratégia OPPORTUNITY · Futures: projeção OPPORTUNITY), até 5, sem duplicados. */
+export function dashboardOpportunities(coins: readonly SpotCoinLike[], items: readonly MarketItem[], limit = OPPORTUNITY_LIMIT): DashboardOpportunity[] {
   const change = new Map(coins.map((c) => [c.symbol, c.change24hPct]));
   const spot = coins
     .filter((c) => c.strategyState === 'OPPORTUNITY')
@@ -124,5 +130,6 @@ export function dashboardOpportunities(coins: readonly SpotCoinLike[], items: re
       market: 'FUTURES',
       to: '/futures',
     }));
-  return [...spot, ...fut];
+  const seen = new Set<string>();
+  return [...spot, ...fut].filter((o) => (seen.has(o.key) ? false : (seen.add(o.key), true))).slice(0, limit);
 }

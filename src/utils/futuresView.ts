@@ -1,6 +1,6 @@
 /**
  * Helpers da página Futures. Só dados Futures (posições /exchange/positions, bots não-Spot);
- * nada de Spot entra aqui. Valores desconhecidos ficam null — a UI mostra "Não disponível", nunca zero.
+ * nada de Spot entra aqui. Valores desconhecidos ficam null — a UI mostra o estado dos dados, nunca zero.
  */
 
 import type { ExchangePosition, LiveBot } from './liveData';
@@ -97,7 +97,7 @@ export function futuresCoinCards(
   });
 }
 
-/** Valor só quando a conta Futures está ligada; caso contrário null ("Não disponível"). */
+/** Valor só quando a conta Futures está ligada; caso contrário null (nunca zero). */
 export function whenConnected<T>(connected: boolean, value: T): T | null {
   return connected ? value : null;
 }

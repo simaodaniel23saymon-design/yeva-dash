@@ -121,26 +121,31 @@ describe('conta e posição REAL', () => {
     });
   });
 
-  it('conta sem fonte real ⇒ Não disponível, nunca zero; saldo sempre "Saldo Spot"', () => {
-    const facts = Object.fromEntries(accountFacts(account(), 'DISABLED', false));
+  it('conta sem leitura real ⇒ "Não foi possível atualizar o saldo.", restantes valores "—", nunca zero', () => {
+    const facts = Object.fromEntries(accountFacts(account({ dataState: 'DATA_UNAVAILABLE' }), 'DISABLED', false));
     expect(facts).toEqual({
       Conta: 'Conectada',
-      'Saldo Spot': NOT_AVAILABLE,
+      'Saldo Spot': 'Não foi possível atualizar o saldo.',
       'Disponível Spot': NOT_AVAILABLE,
-      'PnL REAL não realizado': NOT_AVAILABLE,
-      'PnL REAL realizado': NOT_AVAILABLE,
-      Execução: 'Execução desativada',
+      'PnL REAL não realizado · Spot': NOT_AVAILABLE,
+      'PnL REAL realizado · Spot': NOT_AVAILABLE,
+      Execução: 'Trading Spot desativado.',
     });
+    expect(NOT_AVAILABLE).toBe('—');
     expect(Object.keys(facts)).not.toContain('Saldo');
-    expect(Object.fromEntries(accountFacts(account({ status: 'NOT_CONNECTED' }), 'DISABLED', false)).Conta).toBe('Não conectada');
+    expect(JSON.stringify(facts)).not.toMatch(/Não disponível|\$0\.00/);
+    const nc = Object.fromEntries(accountFacts(account({ status: 'NOT_CONNECTED', dataState: 'NOT_CONNECTED' }), 'DISABLED', false));
+    expect(nc).toMatchObject({ Conta: 'Não conectada', 'Saldo Spot': 'Conecte uma exchange para continuar.' });
   });
 
-  it('conta Binance com dados reais: saldo e disponível Spot do backend', () => {
+  it('conta Binance com dados reais: saldo e disponível Spot do backend; zero real ⇒ "$0.00 USDT"', () => {
     const facts = Object.fromEntries(
-      accountFacts(account({ spotState: 'READY', futuresState: 'ENABLED', balanceUsdt: 120, availableUsdt: 100, dataSource: 'BINANCE_SPOT' }), 'DISABLED', false)
+      accountFacts(account({ spotState: 'READY', futuresState: 'ENABLED', balanceUsdt: 120, availableUsdt: 100, dataSource: 'BINANCE_SPOT', dataState: 'CONNECTED' }), 'DISABLED', false)
     );
-    expect(facts).toMatchObject({ 'Saldo Spot': '$120.00', 'Disponível Spot': '$100.00', Execução: 'Execução desativada' });
+    expect(facts).toMatchObject({ 'Saldo Spot': '$120.00 USDT', 'Disponível Spot': '$100.00', Execução: 'Trading Spot desativado.' });
+    expect(Object.fromEntries(accountFacts(account({ balanceUsdt: 0, availableUsdt: 0, dataSource: 'BINANCE_SPOT', dataState: 'ZERO_BALANCE' }), 'DISABLED', false))['Saldo Spot']).toBe('$0.00 USDT');
     expect(Object.fromEntries(accountFacts(account({ spotState: 'PILOT' }), 'PILOT', false))).toMatchObject({ Execução: 'Piloto controlado' });
+    expect(Object.fromEntries(accountFacts(account({ tradingState: 'TRADING_AVAILABLE' }), 'DISABLED', false))).toMatchObject({ Execução: 'Trading Spot disponível.' });
   });
 });
 
@@ -178,6 +183,10 @@ describe('segurança do frontend Spot', () => {
     'hooks/useSpot.ts',
     'pages/SpotPage.tsx',
     'components/spot/SpotCoinRow.tsx',
+    'components/spot/BotConfigPanel.tsx',
+    'utils/botConfigView.ts',
+    'utils/dataStates.ts',
+    'utils/marketDiscovery.ts',
   ].map((f) => [f, fs.readFileSync(path.join(__dirname, '..', f), 'utf8')] as const);
 
   it('não usa segredos nem endpoints de ordens, e não chama o Spot DCA real', () => {
@@ -186,10 +195,11 @@ describe('segurança do frontend Spot', () => {
     }
   });
 
-  it('o único pedido de escrita é a preferência', () => {
+  it('escritas: só a preferência/config (PUT) e a validação sem gravar (POST preview)', () => {
     const hook = files.find(([f]) => f === 'hooks/useSpot.ts')![1];
-    expect(hook.match(/api\.(post|put|patch|delete)\(/g)).toEqual(['api.put(']);
-    expect(hook).toMatch(/api\.put\('\/spot\/preferences'/);
+    const writes = [...hook.matchAll(/api\.(post|put|patch|delete)(?:<[^>]+>)?\(\s*'([^']+)'/g)].map((m) => `${m[1]} ${m[2]}`);
+    expect(writes).toEqual(['post /spot/bot-config/preview', 'put /spot/preferences', 'put /spot/preferences', 'put /spot/preferences']);
+    expect(hook).not.toMatch(/api\.(patch|delete)\(/);
   });
 
   it('não há botão para ligar LIVE', () => {

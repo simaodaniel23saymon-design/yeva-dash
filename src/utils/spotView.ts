@@ -15,6 +15,7 @@ import type {
   SpotRealAccount,
   SpotRealPosition,
 } from '../types/spot';
+import { DATA_STATE_TEXT, SPOT_TRADING_TEXT, accountValue, balanceText, spotAccountState, spotTradingState } from './dataStates';
 
 export const COIN_STATE_LABEL: Record<SpotCoinDisplayState, string> = {
   OFF: 'OFF',
@@ -31,7 +32,7 @@ export const STRATEGY_STATE_LABEL: Record<SpotCoinStrategyState, string> = {
   WATCHING: 'Em observação',
   NO_SIGNAL: 'Sem sinal',
   OUTSIDE_RANKING: 'Fora do ranking',
-  UNKNOWN: 'Dados indisponíveis',
+  UNKNOWN: 'Dados em atualização',
 };
 
 /** Família Posição REAL. */
@@ -126,20 +127,22 @@ export const EXECUTION_STATE_LABEL: Record<SpotCoinExecutionState, string> = {
   SETTLED: 'Liquidada',
 };
 
-export const NOT_AVAILABLE = 'Não disponível';
-export const BALANCE_UNAVAILABLE = 'Saldo indisponível';
+/** Campo sem valor conhecido: traço (o estado da conta explica porquê). Nunca zero. */
+export const NOT_AVAILABLE = '—';
+export const BALANCE_UNAVAILABLE = DATA_STATE_TEXT.DATA_UNAVAILABLE;
 
 const orNA = (s: string) => (s === '—' ? NOT_AVAILABLE : s);
 
-/** Resumo REAL da conta Spot. Valores null ficam "Não disponível" (nunca zero). */
+/** Resumo REAL da conta Spot. Saldo segue o estado dos dados; restantes valores só com leitura válida. */
 export function accountFacts(a: SpotRealAccount, execution: SpotExecutionStatus | undefined, liveEnabled: boolean): Array<[string, string]> {
+  const s = spotAccountState(a, false);
   return [
     ['Conta', a.status === 'CONNECTED' ? 'Conectada' : 'Não conectada'],
-    ['Saldo Spot', orNA(fmtUsd(a.balanceUsdt))],
-    ['Disponível Spot', orNA(fmtUsd(a.availableUsdt))],
-    ['PnL REAL não realizado', orNA(fmtSignedUsd(a.unrealizedPnl))],
-    ['PnL REAL realizado', orNA(fmtSignedUsd(a.realizedPnl))],
-    ['Execução', executionLabel(execution, liveEnabled)],
+    ['Saldo Spot', balanceText(s, a.balanceUsdt)],
+    ['Disponível Spot', accountValue(s, a.availableUsdt, (v) => fmtUsd(v))],
+    ['PnL REAL não realizado · Spot', accountValue(s, a.unrealizedPnl, (v) => fmtSignedUsd(v))],
+    ['PnL REAL realizado · Spot', accountValue(s, a.realizedPnl, (v) => fmtSignedUsd(v))],
+    ['Execução', execution === 'PILOT' ? executionLabel(execution, liveEnabled) : SPOT_TRADING_TEXT[spotTradingState(a)]],
   ];
 }
 

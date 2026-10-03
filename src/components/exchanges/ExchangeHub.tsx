@@ -242,7 +242,7 @@ export default function ExchangeHub({ venues, securityLayer, loading, error, bin
   return (
     <div className="space-y-6" data-testid="exchange-hub">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        {noneConnected ? <p className="text-text2" data-testid="hub-empty">Nenhuma exchange conectada</p> : <span />}
+        {noneConnected ? <p className="text-text2" data-testid="hub-empty">Conecte uma exchange para continuar.</p> : <span />}
         <button
           type="button"
           onClick={() => setSelectorOpen(true)}

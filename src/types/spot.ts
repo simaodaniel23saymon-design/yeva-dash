@@ -1,4 +1,4 @@
-/** Contratos de GET /api/spot/venues · /bots · /coins (contexto REAL do utilizador; sem dados Paper). */
+/** Contratos de /api/spot/* e /api/market/movers (contexto REAL do utilizador; sem dados Paper). */
 
 export type SpotVenueStatus = 'CONNECTED' | 'AVAILABLE' | 'NOT_CONNECTED' | 'COMING_SOON' | 'NOT_SUPPORTED';
 
@@ -82,10 +82,17 @@ export type SpotRealPosition = {
   updatedAt: string;
 };
 
+/** Estado dos dados da conta (backend). ZERO_BALANCE = leitura OK com 0 USDT; DATA_UNAVAILABLE = leitura falhou. */
+export type AccountDataState = 'NOT_CONNECTED' | 'CONNECTED' | 'DATA_UNAVAILABLE' | 'DATA_STALE' | 'ZERO_BALANCE';
+export type AccountTradingState = 'TRADING_AVAILABLE' | 'TRADING_DISABLED';
+
 /** Resumo REAL da conta. null = ainda não lido da exchange. */
 export type SpotRealAccount = {
   exchange: string;
   status: 'CONNECTED' | 'NOT_CONNECTED';
+  dataState?: AccountDataState;
+  tradingState?: AccountTradingState;
+  fetchedAt?: string | null;
   /** Spot e Futures separados: "Binance connected" não implica "Spot enabled". */
   spotState: SpotAccountSpotState;
   futuresState: SpotAccountFuturesState;
@@ -113,7 +120,143 @@ export type SpotCoin = {
   executionPhase: SpotCoinExecutionPhase;
   /** Estado interno do intent — só vem preenchido para admin. */
   executionState: SpotCoinExecutionState | null;
+  sources?: SpotCoinSource[];
+  /** Config guardada para a moeda; null = ainda não configurada. */
+  config?: SpotBotConfig | null;
+  /** DRAFT = guardada mas incompleta (não pode ser ligada) · READY_TO_ACTIVATE = completa. */
+  configState?: BotConfigState | null;
+  /** Só nos resultados da pesquisa (catálogo de símbolos da exchange). */
+  baseAsset?: string;
+  quoteAsset?: string;
+  market?: 'SPOT';
+  status?: string;
 };
+
+export type BotConfigState = 'DRAFT' | 'READY_TO_ACTIVATE';
+
+export type SpotCoinSource = 'TOP_WINNER' | 'MY_COIN' | 'SEARCH' | 'WATCHLIST';
+
+/** Top Winners (ranking existente) e moedas do utilizador. UPDATING = sem scan recente. */
+export type SpotDiscovery = {
+  marketState: 'FRESH' | 'UPDATING';
+  updatedAt: string | null;
+  topWinners: string[];
+  myCoins: string[];
+};
+
+export type SpotSearchResponse = {
+  query: string;
+  orderExecution: false;
+  catalog: { status: 'OK' | 'STALE'; fetchedAt: string | null; size: number };
+  results: SpotCoin[];
+};
+
+/** Catálogo de bots (GET /spot/bots → catalog). Só AVAILABLE é configurável. */
+export type BotCatalogStatus = 'AVAILABLE' | 'COMING_SOON' | 'NOT_SUPPORTED' | 'DISABLED';
+export type BotCatalogEntry = {
+  id: string;
+  name: string;
+  market: 'SPOT' | 'FUTURES';
+  status: BotCatalogStatus;
+  configurable: 'HERE' | 'BOTS_PAGE' | null;
+  execution: 'LIVE' | 'DISABLED' | 'BOTS';
+  exchanges: string[];
+  note: string;
+};
+
+export type ReentryCondition = 'NEW_SIGNAL' | 'PULLBACK';
+
+/** Configuração por moeda. null = não configurado. Valores em USDT e %. */
+export type SpotBotConfig = {
+  capitalTotalUsdt: number | null;
+  entryCapitalUsdt: number | null;
+  reserveUsdt: number | null;
+  maxPerCoinUsdt: number | null;
+  maxEntries: number | null;
+  stopLossPct: number | null;
+  trailingStopPct: number | null;
+  takeProfitPct: number | null;
+  trailingActivationPct: number | null;
+  trailingGivebackPct: number | null;
+  reentryEnabled: boolean;
+  reentryCondition: ReentryCondition | null;
+  reentryCooldownMin: number | null;
+};
+
+export type SpotStrategyDefaults = {
+  source: 'SPOT_ROTATION_CONFIG';
+  initialAllocationPct: number;
+  reservePct: number;
+  maxEntries: number;
+  takeProfitPct: number | null;
+  trailingActivationPct: number | null;
+  trailingGivebackPct: number | null;
+  stopLossPct: null;
+  minEntryUsdt: number;
+  trailingSupported: boolean;
+};
+
+export type BotConfigError = { field: keyof SpotBotConfig; code: string };
+
+export type BotRiskPreview = {
+  capitalUsdt: number | null;
+  initialEntryUsdt: number | null;
+  reserveUsdt: number | null;
+  maxExposureUsdt: number | null;
+  maxEntries: number | null;
+  stopLossPct: number | null;
+  takeProfitPct: number | null;
+  trailingStopPct: number | null;
+  trailingActivationPct: number | null;
+  trailingGivebackPct: number | null;
+  reentryEnabled: boolean;
+  reentryCondition: ReentryCondition | null;
+  reentryCooldownMin: number | null;
+  maxLossAtStopUsdt: number | null;
+};
+
+/** REAL = conta do utilizador (exige proteção de perda) · PAPER = laboratório do admin. */
+export type BotConfigContext = 'REAL' | 'PAPER';
+
+export type BotConfigResponse = {
+  exchange: string;
+  bot: string;
+  symbol: string;
+  context?: BotConfigContext;
+  enabled: boolean;
+  configured: boolean;
+  configState?: BotConfigState;
+  activationErrors?: BotConfigError[];
+  config: SpotBotConfig;
+  defaults: SpotBotConfig;
+  strategyDefaults: SpotStrategyDefaults;
+  preview: BotRiskPreview;
+  orderExecution: false;
+};
+
+export type BotPreviewResponse = {
+  context?: BotConfigContext;
+  valid: boolean;
+  configState?: BotConfigState;
+  /** true = pode ser guardada como rascunho (sem valores incoerentes). */
+  draftValid?: boolean;
+  errors: BotConfigError[];
+  config: SpotBotConfig;
+  preview: BotRiskPreview;
+  orderExecution: false;
+};
+
+/** Top Winners / Losers Futures (GET /market/movers). */
+export type FuturesMover = {
+  symbol: string;
+  base: string;
+  price: number;
+  change24hPct: number;
+  quoteVolume24h: number | null;
+  opportunityState: 'SIGNAL' | 'MONITORED';
+};
+export type FuturesMoversResponse = { market: 'FUTURES'; scannedAt: string | null; stale: boolean; winners: FuturesMover[]; losers: FuturesMover[] };
+export type FuturesSearchResponse = { market: 'FUTURES'; query: string; scannedAt: string | null; stale: boolean; results: FuturesMover[] };
 
 export type SpotCoinsResponse = {
   exchange: string;
@@ -128,6 +271,7 @@ export type SpotCoinsResponse = {
   rankingFresh: boolean;
   marketScannedAt: string | null;
   marketStale: boolean;
+  discovery?: SpotDiscovery;
   generatedAt: string;
   view?: 'ADMIN' | 'USER';
   coins: SpotCoin[];

@@ -8,7 +8,7 @@ export const PRO_INTELLIGENCE_CONCEPTS: ReadonlyArray<{ id: string; name: string
   { id: 'LAUNCH_RADAR', name: 'Launch Radar', kind: 'Discovery', text: 'Descoberta de lançamentos recentes, com verificação de segurança.' },
   { id: 'VOLUME_SURGE', name: 'Volume Surge', kind: 'Signal', text: 'Sinal de aumento anormal de volume face ao histórico.' },
   { id: 'LIQUIDITY_CHANGE', name: 'Liquidity Change', kind: 'Risk', text: 'Alteração relevante de liquidez que muda o risco de entrada ou saída.' },
-  { id: 'NEW_LISTING', name: 'New Listing', kind: 'Discovery', text: 'Novas listagens nas exchanges suportadas.' },
+  { id: 'NEW_LISTING', name: 'New Listing', kind: 'Opportunity', text: 'Novas listagens nas exchanges suportadas.' },
   { id: 'SMART_WALLET', name: 'Smart Wallet Activity', kind: 'Signal', text: 'Atividade de carteiras acompanhadas, como sinal e não como recomendação.' },
   { id: 'SECURITY_ALERT', name: 'Security Alert', kind: 'Risk', text: 'Alerta de risco de contrato ou token antes de qualquer operação.' },
 ];

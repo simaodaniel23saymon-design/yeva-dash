@@ -11,6 +11,8 @@ export interface BinanceData {
   /** totalMarginBalance — saldo principal na app Binance (carteira + P&L aberto) */
   saldoLiquido: number;
   exchangeConnected: boolean;
+  /** Do backend: NOT_CONNECTED (sem conta) vs DATA_UNAVAILABLE (leitura falhou). Ausente em respostas antigas. */
+  dataState?: 'NOT_CONNECTED' | 'CONNECTED' | 'DATA_UNAVAILABLE';
   activeBots: number;
   atualizadoEm: string;
 }
@@ -73,6 +75,7 @@ export function normalizeBinanceData(raw: Record<string, unknown>): BinanceData 
     posicoesAbertas: num(raw, ['openPositionsCount', 'open_positions_count']),
     saldoLiquido: resolvedSaldoLiquido,
     exchangeConnected: Boolean(raw.exchangeConnected ?? raw.exchange_connected),
+    dataState: raw.dataState === 'NOT_CONNECTED' || raw.dataState === 'CONNECTED' || raw.dataState === 'DATA_UNAVAILABLE' ? raw.dataState : undefined,
     activeBots: num(raw, ['activeBots', 'active_bots']),
     atualizadoEm: String(raw.updatedAt ?? raw.updated_at ?? new Date().toISOString()),
   };

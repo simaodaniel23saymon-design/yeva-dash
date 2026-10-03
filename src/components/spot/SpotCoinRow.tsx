@@ -1,4 +1,5 @@
 import type { SpotCoin } from '../../types/spot';
+import { PROTECTION_LABEL, draftSummaryRows } from '../../utils/botConfigView';
 import {
   EXECUTION_PHASE_LABEL,
   EXECUTION_STATE_LABEL,
@@ -13,11 +14,15 @@ import {
 
 type Props = {
   coin: SpotCoin;
+  botName: string;
   pending: boolean;
   disabled: boolean;
   /** Score, rank e estado interno da ordem são diagnóstico de estratégia: só admin. */
   showDiagnostics: boolean;
-  onToggle: (symbol: string, enabled: boolean) => void;
+  /** Abre a configuração (ATIVAR passa sempre pela configuração e pelo resumo de risco). */
+  onConfigure: (coin: SpotCoin) => void;
+  /** Desliga a preferência; não fecha a posição. */
+  onDeactivate: (symbol: string) => void;
 };
 
 function Family({ label, value, tone, testId }: { label: string; value: string; tone: string; testId: string }) {
@@ -32,13 +37,20 @@ function Family({ label, value, tone, testId }: { label: string; value: string; 
 }
 
 /** Cartão por moeda (funciona em mobile sem scroll horizontal). */
-export default function SpotCoinRow({ coin, pending, disabled, showDiagnostics, onToggle }: Props) {
+export default function SpotCoinRow({ coin, botName, pending, disabled, showDiagnostics, onConfigure, onDeactivate }: Props) {
   const facts = positionFacts(coin.position);
+  const configured = coin.config != null;
+  const draftState = !coin.enabled && coin.config && coin.configState ? coin.configState : null;
   return (
     <li className="bg-bg1 border border-border1 rounded-[18px] p-4 flex flex-col gap-3" data-testid={`spot-coin-${coin.symbol}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-text1 font-semibold">{coin.base}</p>
+          {coin.market && (
+            <p className="font-mono text-[10px] uppercase tracking-wider text-text3" data-testid={`spot-catalog-${coin.symbol}`}>
+              {coin.symbol} · Spot · {coin.status}
+            </p>
+          )}
           <p className="text-text1 font-mono text-sm">{fmtPrice(coin.price) === '—' ? 'Preço indisponível' : fmtPrice(coin.price)}</p>
           <p className={`font-mono text-[11px] ${signTone(coin.change24hPct)}`}>
             {coin.change24hPct == null ? '24h —' : `${fmtSignedPct(coin.change24hPct)} 24h`}
@@ -46,20 +58,12 @@ export default function SpotCoinRow({ coin, pending, disabled, showDiagnostics, 
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
           <span className="font-mono text-[9px] uppercase tracking-wider text-text3">Preferência</span>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={coin.enabled}
-            aria-label={`Ativar ${coin.base} para esta estratégia: ${coin.enabled ? 'ON' : 'OFF'}`}
-            title="Ativar esta moeda para esta estratégia. Não compra nem vende."
-            disabled={disabled || pending}
-            onClick={() => onToggle(coin.symbol, !coin.enabled)}
-            className={`font-mono text-[10px] uppercase tracking-wider border px-3 py-1 min-w-[52px] transition-colors disabled:opacity-40 ${
-              coin.enabled ? 'border-cyan-30 text-cyan bg-cyan-dim' : 'border-border2 text-text3 hover:text-text1'
-            }`}
+          <span
+            className={`font-mono text-[10px] uppercase tracking-wider border px-2 py-0.5 ${coin.enabled ? 'border-cyan-30 text-cyan bg-cyan-dim' : 'border-border1 text-text3'}`}
+            data-testid={`spot-pref-${coin.symbol}`}
           >
-            {coin.enabled ? 'ON' : 'OFF'}
-          </button>
+            {coin.enabled ? 'ON' : configured ? 'OFF · configurada' : 'OFF'}
+          </span>
         </div>
       </div>
 
@@ -90,7 +94,69 @@ export default function SpotCoinRow({ coin, pending, disabled, showDiagnostics, 
             ))}
           </dl>
         ) : (
-          <p className="text-text3">Sem posição aberta</p>
+          <p className="text-text3">Sem posição aberta.</p>
+        )}
+      </div>
+
+      {draftState && coin.config && (
+        <section className="border border-border1 rounded-[12px] p-3 space-y-2" data-testid={`spot-draft-${coin.symbol}`} data-state={draftState}>
+          <p className="text-text1 text-[12px] font-semibold">{coin.base} · {botName}</p>
+          <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-2 gap-y-1 font-mono text-[11px]">
+            {draftSummaryRows(coin.config, draftState).map(([k, v]) => (
+              <div key={k}>
+                <dt className="text-[9px] uppercase tracking-wider text-text3">{k}</dt>
+                <dd className={v === 'Não configurado' || v === PROTECTION_LABEL.INCOMPLETE ? 'text-text2' : 'text-text1'}>{v}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2">
+        {coin.enabled ? (
+          <>
+            <button
+              type="button"
+              disabled={disabled || pending}
+              onClick={() => onConfigure(coin)}
+              className="font-mono text-[10px] uppercase tracking-wider border border-border2 text-text2 px-3 py-1.5 disabled:opacity-40 hover:text-text1"
+              data-testid={`spot-configure-${coin.symbol}`}
+            >
+              Configurar
+            </button>
+            <button
+              type="button"
+              disabled={disabled || pending}
+              onClick={() => onDeactivate(coin.symbol)}
+              title="Desliga a moeda para este bot. Não vende nem fecha a posição."
+              className="font-mono text-[10px] uppercase tracking-wider border border-border2 text-text3 px-3 py-1.5 disabled:opacity-40 hover:text-text1"
+              data-testid={`spot-deactivate-${coin.symbol}`}
+            >
+              DESATIVAR
+            </button>
+          </>
+        ) : draftState === 'DRAFT' ? (
+          <button
+            type="button"
+            disabled={disabled || pending}
+            onClick={() => onConfigure(coin)}
+            title="Completa a configuração. Não compra nem vende."
+            className="font-mono text-[11px] uppercase tracking-wider border border-border2 text-text1 px-4 py-1.5 disabled:opacity-40"
+            data-testid={`spot-continue-${coin.symbol}`}
+          >
+            Continuar configuração
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled={disabled || pending}
+            onClick={() => onConfigure(coin)}
+            title={draftState ? 'Rever risco e confirmar a ativação. Não compra nem vende.' : 'Configura esta moeda para o bot. Não compra nem vende.'}
+            className="font-mono text-[11px] uppercase tracking-wider border border-cyan-30 bg-cyan-dim text-cyan px-4 py-1.5 disabled:opacity-40"
+            data-testid={`spot-activate-${coin.symbol}`}
+          >
+            {draftState ? 'ATIVAR' : 'Configurar'}
+          </button>
         )}
       </div>
 

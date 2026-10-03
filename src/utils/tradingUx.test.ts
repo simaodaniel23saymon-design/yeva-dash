@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { SpotVenue } from '../types/spot';
-import { NO_OPPORTUNITY_TEXT, dashboardOpportunities, marketCards, marketOverview, toMarketItems } from './dashboardSummary';
+import { MARKET_MONITORED_TEXT, NO_OPPORTUNITY_TEXT, dashboardOpportunities, eligibleCountText, marketCards, marketOverview, toMarketItems } from './dashboardSummary';
 import { ACTION_LABEL, marketStateLabel, venuesByType } from './exchangeCatalog';
 import { futuresBots, futuresCoinCards, futuresPositionRows, whenConnected } from './futuresView';
 
@@ -72,13 +72,19 @@ describe('Dashboard (1–4)', () => {
       { key: 'F-SOLUSDT', base: 'SOL', change24hPct: -1, market: 'FUTURES', to: '/futures' },
     ]);
     expect(dashboardOpportunities([coin('ETHUSDT', 'WATCHING')], [])).toEqual([]);
-    expect(NO_OPPORTUNITY_TEXT).toBe('Sem oportunidade no momento');
+    const many = Array.from({ length: 9 }, (_, i) => coin(`C${i}USDT`, 'OPPORTUNITY'));
+    expect(dashboardOpportunities(many, [])).toHaveLength(5);
+    expect(NO_OPPORTUNITY_TEXT).toBe('Sem oportunidade elegível no momento.');
+    expect(MARKET_MONITORED_TEXT).toBe('Mercado monitorado');
+    expect(eligibleCountText(0)).toBe('0 oportunidades elegíveis');
     const cards = marketCards(coins, items);
     expect(cards[0]).toMatchObject({ base: 'BTC', price: 100, spot: 'OPPORTUNITY', futures: null });
     expect(marketCards([coin('XRPUSDT', 'UNKNOWN')], [])[0].spot).toBeNull();
     const page = read('pages/DashboardPage.tsx');
-    for (const t of ['Ver Spot', 'Ver Futures', 'Abrir Spot', 'Abrir Futures', 'Gerir exchanges', 'Saldo Spot', 'Saldo Futures']) expect(page).toContain(t);
-    expect(page).not.toMatch(/k="Saldo"/);
+    for (const t of ['Ver Spot', 'Ver Futures', 'Abrir Spot', 'Abrir Futures', 'Gerir exchanges', 'Saldo Spot', 'Saldo Futures', 'PnL Spot', 'PnL Futures', 'Posições Spot', 'Posições Futures', 'Explorar mercado', 'Spot · Top Winners', 'Futures · Top Winners', 'Futures · Top Losers']) {
+      expect(page).toContain(t);
+    }
+    expect(page).not.toMatch(/k="Saldo"|k="PnL"|k="Posições"/);
   });
 
   it('4 · admin vê diagnóstico no Strategy Lab (rota /admin exige isAdmin)', () => {
@@ -101,10 +107,14 @@ describe('Spot (5–9)', () => {
     for (const t of ['label="Exchange"', 'label="Bot"', 'label="Conta"', 'label="Saldo Spot"', 'label="Execução"']) expect(page).toContain(t);
   });
 
-  it('6 · ON/OFF é preferência por estratégia, não compra nem venda', () => {
-    expect(row).toMatch(/role="switch"/);
-    expect(row).toMatch(/Ativar esta moeda para esta estratégia/);
-    expect(read('hooks/useSpot.ts').match(/api\.(post|put|patch|delete)\(/g)).toEqual(['api.put(']);
+  it('6 · botão diz ATIVAR (nunca COMPRAR); ATIVAR abre configuração; DESATIVAR não vende', () => {
+    expect(row).toMatch(/\{draftState \? 'ATIVAR' : 'Configurar'\}/);
+    expect(row).toMatch(/>\s*Continuar configuração\s*</);
+    expect(row).toMatch(/>\s*DESATIVAR\s*</);
+    expect(row).toMatch(/onClick=\{\(\) => onConfigure\(coin\)\}/);
+    expect(row).toMatch(/Não vende nem fecha a posição/);
+    for (const src of [row, page, read('components/spot/BotConfigPanel.tsx')]) expect(src).not.toMatch(/COMPRAR|>\s*Comprar\s*</);
+    expect(read('hooks/useSpot.ts').match(/api\.(put|patch|delete)\(/g)).toEqual(['api.put(', 'api.put(']);
   });
 
   it('7 · sem fallback Paper', () => {
@@ -112,7 +122,7 @@ describe('Spot (5–9)', () => {
   });
 
   it('8 · quatro famílias de estado separadas; sem posição ⇒ "Sem posição aberta"', () => {
-    for (const t of ['label="Estratégia"', 'label="Posição"', 'label="Execução"', 'Preferência', 'Sem posição aberta']) expect(row).toContain(t);
+    for (const t of ['label="Estratégia"', 'label="Posição"', 'label="Execução"', 'Preferência', 'Sem posição aberta.']) expect(row).toContain(t);
     expect(row).toMatch(/\{showDiagnostics && \(/);
   });
 
@@ -258,11 +268,28 @@ describe('PRO / estados vazios', () => {
     expect(pro).not.toMatch(/api\.(get|post)/);
   });
 
-  it('estados vazios de produto presentes; nunca undefined/NaN no texto', () => {
-    const all = ['pages/DashboardPage.tsx', 'pages/SpotPage.tsx', 'pages/FuturesPage.tsx', 'components/exchanges/ExchangeHub.tsx', 'components/spot/SpotCoinRow.tsx'].map(read).join('\n');
-    for (const t of ['Nenhuma exchange conectada', 'Sem posição aberta', 'Saldo indisponível', 'Trading ainda não está disponível', 'Dados indisponíveis']) {
-      expect(all + read('utils/spotView.ts') + read('utils/dashboardSummary.ts')).toContain(t);
+  it('estados vazios de produto com os textos exatos; nunca "Não disponível" genérico, undefined/NaN', () => {
+    const pages = ['pages/DashboardPage.tsx', 'pages/SpotPage.tsx', 'pages/FuturesPage.tsx', 'components/spot/SpotCoinRow.tsx'].map(read).join('\n');
+    const states = read('utils/dataStates.ts');
+    for (const t of [
+      'Conecte uma exchange para continuar.',
+      '$0.00 USDT',
+      'Não foi possível atualizar os dados.',
+      'Sem oportunidade elegível no momento.',
+      'Dados em atualização.',
+      'Sem posição aberta.',
+      'Não foi possível atualizar o saldo.',
+      'Dados desatualizados.',
+      'Trading Spot desativado.',
+      'Trading Spot disponível.',
+      'Mercado em atualização',
+      'Adicione uma moeda para começar.',
+      'Nenhuma moeda encontrada.',
+    ]) {
+      expect(states).toContain(t);
     }
-    expect(all).not.toMatch(/>undefined<|>NaN<|-\$0\.00/);
+    for (const k of ['EMPTY_TEXT.CONNECT', 'EMPTY_TEXT.NO_POSITION', 'EMPTY_TEXT.DATA_ERROR', 'EMPTY_TEXT.NO_OPPORTUNITY', 'balanceText(']) expect(pages).toContain(k);
+    expect(pages + read('utils/spotView.ts')).not.toMatch(/Não disponível|Saldo indisponível|Dados indisponíveis|Nenhuma exchange conectada/);
+    expect(pages).not.toMatch(/>undefined<|>NaN<|-\$0\.00/);
   });
 });

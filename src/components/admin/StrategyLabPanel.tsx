@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useMomentumRanking } from '../../hooks/useMomentumRanking';
 import { MomentumWinnersLosersSection } from '../dashboard/MomentumWinnersLosersSection';
 import { DashboardLogsTerminal } from '../dashboard/DashboardLogsTerminal';
+import PaperConfigLab from './PaperConfigLab';
 
 /**
  * Strategy Lab (só admin; a rota /admin exige isAdmin da BD). Diagnóstico técnico:
@@ -29,6 +30,20 @@ export default function StrategyLabPanel({ onOpenExecution }: { onOpenExecution:
           <p className="font-mono text-[9px] uppercase tracking-wider text-text3">Risk diagnostics</p>
           <p className="text-text2 text-[12px]">Logs do motor e decisões de risco em tempo real (abaixo).</p>
         </div>
+        <div className="bg-bg1 border border-border1 p-4 space-y-2" data-testid="lab-rejects">
+          <p className="font-mono text-[9px] uppercase tracking-wider text-text3">Rejects</p>
+          <p className="text-text2 text-[12px]">Moedas recusadas pelo motor e motivo interno (MAX_POSITIONS, STRUCTURE, EXTENSION_RISK…) no ranking abaixo.</p>
+        </div>
+        <div className="bg-bg1 border border-border1 p-4 space-y-2" data-testid="lab-scores">
+          <p className="font-mono text-[9px] uppercase tracking-wider text-text3">Scores</p>
+          <p className="text-text2 text-[12px]">Score, rank e fatores de cada moeda. Só admin; o utilizador vê apenas o estado da oportunidade.</p>
+        </div>
+        <div className="bg-bg1 border border-border1 p-4 space-y-2" data-testid="lab-experiments">
+          <p className="font-mono text-[9px] uppercase tracking-wider text-text3">Experiments</p>
+          <p className="text-text2 text-[12px]">Experiência Spot Momentum Rotation em Paper (orderExecution=false), sem ligação às preferências dos utilizadores.</p>
+          <Link to="/spot-paper" className="font-mono text-[10px] uppercase tracking-wider text-cyan hover:underline">Ver experiência</Link>
+        </div>
+        <PaperConfigLab />
       </div>
 
       <MomentumWinnersLosersSection ranking={ranking} />
