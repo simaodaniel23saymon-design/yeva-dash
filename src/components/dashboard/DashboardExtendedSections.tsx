@@ -4,7 +4,6 @@ import {
   Legend,
   Line,
   LineChart,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -596,8 +595,7 @@ function PerformanceSection({
         {chartData.length === 0 ? (
           <p className="font-mono text-[10px] text-text2 py-8 text-center">Sem dados no período.</p>
         ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData}>
+          <LineChart data={chartData} responsive style={{ width: '100%', height: '100%' }}>
               <CartesianGrid stroke="#1e2b1f" strokeDasharray="3 3" />
               <XAxis dataKey="label" tick={{ fill: '#6b8a6e', fontSize: 10 }} />
               <YAxis tick={{ fill: '#6b8a6e', fontSize: 10 }} width={48} />
@@ -633,8 +631,7 @@ function PerformanceSection({
                 dot={false}
                 strokeWidth={2}
               />
-            </LineChart>
-          </ResponsiveContainer>
+          </LineChart>
         )}
       </div>
     </SectionShell>

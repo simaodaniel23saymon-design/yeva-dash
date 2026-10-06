@@ -4,7 +4,7 @@ import { useExchange } from '../hooks/useExchange';
 const steps = [
   {
     title: '1. Criar chaves API na exchange',
-    body: 'Na Binance ou Bybit, vai a Gestão de API e cria uma nova chave. Usa um nome reconhecível (ex: YevaTrade).',
+    body: 'Na Binance, vai a Gestão de API e cria uma nova chave. Usa um nome reconhecível (ex: YevaTrade).',
   },
   {
     title: '2. Restringir por IP',
@@ -31,7 +31,7 @@ const permissions = [
 ];
 
 export default function ApiGuidePage() {
-  const { serverIp } = useExchange();
+  const { serverIp } = useExchange(0, { fetchBalance: false });
 
   const copyIp = () => {
     navigator.clipboard.writeText(serverIp);
@@ -42,7 +42,7 @@ export default function ApiGuidePage() {
       <div>
         <h2 className="text-text1 font-bold text-lg">Guia de API</h2>
         <p className="font-mono text-[10px] text-text2 mt-1 leading-relaxed">
-          Passo a passo para conectar a Binance ou Bybit em segurança.
+          Passo a passo para conectar a Binance em segurança. A Bybit só suporta teste de ligação.
         </p>
       </div>
 

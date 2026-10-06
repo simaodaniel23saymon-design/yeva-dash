@@ -103,8 +103,14 @@ export default function SpotPaperPage() {
       const res = await api.get<Snapshot>('/spot-paper/snapshot');
       setData(res.data);
       setError(res.data.error || '');
-    } catch {
-      setError('Não foi possível ler o Spot Paper.');
+    } catch (err) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 403) {
+        setData(null);
+        setError('Acesso restrito: o Spot Paper é só para administradores.');
+      } else {
+        setError('Não foi possível ler o Spot Paper.');
+      }
     } finally {
       setLoading(false);
     }

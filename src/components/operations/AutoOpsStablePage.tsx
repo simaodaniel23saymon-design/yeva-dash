@@ -13,10 +13,13 @@ import { AutoOpsPositionCard } from './AutoOpsPositionCard';
 import { AutoOpsActionFeed } from './AutoOpsActionFeed';
 import { AutoOpsAllocateModal } from './AutoOpsAllocateModal';
 import { AutoOpsOffModal } from './AutoOpsOffModal';
+import { AutoOpsMarketPanel } from './AutoOpsMarketPanel';
 
 export function AutoOpsStablePage() {
   const {
     module,
+    marketModule,
+    restricted,
     scannedAt,
     loading,
     error,
@@ -53,11 +56,13 @@ export function AutoOpsStablePage() {
           {error}
         </p>
       )}
-      {loading && !module && (
+      {loading && !module && !marketModule && (
         <p className="font-mono text-[10px] text-text3">A carregar…</p>
       )}
 
-      {module && (
+      {restricted && marketModule && <AutoOpsMarketPanel module={marketModule} />}
+
+      {!restricted && module && (
         <div className="space-y-4">
           <div className="bg-bg1 border border-border1 p-4 space-y-3">
             <div className="flex items-start justify-between gap-2 flex-wrap">
