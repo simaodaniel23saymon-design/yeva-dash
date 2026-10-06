@@ -2,16 +2,22 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { getFriendlyError } from '../utils/errorHandler';
 
-export type ExchangeName = 'Binance' | 'Bybit';
+/** Fluxo dos bots (chaves com trading): só Binance. Bitget/Bybit ligam-se pelo fluxo só de leitura. */
+export type ExchangeName = 'Binance';
 export type MarketType = 'FUTURES' | 'SPOT';
 export type AccountMode = 'real' | 'demo';
 
 export interface ExchangeStatusData {
+  /** Conta Binance dos bots validada (nunca "existe alguma conta"). */
   connected: boolean;
+  /** Mais do que uma conta Binance de bots: as rotas antigas exigem accountId. */
+  ambiguous?: boolean;
   exchange?: {
+    id?: string;
     exchange?: string;
-    market?: string;
-    accountType?: string;
+    market?: string | null;
+    accountType?: string | null;
+    connectionStatus?: string;
     apiKeyMasked?: string;
     createdAt?: string;
   } | null;
@@ -21,10 +27,6 @@ export interface TestConnectionResult {
   success: boolean;
   balance?: number;
   error?: string;
-}
-
-function normalizeExchange(name: string): ExchangeName {
-  return name.toUpperCase().includes('BYBIT') ? 'Bybit' : 'Binance';
 }
 
 export function useExchange(pollMs = 0, options?: { fetchBalance?: boolean }) {
@@ -47,6 +49,7 @@ export function useExchange(pollMs = 0, options?: { fetchBalance?: boolean }) {
     exchange: ExchangeName;
     market: MarketType;
     testnet: boolean;
+    accountId?: string;
   }): Promise<TestConnectionResult> => {
     try {
       const res = await api.post<{ success: boolean; balance?: number; error?: string }>(
@@ -57,6 +60,7 @@ export function useExchange(pollMs = 0, options?: { fetchBalance?: boolean }) {
           exchange: params.exchange,
           market: params.market,
           testnet: params.testnet,
+          accountId: params.accountId,
         }
       );
       if (res.data.success && res.data.balance != null) {
@@ -69,10 +73,9 @@ export function useExchange(pollMs = 0, options?: { fetchBalance?: boolean }) {
   }, []);
 
   const refreshBalance = useCallback(async (market: MarketType = 'FUTURES') => {
-    if (!status.connected || !status.exchange?.exchange) return;
-    const ex = normalizeExchange(status.exchange.exchange);
+    if (!status.connected || status.exchange?.exchange !== 'BINANCE') return;
     const testnet = status.exchange.accountType === 'demo' || status.exchange.accountType === 'DEMO';
-    const result = await testConnection({ exchange: ex, market, testnet });
+    const result = await testConnection({ exchange: 'Binance', market, testnet, accountId: status.exchange.id });
     if (result.success && result.balance != null) setExchangeBalance(result.balance);
   }, [status, testConnection]);
 
@@ -82,16 +85,9 @@ export function useExchange(pollMs = 0, options?: { fetchBalance?: boolean }) {
       setStatus(res.data);
       return res.data;
     } catch {
-      try {
-        const list = await api.get<{ exchange: string; isActive: boolean }[]>('/exchanges');
-        const active = list.data.find(a => a.exchange !== 'DEMO' && a.isActive);
-        const s: ExchangeStatusData = { connected: !!active, exchange: active ?? null };
-        setStatus(s);
-        return s;
-      } catch {
-        setStatus({ connected: false });
-        return { connected: false };
-      }
+      // Estado desconhecido nunca é apresentado como ligado.
+      setStatus({ connected: false });
+      return { connected: false };
     }
   }, []);
 
