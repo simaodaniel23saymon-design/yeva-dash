@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { getFriendlyError } from '../utils/errorHandler';
+import { isDemoExchangeAccount } from '../utils/exchangeStatus';
 
 /** Fluxo dos bots (chaves com trading): só Binance. Bitget/Bybit ligam-se pelo fluxo só de leitura. */
 export type ExchangeName = 'Binance';
@@ -73,7 +74,15 @@ export function useExchange(pollMs = 0, options?: { fetchBalance?: boolean }) {
   }, []);
 
   const refreshBalance = useCallback(async (market: MarketType = 'FUTURES') => {
-    if (!status.connected || status.exchange?.exchange !== 'BINANCE') return;
+    if (
+      !status.connected ||
+      status.exchange?.exchange?.toUpperCase() !== 'BINANCE' ||
+      status.ambiguous ||
+      isDemoExchangeAccount({
+        exchange: status.exchange?.exchange,
+        accountType: status.exchange?.accountType ?? undefined,
+      })
+    ) return;
     const testnet = status.exchange.accountType === 'demo' || status.exchange.accountType === 'DEMO';
     const result = await testConnection({ exchange: 'Binance', market, testnet, accountId: status.exchange.id });
     if (result.success && result.balance != null) setExchangeBalance(result.balance);
@@ -82,8 +91,15 @@ export function useExchange(pollMs = 0, options?: { fetchBalance?: boolean }) {
   const refreshStatus = useCallback(async () => {
     try {
       const res = await api.get<ExchangeStatusData>('/exchange/status');
-      setStatus(res.data);
-      return res.data;
+      const nextStatus: ExchangeStatusData = {
+        ...res.data,
+        connected:
+          res.data.connected &&
+          res.data.exchange?.exchange?.toUpperCase() === 'BINANCE' &&
+          !res.data.ambiguous,
+      };
+      setStatus(nextStatus);
+      return nextStatus;
     } catch {
       // Estado desconhecido nunca é apresentado como ligado.
       setStatus({ connected: false });
@@ -110,6 +126,10 @@ export function useExchange(pollMs = 0, options?: { fetchBalance?: boolean }) {
   return {
     status,
     isConnected: status.connected,
+    isDemoAccount: isDemoExchangeAccount({
+      exchange: status.exchange?.exchange,
+      accountType: status.exchange?.accountType ?? undefined,
+    }),
     exchangeBalance,
     serverIp,
     loading,

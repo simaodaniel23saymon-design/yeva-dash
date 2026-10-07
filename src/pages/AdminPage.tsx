@@ -12,6 +12,8 @@ import {
   type PerformanceFeeStats,
 } from '../utils/adminPerformanceFees'
 import { NotificationPreview } from '../components/notifications/NotificationPreview'
+import SpotPilotAdminPanel from '../components/spot/SpotPilotAdminPanel'
+import StrategyLabPanel from '../components/admin/StrategyLabPanel'
 import { useAccountLiveStatus } from '../hooks/useAccountLiveStatus'
 import { buildNotifyMetricsFromStatus } from '../utils/notifyMetrics'
 
@@ -80,7 +82,7 @@ const Pill = ({ label, active, onClick }: { label: string; active: boolean; onCl
 export default function AdminPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [tab, setTab] = useState<'overview' | 'users' | 'transactions' | 'bots' | 'notify'>('overview')
+  const [tab, setTab] = useState<'overview' | 'users' | 'transactions' | 'bots' | 'notify' | 'spot-pilot' | 'strategy-lab'>('overview')
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState<Stats | null>(null)
   const [feeStats, setFeeStats] = useState<PerformanceFeeStats | null>(null)
@@ -296,6 +298,8 @@ export default function AdminPage() {
     { id: 'transactions', label: 'Transacções' },
     { id: 'bots', label: 'Bots' },
     { id: 'notify', label: 'Notificações' },
+    { id: 'strategy-lab', label: 'Strategy Lab' },
+    { id: 'spot-pilot', label: 'Real Spot Pilot' },
   ] as const
 
   return (
@@ -695,6 +699,9 @@ export default function AdminPage() {
           </table>
         </div>
       )}
+
+      {tab === 'spot-pilot' && <SpotPilotAdminPanel />}
+      {tab === 'strategy-lab' && <StrategyLabPanel onOpenExecution={() => setTab('spot-pilot')} />}
 
       {/* ═══ NOTIFICAÇÕES ═══ */}
       {tab === 'notify' && (

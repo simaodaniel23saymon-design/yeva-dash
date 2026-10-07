@@ -1,9 +1,11 @@
 /**
- * Ranking + métricas Momentum — só leitura.
+ * Ranking Momentum (análise) + métricas dos paper tracks (só admin). Só leitura.
+ * Utilizador recebe do backend só a projeção USER (sem scores/decisões); o admin recebe o payload completo.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../lib/api';
+import { toMarketItems } from '../utils/dashboardSummary';
 import {
   isRankingScanStale,
   splitWinnersLosers,
@@ -13,7 +15,14 @@ import {
 
 export type MomentumMetricsBySymbol = Record<string, SymbolHistoryMetrics>;
 
-export function useMomentumRanking(pollMs = 60_000) {
+type MetricsResponse = {
+  ok?: boolean;
+  all?: { bySymbol?: Record<string, { mfe?: number | null; mae?: number | null }> };
+};
+
+const NO_METRICS: { data: MetricsResponse } = { data: { ok: false, all: { bySymbol: {} } } };
+
+export function useMomentumRanking(pollMs = 60_000, includePaperMetrics = false) {
   const [items, setItems] = useState<MomentumRankingRow[]>([]);
   const [scannedAt, setScannedAt] = useState<string | null>(null);
   const [staleFlag, setStaleFlag] = useState(false);
@@ -35,22 +44,9 @@ export function useMomentumRanking(pollMs = 60_000) {
           params: { side: 'ALL', limit: 20 },
           timeout: 60_000,
         }),
-        api
-          .get<{
-            ok?: boolean;
-            all?: {
-              bySymbol?: Record<
-                string,
-                { mfe?: number | null; mae?: number | null }
-              >;
-            };
-          }>('/auto-ops/momentum/metrics', { timeout: 20_000 })
-          .catch(() => ({
-            data: {
-              ok: false as const,
-              all: { bySymbol: {} as Record<string, { mfe?: number | null; mae?: number | null }> },
-            },
-          })),
+        includePaperMetrics
+          ? api.get<MetricsResponse>('/auto-ops/momentum/metrics', { timeout: 20_000 }).catch(() => NO_METRICS)
+          : Promise.resolve(NO_METRICS),
       ]);
 
       const data = rankRes.data;
@@ -81,7 +77,7 @@ export function useMomentumRanking(pollMs = 60_000) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [includePaperMetrics]);
 
   useEffect(() => {
     const startId = window.setTimeout(() => {
@@ -95,9 +91,11 @@ export function useMomentumRanking(pollMs = 60_000) {
   }, [load, pollMs]);
 
   const { winners, losers } = useMemo(() => splitWinnersLosers(items), [items]);
+  const marketItems = useMemo(() => toMarketItems(items), [items]);
   const stale = staleFlag || isRankingScanStale(scannedAt);
 
   return {
+    marketItems,
     winners,
     losers,
     scannedAt,

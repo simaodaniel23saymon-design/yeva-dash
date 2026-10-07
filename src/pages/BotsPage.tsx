@@ -352,7 +352,7 @@ export default function BotsPage() {
   return (
     <div className="space-y-4">
       <QuickGuide title="Como usar os bots" steps={[
-        'Conecta a exchange em API (Binance ou Bybit)',
+        'Conecta a Binance em API (os bots operam só na Binance)',
         'Escolhe Spot ou Futures e escreve o par (ex: HYPEUSDT)',
         'Define alavancagem e capital por ordem',
         'Cria e inicia o bot — monitoriza em tempo real abaixo',

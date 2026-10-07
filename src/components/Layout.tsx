@@ -9,6 +9,7 @@ import {
 } from './SystemAliveBoot';
 import { FirstLoginRiskGate } from './RiskDisclaimer';
 import { AssistantChat } from './AssistantChat';
+import { canAccessSpotPaper } from '../utils/access';
 
 interface ExchangeAccount { id: string; exchange: string; isActive: boolean; }
 
@@ -83,7 +84,11 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
         <span className="font-mono text-[8px] tracking-[2.5px] uppercase text-text3 px-2 mb-2 block">Principal</span>
         <NavLink to="/dashboard" className={navLinkClass} onClick={close}><IconGrid /><span>Dashboard</span></NavLink>
         <NavLink to="/market" className={navLinkClass} onClick={close}><IconChart /><span>Mercado</span></NavLink>
-        <NavLink to="/spot-paper" className={navLinkClass} onClick={close}><IconChart /><span>Spot Paper</span></NavLink>
+        <NavLink to="/spot" className={navLinkClass} onClick={close}><IconChart /><span>Spot</span></NavLink>
+        <NavLink to="/futures" className={navLinkClass} onClick={close}><IconChart /><span>Futures</span></NavLink>
+        {canAccessSpotPaper(user) && (
+          <NavLink to="/spot-paper" className={navLinkClass} onClick={close}><IconChart /><span>Spot Paper</span></NavLink>
+        )}
         <NavLink to="/bots"      className={navLinkClass} onClick={close}><IconBot /><span>Bots</span></NavLink>
         <NavLink to="/operations/manual" className={navLinkClass} onClick={close}><IconChart /><span>Operações</span></NavLink>
         <NavLink to="/pro" className={navLinkClass} onClick={close}><IconNetwork /><span>PRO</span></NavLink>
@@ -91,7 +96,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
         <NavLink to="/history"   className={navLinkClass} onClick={close}><IconChart /><span>Histórico</span></NavLink>
 
         <span className="font-mono text-[8px] tracking-[2.5px] uppercase text-text3 px-2 mb-2 mt-5 block">Exchanges</span>
-        <NavLink to="/exchanges" className={navLinkClass} onClick={close}><IconApi /><span>Conectar Exchange</span></NavLink>
+        <NavLink to="/exchanges" className={navLinkClass} onClick={close}><IconApi /><span>Exchanges</span></NavLink>
         <NavLink to="/api-guide" className={navLinkClass} onClick={close}><IconApi /><span>Guia API</span></NavLink>
         {exchanges.map(ex => (
           <div key={ex.id} className="flex items-center gap-2.5 px-2.5 py-1.5 text-[12px] text-text2">

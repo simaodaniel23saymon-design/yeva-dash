@@ -68,23 +68,25 @@ const app = fs.readFileSync(path.join(root, 'src/App.tsx'), 'utf8');
 ok(app.includes('path="/pro/signals"') && app.includes('Navigate to="/pro"'), 'signals → /pro');
 ok(app.includes('path="/market-analysis"') && app.includes('Navigate to="/pro"'), 'análise → /pro');
 
-// 4) Operações Automatizadas
+// 4) Operações
 const ops = fs.readFileSync(path.join(root, 'src/pages/OperationsPage.tsx'), 'utf8');
-ok(ops.includes('AutomatedOpsSection'), 'OperationsPage inclui AutomatedOpsSection');
+ok(ops.includes('OperationsSubNav'), 'OperationsPage inclui navegação de operações');
 ok(ops.includes('OpenPositionCards'), 'OperationsPage mantém operações manuais/live');
 
-const auto = fs.readFileSync(
-  path.join(root, 'src/components/AutomatedOpsSection.tsx'),
-  'utf8'
-);
-ok(auto.includes('Gainers'), 'card Gainers');
-ok(auto.includes('Losers'), 'card Losers');
-ok(auto.includes('Estáveis'), 'card Estáveis');
-ok(auto.includes('AUTO EM:'), 'badge AUTO EM');
-ok(auto.includes('Entrar'), 'botão Entrar manual');
-ok(auto.includes('capacity-check') || auto.includes('Capacidade'), 'aviso capacidade');
-ok(auto.includes('/auto-ops/status'), 'fetch /auto-ops/status');
-ok(auto.includes('MODO ON') || auto.includes('Modo Estáveis') || auto.includes('Ciclos activos'), 'card Estáveis com modo/ciclos');
+const operationsRoutes = [
+  ['gainers', 'OperationsGainersPage.tsx', 'AutoOpsMomentumPage'],
+  ['losers', 'OperationsLosersPage.tsx', 'AutoOpsMomentumPage'],
+  ['estaveis', 'OperationsEstaveisPage.tsx', 'AutoOpsStablePage'],
+];
+for (const [route, page, component] of operationsRoutes) {
+  ok(app.includes(`path="/operations/${route}"`), `rota de operações ${route}`);
+  const pagePath = path.join(root, 'src/pages', page);
+  ok(fs.existsSync(pagePath), `página de operações ${page} existe`);
+  if (fs.existsSync(pagePath)) {
+    const pageSource = fs.readFileSync(pagePath, 'utf8');
+    ok(pageSource.includes(component), `${page} usa ${component}`);
+  }
+}
 
 const botsPage = fs.readFileSync(path.join(root, 'src/pages/BotsPage.tsx'), 'utf8');
 ok(botsPage.includes('SpotAutoBotsPanel'), 'BotsPage inclui Spot Auto');
