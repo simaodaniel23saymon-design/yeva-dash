@@ -4,25 +4,20 @@ import { getFriendlyError } from '../../utils/errorHandler';
 import { YevaTradeLoader } from '../YevaTradeLoader';
 import { sanitizeTelegramLink } from '../../utils/telegramLink';
 import { EnablePushButton } from './EnablePushButton';
+import {
+  canEditPreferences,
+  loadNotificationPreferences,
+  saveNotificationPreference,
+  type NotificationPreferences,
+  type PreferencesState,
+} from '../../utils/notificationPreferences';
 
 interface TelegramLink {
   code: string;
   link: string;
 }
 
-export interface NotificationPreferences {
-  gasLow: boolean;
-  takeProfit: boolean;
-  stopLoss: boolean;
-  dailyReport: boolean;
-}
-
-const DEFAULT_PREFS: NotificationPreferences = {
-  gasLow: true,
-  takeProfit: true,
-  stopLoss: true,
-  dailyReport: true,
-};
+export type { NotificationPreferences };
 
 const PREF_ITEMS: Array<{
   key: keyof NotificationPreferences;
@@ -42,14 +37,14 @@ const PREF_ITEMS: Array<{
     key: 'takeProfit',
     icon: '🎯',
     title: 'TP atingido',
-    desc: 'Alerta quando o bot atinge o take profit diário configurado.',
+    desc: 'Alerta quando um ciclo DCA fecha no take profit.',
     channels: ['email', 'telegram'],
   },
   {
     key: 'stopLoss',
     icon: '🛑',
     title: 'SL atingido',
-    desc: 'Alerta quando o limite de perda diária é activado.',
+    desc: 'Alerta quando um ciclo DCA fecha no stop loss.',
     channels: ['email', 'telegram'],
   },
   {
@@ -93,8 +88,7 @@ export function NotificationChannelsPanel({
   telegramLinked,
   onTelegramLinkedChange,
 }: Props) {
-  const [prefs, setPrefs] = useState<NotificationPreferences>(DEFAULT_PREFS);
-  const [prefsLoading, setPrefsLoading] = useState(true);
+  const [prefsState, setPrefsState] = useState<PreferencesState>({ status: 'loading' });
   const [savingKey, setSavingKey] = useState<keyof NotificationPreferences | null>(null);
   const [telegram, setTelegram] = useState<TelegramLink | null>(null);
   const [tgLoading, setTgLoading] = useState(false);
@@ -107,33 +101,31 @@ export function NotificationChannelsPanel({
   };
 
   const loadPrefs = useCallback(async () => {
-    setPrefsLoading(true);
-    try {
-      const res = await api.get<Partial<NotificationPreferences>>('/notifications/preferences');
-      setPrefs({ ...DEFAULT_PREFS, ...res.data });
-    } catch {
-      /* endpoint pode não existir — mantém defaults */
-    } finally {
-      setPrefsLoading(false);
-    }
+    setPrefsState({ status: 'loading' });
+    setPrefsState(await loadNotificationPreferences((url) => api.get(url)));
   }, []);
 
   useEffect(() => {
-    loadPrefs();
-  }, [loadPrefs]);
+    let alive = true;
+    void loadNotificationPreferences((url) => api.get(url)).then((s) => {
+      if (alive) setPrefsState(s);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const togglePref = async (key: keyof NotificationPreferences) => {
-    const next = { ...prefs, [key]: !prefs[key] };
-    setPrefs(next);
+    if (!canEditPreferences(prefsState) || savingKey) return;
     setSavingKey(key);
-    try {
-      await api.put('/notifications/preferences', next);
-    } catch (err: unknown) {
-      setPrefs(prefs);
-      flash(getFriendlyError(err).message);
-    } finally {
-      setSavingKey(null);
+    const outcome = await saveNotificationPreference((url, body) => api.put(url, body), key, !prefsState.prefs[key]);
+    setSavingKey(null);
+    if (outcome.ok) {
+      setPrefsState({ status: 'loaded', prefs: outcome.prefs, configured: outcome.configured });
+      return;
     }
+    flash(outcome.message);
+    if (outcome.reason !== 'UNAUTHORIZED' && outcome.reason !== 'ERROR') void loadPrefs();
   };
 
   const generateTelegramLink = async () => {
@@ -177,11 +169,18 @@ export function NotificationChannelsPanel({
         <h3 className="font-mono text-[9px] uppercase tracking-wider text-text2 mb-1">Preferências de alertas</h3>
         <p className="font-mono text-[9px] text-text3 mb-4 leading-relaxed">
           Escolhe que eventos recebes por email e Telegram. Mensagens usam o layout oficial Yeva Trade.
+          O circuit breaker de perda diária e os erros do motor são sempre enviados e não dependem destas opções.
         </p>
-        {prefsLoading ? (
-          <div className="py-6 flex justify-center"><YevaTradeLoader size="sm" /></div>
+        {prefsState.status === 'loading' ? (
+          <div className="py-6 flex justify-center" data-testid="notification-prefs-loading"><YevaTradeLoader size="sm" /></div>
+        ) : prefsState.status === 'unavailable' ? (
+          <div className="bg-bg2 border border-gold-30 p-3 space-y-2" role="status" data-testid="notification-prefs-unavailable">
+            <p className="font-mono text-[9px] text-gold uppercase tracking-wider">Preferências indisponíveis</p>
+            <p className="font-mono text-[9px] text-text2 leading-relaxed">{prefsState.message}</p>
+            <Btn onClick={loadPrefs} variant="ghost">Tentar novamente</Btn>
+          </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-2" data-testid="notification-prefs-loaded">
             {PREF_ITEMS.map(item => (
               <div key={item.key} className="bg-bg2 border border-border1 p-3 flex gap-3 items-start">
                 <span className="text-lg leading-none">{item.icon}</span>
@@ -200,11 +199,12 @@ export function NotificationChannelsPanel({
                     </div>
                     <button
                       type="button"
-                      disabled={savingKey === item.key}
+                      disabled={savingKey !== null}
+                      aria-pressed={prefsState.prefs[item.key]}
                       onClick={() => togglePref(item.key)}
-                      className={`shrink-0 font-mono text-[8px] uppercase px-2 py-1 border transition-all ${prefs[item.key] ? 'text-cyan bg-cyan-dim border-cyan-20' : 'text-text3 border-border2'}`}
+                      className={`shrink-0 font-mono text-[8px] uppercase px-2 py-1 border transition-all disabled:opacity-50 ${prefsState.prefs[item.key] ? 'text-cyan bg-cyan-dim border-cyan-20' : 'text-text3 border-border2'}`}
                     >
-                      {savingKey === item.key ? '...' : prefs[item.key] ? 'Activo' : 'Off'}
+                      {savingKey === item.key ? '...' : prefsState.prefs[item.key] ? 'Activo' : 'Off'}
                     </button>
                   </div>
                 </div>
