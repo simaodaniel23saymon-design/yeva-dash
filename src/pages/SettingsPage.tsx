@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import { buildReferralLink } from '../utils/referral'
 import { getFriendlyError } from '../utils/errorHandler'
+import { extractTotpCode, formatManualKey } from '../utils/totpCode'
 import { NotificationChannelsPanel } from '../components/notifications/NotificationChannelsPanel'
 
 interface Settings {
@@ -49,12 +50,21 @@ function TotpInput({ onComplete }: { onComplete: (code: string) => void }) {
     if (v && i < 5) refs.current[i + 1]?.focus()
     if (v && i === 5) { const code = [...next].join(''); if (code.length === 6) onComplete(code) }
   }
+  const paste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const code = extractTotpCode(e.clipboardData.getData('text'))
+    if (!code) return
+    e.preventDefault()
+    setDigits(code.split(''))
+    refs.current[5]?.focus()
+    onComplete(code)
+  }
   return (
     <div className="flex gap-2 justify-center my-4">
       {digits.map((d, i) => (
         <input key={i} ref={el => { refs.current[i] = el }}
-          type="text" inputMode="numeric" maxLength={1} value={d}
+          type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={1} value={d}
           onChange={e => handle(i, e.target.value)}
+          onPaste={paste}
           onKeyDown={e => e.key === 'Backspace' && !d && i > 0 && refs.current[i - 1]?.focus()}
           className="w-10 h-12 text-center text-xl font-bold text-cyan bg-bg3 border border-border2 outline-none focus:border-cyan transition-colors" />
       ))}
@@ -84,6 +94,8 @@ export default function SettingsPage() {
   const [modal2FA, setModal2FA] = useState<'setup' | 'enable' | 'disable' | null>(null)
   const [qrData, setQrData] = useState<{ qrCode: string; secret: string } | null>(null)
   const [twofaLoading, setTwofaLoading] = useState(false)
+  const [twofaError, setTwofaError] = useState<string | null>(null)
+  const [totpAttempt, setTotpAttempt] = useState(0)
 
   const copyReferral = () => {
     if (!settings?.referralCode) return
@@ -106,8 +118,21 @@ export default function SettingsPage() {
 
   useEffect(() => { load().finally(() => setLoading(false)) }, [])
 
+  const close2FAModal = () => {
+    setModal2FA(null)
+    setQrData(null)
+    setTwofaError(null)
+  }
+
+  // O erro fica dentro do modal (o aviso da página fica tapado pelo overlay) e os dígitos são limpos.
+  const fail2FA = (err: unknown) => {
+    setTwofaError(getFriendlyError(err).message)
+    setTotpAttempt((n) => n + 1)
+  }
+
   const handle2FASetup = async () => {
     setTwofaLoading(true)
+    setTwofaError(null)
     try {
       const res = await api.post<{ qrCode: string; secret: string }>('/auth/2fa/setup')
       setQrData(res.data)
@@ -120,29 +145,32 @@ export default function SettingsPage() {
   }
 
   const handle2FAEnable = async (code: string) => {
+    if (twofaLoading) return
     setTwofaLoading(true)
+    setTwofaError(null)
     try {
       await api.post('/auth/2fa/enable', { code })
+      close2FAModal()
       flash('2FA activado com sucesso! ✓')
-      setModal2FA(null)
-      setQrData(null)
       await load()
     } catch (err: unknown) {
-      flash(getFriendlyError(err).message, 'err')
+      fail2FA(err)
     } finally {
       setTwofaLoading(false)
     }
   }
 
   const handle2FADisable = async (code: string) => {
+    if (twofaLoading) return
     setTwofaLoading(true)
+    setTwofaError(null)
     try {
       await api.post('/auth/2fa/disable', { code })
+      close2FAModal()
       flash('2FA desactivado.')
-      setModal2FA(null)
       await load()
     } catch (err: unknown) {
-      flash(getFriendlyError(err).message, 'err')
+      fail2FA(err)
     } finally {
       setTwofaLoading(false)
     }
@@ -225,7 +253,7 @@ export default function SettingsPage() {
           {!settings?.twoFAEnabled ? (
             <Btn onClick={handle2FASetup} loading={twofaLoading}>Activar 2FA</Btn>
           ) : (
-            <Btn onClick={() => setModal2FA('disable')} variant="danger">Desactivar 2FA</Btn>
+            <Btn onClick={() => { setTwofaError(null); setModal2FA('disable') }} variant="danger">Desactivar 2FA</Btn>
           )}
         </div>
       </div>
@@ -239,7 +267,7 @@ export default function SettingsPage() {
       </div>
 
       {modal2FA === 'enable' && qrData && (
-        <Modal title="Activar 2FA — Escaneia o QR Code" onClose={() => { setModal2FA(null); setQrData(null) }}>
+        <Modal title="Activar 2FA — Escaneia o QR Code" onClose={close2FAModal}>
           <div className="text-center space-y-4">
             <p className="font-mono text-[9px] text-text2">
               1. Abre o Google Authenticator ou Authy<br />
@@ -247,19 +275,32 @@ export default function SettingsPage() {
               3. Introduz o código de 6 dígitos
             </p>
             <img src={qrData.qrCode} alt="QR Code 2FA" className="w-44 h-44 mx-auto border border-border1" />
-            <TotpInput onComplete={handle2FAEnable} />
+            <div className="space-y-1" data-testid="twofa-manual-key">
+              <p className="font-mono text-[8px] text-text3 uppercase tracking-wider">Chave manual</p>
+              <p className="font-mono text-[10px] text-text1 break-all select-all">{formatManualKey(qrData.secret)}</p>
+            </div>
+            <p className="font-mono text-[8px] text-text3 leading-relaxed">
+              Se já tinhas entradas "YevaTrade" de tentativas anteriores, usa o código da entrada criada com este QR e apaga as antigas.
+            </p>
+            <TotpInput key={totpAttempt} onComplete={handle2FAEnable} />
+            {twofaError && (
+              <p role="alert" data-testid="twofa-error" className="font-mono text-[10px] text-red">{twofaError}</p>
+            )}
             {twofaLoading && <div className="flex justify-center"><YevaTradeLoader size="sm" /></div>}
           </div>
         </Modal>
       )}
 
       {modal2FA === 'disable' && (
-        <Modal title="Desactivar 2FA" onClose={() => setModal2FA(null)}>
+        <Modal title="Desactivar 2FA" onClose={close2FAModal}>
           <div className="space-y-4">
             <div className="bg-red-dim border border-red-30 p-3 font-mono text-[10px] text-red">
               Desactivar o 2FA reduz a segurança da tua conta.
             </div>
-            <TotpInput onComplete={handle2FADisable} />
+            <TotpInput key={totpAttempt} onComplete={handle2FADisable} />
+            {twofaError && (
+              <p role="alert" data-testid="twofa-error" className="font-mono text-[10px] text-red text-center">{twofaError}</p>
+            )}
             {twofaLoading && <div className="flex justify-center"><YevaTradeLoader size="sm" /></div>}
           </div>
         </Modal>
