@@ -30,6 +30,13 @@ function isAuthRequest(url: string): boolean {
   return AUTH_PATHS.some((path) => url.includes(path));
 }
 
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    /** Pedidos não idempotentes (ex.: aprovação com TOTP): um 401 não pode reenviar o mesmo corpo. */
+    skipAuthRetry?: boolean;
+  }
+}
+
 type RetryConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
 /** Renovar antes de expirar evita a rajada de 401 de todos os pollings quando o access token (15 min) caduca. */
@@ -100,7 +107,7 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    if (status === 401 && !isAuthRequest(requestUrl) && !originalRequest._retry) {
+    if (status === 401 && !isAuthRequest(requestUrl) && !originalRequest._retry && !originalRequest.skipAuthRetry) {
       originalRequest._retry = true;
       try {
         const sentToken = bearerToken(originalRequest.headers.Authorization);

@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../../lib/api';
 import { getFriendlyError } from '../../utils/errorHandler';
+import { approveThenRefresh, checkTotpCode, isIntentExpired, PILOT_TOTP_LENGTH, pilotReasonLabel, sanitizeTotpInput, submitPilotApproval, type ApprovalExpiry } from '../../utils/pilotApproval';
 import { readinessSummary, type PilotReadiness } from '../../utils/pilotReadinessView';
 
 type PilotState = 'DISABLED' | 'ARMED' | 'ACTIVE' | 'PAUSED' | 'BLOCKED';
@@ -20,6 +21,7 @@ type Control = { exchangeAccountId: string; state: PilotState; reason: string | 
 type StatusResponse = { safety: Safety; executorWired: boolean; accounts: Array<{ id: string; userId: string; isActive: boolean; control: Control }> };
 
 type Detail = {
+  safety?: { approvalTtlMs?: number; intentMaxAgeMs?: number };
   control: Control;
   decisions: Array<{ id: string; createdAt: string; symbol: string; side: string; notional: string | null; decision: string; reasons: string[] }>;
   intents: Array<{ idempotencyKey: string; intentId: string; symbol: string; side: string; quantity: number; notional: number; state: string; createdAt: string }>;
@@ -44,6 +46,27 @@ export default function SpotPilotAdminPanel() {
   const [readiness, setReadiness] = useState<PilotReadiness | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [approveKey, setApproveKey] = useState<string | null>(null);
+  const [totpCode, setTotpCode] = useState('');
+  const [approvals, setApprovals] = useState<Record<string, ApprovalExpiry>>({});
+  const approvingRef = useRef(false);
+  const selectedRef = useRef<string | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  useEffect(() => {
+    const t = window.setInterval(() => setNowMs(Date.now()), 15_000);
+    return () => window.clearInterval(t);
+  }, []);
+
+  const openAccount = (id: string) => {
+    if (busy || approvingRef.current) return;
+    selectedRef.current = id;
+    setDetail(null);
+    setApproveKey(null);
+    setTotpCode('');
+    setApprovals({});
+    setSelected(id);
+  };
 
   const loadStatus = useCallback(async () => {
     try {
@@ -53,13 +76,19 @@ export default function SpotPilotAdminPanel() {
     }
   }, []);
 
+  /** Lança em erro; uma resposta de uma conta que já não está selecionada é ignorada. */
+  const fetchDetail = useCallback(async (id: string) => {
+    const data = (await api.get<Detail>(`/spot-pilot/accounts/${id}`)).data;
+    if (selectedRef.current === id) setDetail(data);
+  }, []);
+
   const loadDetail = useCallback(async (id: string) => {
     try {
-      setDetail((await api.get<Detail>(`/spot-pilot/accounts/${id}`)).data);
+      await fetchDetail(id);
     } catch (e) {
-      setMsg({ ok: false, text: getFriendlyError(e).message });
+      if (selectedRef.current === id) setMsg({ ok: false, text: getFriendlyError(e).message });
     }
-  }, []);
+  }, [fetchDetail]);
 
   useEffect(() => {
     void loadStatus();
@@ -95,14 +124,65 @@ export default function SpotPilotAdminPanel() {
     });
   };
 
-  const decide = (kind: 'approve' | 'reject', idempotencyKey: string) => {
+  const reject = (idempotencyKey: string) => {
     if (!selected) return;
-    if (kind === 'approve' && !window.confirm('Aprovar esta ordem REAL? Ela só é enviada se o Risk Guard voltar a permitir.')) return;
-    void act(kind === 'approve' ? 'Ordem aprovada (não enviada daqui)' : 'Intent rejeitado', async () => {
-      await api.post(`/spot-pilot/accounts/${selected}/${kind}`, { idempotencyKey });
+    void act('Intent rejeitado', async () => {
+      await api.post(`/spot-pilot/accounts/${selected}/reject`, { idempotencyKey });
       return undefined;
     });
   };
+
+  const openApprove = (idempotencyKey: string) => {
+    setApproveKey(idempotencyKey);
+    setTotpCode('');
+    setMsg(null);
+  };
+
+  const cancelApprove = () => {
+    setApproveKey(null);
+    setTotpCode('');
+  };
+
+  /** Uma tentativa = um pedido. O código é limpo sempre a seguir, com ou sem sucesso. */
+  async function confirmApprove(idempotencyKey: string) {
+    if (!selected || approvingRef.current) return;
+    const check = checkTotpCode(totpCode);
+    if (!check.ok) {
+      setMsg({ ok: false, text: check.message });
+      return;
+    }
+    if (!window.confirm('Aprovar esta ordem REAL? Ela só é enviada se o Risk Guard voltar a permitir.')) return;
+    const code = totpCode;
+    setTotpCode('');
+    approvingRef.current = true;
+    setBusy(true);
+    setMsg(null);
+    const accountId = selected;
+    try {
+      const { outcome, message } = await approveThenRefresh(
+        () =>
+          submitPilotApproval((url, body, config) => api.post(url, body, config), {
+            accountId,
+            idempotencyKey,
+            totpCode: code,
+            approvalTtlMs: detail?.safety?.approvalTtlMs ?? null,
+          }),
+        () => fetchDetail(accountId)
+      );
+      setMsg({ ok: outcome.kind === 'APPROVED', text: message });
+      if (outcome.kind === 'APPROVED' && outcome.expiresAt) {
+        setApprovals((m) => ({ ...m, [idempotencyKey]: { expiresAt: outcome.expiresAt as string, expired: false } }));
+      }
+      if (outcome.kind === 'REFUSED' && outcome.expiry) {
+        const expiry = outcome.expiry;
+        setApprovals((m) => ({ ...m, [idempotencyKey]: expiry }));
+      }
+      if (outcome.kind !== 'INVALID_INPUT') setApproveKey(null);
+    } finally {
+      approvingRef.current = false;
+      setBusy(false);
+    }
+  }
 
   async function loadReadiness(id: string) {
     setBusy(true);
@@ -159,7 +239,7 @@ export default function SpotPilotAdminPanel() {
                   <span className={`font-mono text-[9px] uppercase border px-1.5 py-0.5 ${STATE_TONE[a.control.state]}`}>{a.control.state}</span>
                 </td>
                 <td className="px-4 py-2.5 text-right">
-                  <button type="button" className="font-mono text-[9px] uppercase text-cyan hover:underline" onClick={() => setSelected(a.id)}>Abrir</button>
+                  <button type="button" disabled={busy} className="font-mono text-[9px] uppercase text-cyan hover:underline disabled:opacity-40" onClick={() => openAccount(a.id)}>Abrir</button>
                 </td>
               </tr>
             ))}
@@ -204,18 +284,59 @@ export default function SpotPilotAdminPanel() {
               <p className="text-text3 text-[12px]">Nenhum.</p>
             ) : (
               <ul className="space-y-1">
-                {detail.intents.map((i) => (
-                  <li key={i.idempotencyKey} className="flex flex-wrap items-center gap-2 font-mono text-[10px] text-text2">
-                    <span>{i.symbol} {i.side} {i.quantity} (~{i.notional.toFixed(2)} USDT)</span>
-                    <span className="text-text1">{i.state}</span>
-                    {i.state === 'PENDING' && detail.control.state === 'ARMED' && (
-                      <button type="button" disabled={busy} onClick={() => decide('approve', i.idempotencyKey)} className="uppercase border border-gold text-gold px-1.5 disabled:opacity-40">Aprovar</button>
-                    )}
-                    {i.state === 'PENDING' && (
-                      <button type="button" disabled={busy} onClick={() => decide('reject', i.idempotencyKey)} className="uppercase border border-border2 text-text3 px-1.5 disabled:opacity-40">Rejeitar</button>
-                    )}
-                  </li>
-                ))}
+                {detail.intents.map((i) => {
+                  const intentExpired = isIntentExpired(i.createdAt, detail.safety?.intentMaxAgeMs, nowMs);
+                  const known = approvals[i.idempotencyKey];
+                  const expiry = known ? { expiresAt: known.expiresAt, expired: nowMs >= Date.parse(known.expiresAt) } : null;
+                  const canApprove = i.state === 'PENDING' && (detail.control.state === 'ARMED' || detail.control.state === 'ACTIVE') && !intentExpired && !known;
+                  return (
+                    <li key={i.idempotencyKey} className="font-mono text-[10px] text-text2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span>{i.symbol} {i.side} {i.quantity} (~{i.notional.toFixed(2)} USDT)</span>
+                        <span className="text-text1">{i.state}</span>
+                        {intentExpired && i.state === 'PENDING' && <span className="text-red">INTENT_EXPIRED · rejeita e cria novo pedido</span>}
+                        {expiry && (
+                          <span className={expiry.expired ? 'text-red' : 'text-cyan'}>
+                            {expiry.expired ? 'APPROVAL_EXPIRED · aprovação expirada' : `aprovada · expira às ${new Date(expiry.expiresAt).toLocaleTimeString('pt-PT')}`}
+                          </span>
+                        )}
+                        {canApprove && approveKey !== i.idempotencyKey && (
+                          <button type="button" disabled={busy} onClick={() => openApprove(i.idempotencyKey)} className="uppercase border border-gold text-gold px-1.5 disabled:opacity-40">Aprovar</button>
+                        )}
+                        {i.state === 'PENDING' && (
+                          <button type="button" disabled={busy} onClick={() => reject(i.idempotencyKey)} className="uppercase border border-border2 text-text3 px-1.5 disabled:opacity-40">Rejeitar</button>
+                        )}
+                      </div>
+                      {canApprove && approveKey === i.idempotencyKey && (
+                        <form
+                          className="mt-1 flex flex-wrap items-center gap-2"
+                          data-testid="pilot-approve-form"
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            void confirmApprove(i.idempotencyKey);
+                          }}
+                        >
+                          <label htmlFor={`totp-${i.idempotencyKey}`} className="text-text3">Código TOTP</label>
+                          <input
+                            id={`totp-${i.idempotencyKey}`}
+                            type="text"
+                            inputMode="numeric"
+                            autoComplete="one-time-code"
+                            pattern="[0-9]{6}"
+                            maxLength={PILOT_TOTP_LENGTH}
+                            value={totpCode}
+                            onChange={(e) => setTotpCode(sanitizeTotpInput(e.target.value))}
+                            disabled={busy}
+                            className="w-20 bg-bg2 border border-border2 px-1.5 py-0.5 text-text1 tracking-widest"
+                          />
+                          <button type="submit" disabled={busy || totpCode.length !== PILOT_TOTP_LENGTH} className="uppercase border border-gold text-gold px-1.5 disabled:opacity-40">Confirmar aprovação</button>
+                          <button type="button" disabled={busy} onClick={cancelApprove} className="uppercase border border-border2 text-text3 px-1.5 disabled:opacity-40">Cancelar</button>
+                          <span className="text-text3">Intent {i.intentId.slice(0, 8)} · uma tentativa por código</span>
+                        </form>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
@@ -242,7 +363,7 @@ export default function SpotPilotAdminPanel() {
                 {detail.decisions.map((d) => (
                   <li key={d.id}>
                     {new Date(d.createdAt).toLocaleString('pt-PT')} · {d.symbol} {d.side} · <span className={d.decision === 'ALLOW' ? 'text-cyan' : d.decision === 'BLOCK' ? 'text-red' : 'text-gold'}>{d.decision}</span>
-                    {d.reasons.length > 0 && <span className="text-text3"> · {d.reasons.join(', ')}</span>}
+                    {d.reasons.length > 0 && <span className={d.reasons.includes('APPROVAL_EXPIRED') ? 'text-red' : 'text-text3'}> · {d.reasons.map(pilotReasonLabel).join(', ')}</span>}
                   </li>
                 ))}
               </ul>
