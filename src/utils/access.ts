@@ -16,6 +16,11 @@ export function canAccessSpotPaper(user: AccessUser): boolean {
   return isAdminUser(user);
 }
 
+/** Spot Pilot controla o piloto real — só administradores (o backend exige admin em /api/spot-pilot). */
+export function canAccessSpotPilot(user: AccessUser): boolean {
+  return isAdminUser(user);
+}
+
 /** Nunca decide enquanto /auth/me ainda está a carregar. */
 export function routeAccess(i: { loading: boolean; user: AccessUser; requireAdmin: boolean }): RouteAccess {
   if (i.loading) return 'loading';

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../../lib/api';
 import { getFriendlyError } from '../../utils/errorHandler';
 import { approveThenRefresh, checkTotpCode, isIntentExpired, PILOT_TOTP_LENGTH, pilotReasonLabel, sanitizeTotpInput, submitPilotApproval, type ApprovalExpiry } from '../../utils/pilotApproval';
@@ -127,10 +128,10 @@ export default function SpotPilotAdminPanel() {
     return () => window.clearInterval(t);
   }, [loadStrategy]);
 
-  const setEntries = (enabled: boolean) => {
-    if (enabled && !window.confirm('Retomar entradas automáticas? Cada compra continua a exigir aprovação com TOTP; as saídas protetoras são automáticas.')) return;
-    void act(enabled ? 'Entradas automáticas retomadas' : 'Entradas automáticas suspensas (saídas continuam geridas)', async () => {
-      await api.post('/spot-pilot/strategy/entries', { enabled });
+  /** Retomar entradas e armar exigem TOTP e pré-condições: só na página Spot Pilot. */
+  const suspendEntries = () => {
+    void act('Entradas automáticas suspensas (saídas continuam geridas)', async () => {
+      await api.post('/spot-pilot/strategy/entries', { enabled: false });
       await loadStrategy();
       return undefined;
     });
@@ -194,9 +195,8 @@ export default function SpotPilotAdminPanel() {
     }
   }
 
-  const setState = (state: 'ARMED' | 'PAUSED' | 'DISABLED') => {
+  const setState = (state: 'PAUSED' | 'DISABLED') => {
     if (!selected) return;
-    if (state === 'ARMED' && !window.confirm('Armar o piloto para esta conta? A primeira ordem real continua a exigir aprovação explícita.')) return;
     void act(`Estado → ${state}`, async () => {
       await api.post(`/spot-pilot/accounts/${selected}/state`, { state });
       return undefined;
@@ -342,9 +342,13 @@ export default function SpotPilotAdminPanel() {
               <span className={`font-mono text-[9px] uppercase border px-1.5 py-0.5 ${strategy.entriesEnabled ? 'text-cyan border-cyan-30' : 'text-text3 border-border2'}`}>
                 {strategy.entriesEnabled ? 'entradas ligadas' : 'entradas suspensas'}
               </span>
-              <button type="button" disabled={busy} onClick={() => setEntries(!strategy.entriesEnabled)} className="font-mono text-[9px] uppercase border border-gold text-gold px-2 py-1 disabled:opacity-40">
-                {strategy.entriesEnabled ? 'Suspender entradas' : 'Retomar entradas'}
-              </button>
+              {strategy.entriesEnabled ? (
+                <button type="button" disabled={busy} onClick={suspendEntries} className="font-mono text-[9px] uppercase border border-gold text-gold px-2 py-1 disabled:opacity-40">
+                  Suspender entradas
+                </button>
+              ) : (
+                <Link to="/spot-pilot" className="font-mono text-[9px] uppercase border border-gold text-gold px-2 py-1">Retomar entradas (Spot Pilot, TOTP)</Link>
+              )}
             </>
           )}
         </div>
@@ -420,7 +424,7 @@ export default function SpotPilotAdminPanel() {
         <div className="bg-bg1 border border-border1 p-4 space-y-4">
           <div className="flex flex-wrap items-center gap-2">
             <span className={`font-mono text-[10px] uppercase border px-2 py-0.5 ${STATE_TONE[detail.control.state]}`}>{detail.control.state}</span>
-            <button type="button" disabled={busy || detail.control.state === 'ACTIVE'} onClick={() => setState('ARMED')} className="font-mono text-[9px] uppercase border border-gold text-gold px-2 py-1 disabled:opacity-40">Armar</button>
+            <Link to="/spot-pilot" className="font-mono text-[9px] uppercase border border-gold text-gold px-2 py-1">Armar (Spot Pilot, TOTP)</Link>
             <button type="button" disabled={busy} onClick={() => setState('PAUSED')} className="font-mono text-[9px] uppercase border border-border2 text-text2 px-2 py-1 disabled:opacity-40">Pausar</button>
             <button type="button" disabled={busy} onClick={() => setState('DISABLED')} className="font-mono text-[9px] uppercase border border-border2 text-text2 px-2 py-1 disabled:opacity-40">Desativar</button>
             <button type="button" disabled={busy} onClick={() => void act('Leitura da conta concluída', async () => (await api.post(`/spot-pilot/accounts/${selected}/read-check`)).data)} className="font-mono text-[9px] uppercase border border-cyan-30 text-cyan px-2 py-1 disabled:opacity-40">Verificar leitura</button>

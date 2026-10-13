@@ -9,7 +9,7 @@ import {
 } from './SystemAliveBoot';
 import { FirstLoginRiskGate } from './RiskDisclaimer';
 import { AssistantChat } from './AssistantChat';
-import { canAccessSpotPaper } from '../utils/access';
+import { canAccessSpotPaper, canAccessSpotPilot } from '../utils/access';
 
 interface ExchangeAccount { id: string; exchange: string; isActive: boolean; }
 
@@ -54,6 +54,13 @@ const IconWallet = () => (
   </svg>
 );
 
+const IconShield = () => (
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+    <path d="M10 2.5l6 2.2v4.6c0 3.7-2.5 6.6-6 8.2-3.5-1.6-6-4.5-6-8.2V4.7l6-2.2Z" stroke="currentColor" strokeWidth="1.3"/>
+    <path d="M7.2 10l2 2 3.6-3.8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="square"/>
+  </svg>
+);
+
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `flex items-center gap-2.5 px-2.5 py-2 text-[13px] font-medium border transition-all mb-0.5 no-underline ${
     isActive ? 'text-cyan bg-cyan-dim border-cyan-20' : 'text-text2 border-transparent hover:bg-bg3 hover:text-text1'
@@ -88,6 +95,9 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
         <NavLink to="/futures" className={navLinkClass} onClick={close}><IconChart /><span>Futures</span></NavLink>
         {canAccessSpotPaper(user) && (
           <NavLink to="/spot-paper" className={navLinkClass} onClick={close}><IconChart /><span>Spot Paper</span></NavLink>
+        )}
+        {canAccessSpotPilot(user) && (
+          <NavLink to="/spot-pilot" className={navLinkClass} onClick={close}><IconShield /><span>Spot Pilot</span></NavLink>
         )}
         <NavLink to="/bots"      className={navLinkClass} onClick={close}><IconBot /><span>Bots</span></NavLink>
         <NavLink to="/operations/manual" className={navLinkClass} onClick={close}><IconChart /><span>Operações</span></NavLink>

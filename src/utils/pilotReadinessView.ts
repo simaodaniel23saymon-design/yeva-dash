@@ -31,6 +31,24 @@ export type PilotReadiness = {
     maxEntries: number | null;
   } | null;
   dryRun?: { evaluated: boolean; decision: string; reasons: string[] };
+  /** Só contas da estratégia: plano de entrada com a mesma lógica do motor (candidatos + filtros de compra e saída). */
+  entryPlan?: {
+    state: string;
+    symbol: string | null;
+    quantity: number | null;
+    budgetQuote: number | null;
+    selectionReasons: string[];
+    checks: Array<{
+      symbol: string;
+      ok: boolean;
+      reason: string | null;
+      detail: string | null;
+      quantity: string | null;
+      entryNotional: string | null;
+      exitAdverseNotional: string | null;
+      requiredNotional: string | null;
+    }>;
+  } | null;
 };
 
 const NA = '—';
