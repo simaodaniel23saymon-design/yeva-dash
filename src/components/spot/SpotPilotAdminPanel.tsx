@@ -24,7 +24,7 @@ type Detail = {
   safety?: { approvalTtlMs?: number; intentMaxAgeMs?: number };
   control: Control;
   decisions: Array<{ id: string; createdAt: string; symbol: string; side: string; notional: string | null; decision: string; reasons: string[] }>;
-  intents: Array<{ idempotencyKey: string; intentId: string; symbol: string; side: string; quantity: number; notional: number; state: string; createdAt: string }>;
+  intents: Array<{ idempotencyKey: string; intentId: string; symbol: string; side: string; quantity: number; notional: number; state: string; createdAt: string; errorCode?: string | null }>;
   mismatches: Array<{ id: string; kind: string; severity: string; symbol: string | null; asset: string | null }>;
 };
 
@@ -40,6 +40,25 @@ type StrategyPosition = {
   exitSignal: string | null;
 };
 
+type UnknownInspection = {
+  idempotencyKey: string;
+  symbol: string;
+  side: string;
+  quantity: number;
+  state: string;
+  sentAt: string;
+  exchange: string;
+  exchangeStatus: string | null;
+  openOrderPresent: boolean | null;
+  pilotFills: number | null;
+  resolvable: boolean;
+  blockers: string[];
+  instructions: string[];
+};
+
+/** Estados em que a ordem pode ter ou não chegado à exchange: só inspeção/resolução, nunca reenvio. */
+const UNCERTAIN_STATES = new Set(['UNKNOWN', 'SUBMITTING', 'REQUIRES_RECONCILIATION']);
+
 type StrategyStatus = {
   loopRunning: boolean;
   entriesEnabled: boolean;
@@ -53,6 +72,7 @@ type StrategyStatus = {
     position: StrategyPosition | null;
     lastAction: { at: string; decision: string; side: string; symbol: string; state: string | null } | null;
     consecutiveErrors: number;
+    reconciledSinceBoot?: boolean;
     lastTickAt: string;
   }>;
 };
@@ -84,6 +104,9 @@ export default function SpotPilotAdminPanel() {
   const selectedRef = useRef<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [strategy, setStrategy] = useState<StrategyStatus | null>(null);
+  const [inspection, setInspection] = useState<UnknownInspection | null>(null);
+  const [resolveNote, setResolveNote] = useState('');
+  const [resolveTotp, setResolveTotp] = useState('');
 
   useEffect(() => {
     const t = window.setInterval(() => setNowMs(Date.now()), 15_000);
@@ -105,7 +128,7 @@ export default function SpotPilotAdminPanel() {
   }, [loadStrategy]);
 
   const setEntries = (enabled: boolean) => {
-    if (enabled && !window.confirm('Retomar entradas automáticas? Cada compra continua a exigir aprovação com TOTP.')) return;
+    if (enabled && !window.confirm('Retomar entradas automáticas? Cada compra continua a exigir aprovação com TOTP; as saídas protetoras são automáticas.')) return;
     void act(enabled ? 'Entradas automáticas retomadas' : 'Entradas automáticas suspensas (saídas continuam geridas)', async () => {
       await api.post('/spot-pilot/strategy/entries', { enabled });
       await loadStrategy();
@@ -120,6 +143,7 @@ export default function SpotPilotAdminPanel() {
     setApproveKey(null);
     setTotpCode('');
     setApprovals({});
+    setInspection(null);
     setSelected(id);
   };
 
@@ -186,6 +210,43 @@ export default function SpotPilotAdminPanel() {
       return undefined;
     });
   };
+
+  /** Só leituras na Binance (ordem, ordens abertas) e no ledger; nada é alterado. */
+  async function inspectIntent(idempotencyKey: string) {
+    if (!selected) return;
+    setBusy(true);
+    setMsg(null);
+    setResolveNote('');
+    setResolveTotp('');
+    try {
+      setInspection((await api.get<{ inspection: UnknownInspection }>(`/spot-pilot/accounts/${selected}/intents/inspect`, { params: { key: idempotencyKey } })).data.inspection);
+    } catch (e) {
+      setMsg({ ok: false, text: getFriendlyError(e).message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function resolveNotPlaced() {
+    if (!selected || !inspection?.resolvable) return;
+    const check = checkTotpCode(resolveTotp);
+    if (!check.ok) {
+      setMsg({ ok: false, text: check.message });
+      return;
+    }
+    if (resolveNote.trim().length < 10) {
+      setMsg({ ok: false, text: 'Indica uma nota com pelo menos 10 caracteres (o que foi verificado na Binance).' });
+      return;
+    }
+    if (!window.confirm('Fechar este intent como "ordem não colocada"? A Binance volta a ser consultada agora; nada é enviado nem cancelado e o piloto não é rearmado.')) return;
+    const code = resolveTotp;
+    setResolveTotp('');
+    await act('Intent resolvido como não colocado. Verifica o estado e rearma o piloto só se estiver tudo certo.', async () => {
+      await api.post(`/spot-pilot/accounts/${selected}/intents/resolve-not-placed`, { idempotencyKey: inspection.idempotencyKey, totpCode: code, note: resolveNote.trim() });
+      setInspection(null);
+      return undefined;
+    });
+  }
 
   const openApprove = (idempotencyKey: string) => {
     setApproveKey(idempotencyKey);
@@ -290,7 +351,10 @@ export default function SpotPilotAdminPanel() {
         {strategy ? (
           <div className="space-y-2 font-mono text-[10px] text-text2">
             <p className="text-text3">
-              TP {strategy.policy.takeProfitPct}% · SL {strategy.policy.stopLossPct}% · trailing +{strategy.policy.trailingActivatePct}%/−{strategy.policy.trailingGivebackPct} · momentum −{strategy.policy.momentumExitScoreDrop} · {strategy.policy.maxPositions} posição / {strategy.policy.maxEntriesPerCycle} entrada · todas as ordens com aprovação TOTP
+              TP {strategy.policy.takeProfitPct}% · SL {strategy.policy.stopLossPct}% · trailing +{strategy.policy.trailingActivatePct}%/−{strategy.policy.trailingGivebackPct} · momentum −{strategy.policy.momentumExitScoreDrop} · {strategy.policy.maxPositions} posição / {strategy.policy.maxEntriesPerCycle} entrada · compras com aprovação TOTP · saídas protetoras automáticas (também em pausa)
+            </p>
+            <p className="text-text3">
+              Sem stop na exchange: com o kill switch, o piloto bloqueado/desativado, a API parada ou a Binance indisponível, a posição fica sem saída automática (alerta a cada 30 min). Um Stop Loss é uma ordem a mercado depois do sinal: o preço de saída pode ser pior do que o nível do stop.
             </p>
             {strategy.strategyAccountIds.length === 0 && <p className="text-text3">Nenhuma conta configurada para a estratégia (REAL_SPOT_PILOT_STRATEGY_ACCOUNT_IDS).</p>}
             {strategy.blockers.length > 0 && <p className="text-gold">Bloqueios globais: {strategy.blockers.join(' · ')}</p>}
@@ -300,6 +364,8 @@ export default function SpotPilotAdminPanel() {
                   {a.accountId.slice(0, 8)} · <span className={a.state === 'ERROR' || a.state === 'RECONCILIATION_REQUIRED' ? 'text-red' : 'text-text1'}>{a.state}</span>
                   {a.reasons.length > 0 && <span className="text-text3"> · {a.reasons.join(', ')}</span>}
                   {a.consecutiveErrors > 0 && <span className="text-red"> · erros seguidos {a.consecutiveErrors}</span>}
+                  {a.reconciledSinceBoot === false && <span className="text-gold"> · reconciliação de arranque pendente</span>}
+                  {a.reasons.includes('POSITION_UNPROTECTED') && <span className="text-red"> · POSIÇÃO SEM PROTEÇÃO AUTOMÁTICA</span>}
                 </div>
                 {a.position && (
                   <div>
@@ -409,7 +475,61 @@ export default function SpotPilotAdminPanel() {
                         {i.state === 'PENDING' && (
                           <button type="button" disabled={busy} onClick={() => reject(i.idempotencyKey)} className="uppercase border border-border2 text-text3 px-1.5 disabled:opacity-40">Rejeitar</button>
                         )}
+                        {UNCERTAIN_STATES.has(i.state) && (
+                          <>
+                            <span className="text-red">estado incerto · sem novas ordens até resolver · não repetir a ordem manualmente</span>
+                            <button type="button" disabled={busy} onClick={() => void inspectIntent(i.idempotencyKey)} className="uppercase border border-cyan-30 text-cyan px-1.5 disabled:opacity-40">Inspecionar na Binance</button>
+                          </>
+                        )}
                       </div>
+                      {inspection && inspection.idempotencyKey === i.idempotencyKey && (
+                        <div className="mt-1 border border-border1 p-2 space-y-1" data-testid="pilot-unknown-inspection">
+                          <div>
+                            Binance: <span className={inspection.exchange === 'ORDER_NOT_FOUND' ? 'text-cyan' : 'text-gold'}>{inspection.exchange}</span>
+                            {inspection.exchangeStatus && ` (${inspection.exchangeStatus})`} · ordem aberta: {inspection.openOrderPresent == null ? 'desconhecido' : inspection.openOrderPresent ? 'sim' : 'não'} · fills do piloto: {inspection.pilotFills ?? 'desconhecido'} · enviado {inspection.sentAt ? new Date(inspection.sentAt).toLocaleString('pt-PT') : '—'}
+                          </div>
+                          {inspection.blockers.length > 0 && <div className="text-gold">Bloqueios: {inspection.blockers.join(' · ')}</div>}
+                          <ul className="list-disc pl-4 text-text3">
+                            {inspection.instructions.map((t) => (
+                              <li key={t}>{t}</li>
+                            ))}
+                          </ul>
+                          {inspection.resolvable && (
+                            <form
+                              className="flex flex-wrap items-center gap-2"
+                              data-testid="pilot-resolve-unknown-form"
+                              onSubmit={(e) => {
+                                e.preventDefault();
+                                void resolveNotPlaced();
+                              }}
+                            >
+                              <input
+                                type="text"
+                                value={resolveNote}
+                                maxLength={500}
+                                onChange={(e) => setResolveNote(e.target.value)}
+                                placeholder="Nota: o que foi verificado na Binance"
+                                disabled={busy}
+                                className="flex-1 min-w-[200px] bg-bg2 border border-border2 px-1.5 py-0.5 text-text1"
+                              />
+                              <label htmlFor={`resolve-totp-${i.idempotencyKey}`} className="text-text3">Código TOTP</label>
+                              <input
+                                id={`resolve-totp-${i.idempotencyKey}`}
+                                type="text"
+                                inputMode="numeric"
+                                autoComplete="one-time-code"
+                                pattern="[0-9]{6}"
+                                maxLength={PILOT_TOTP_LENGTH}
+                                value={resolveTotp}
+                                onChange={(e) => setResolveTotp(sanitizeTotpInput(e.target.value))}
+                                disabled={busy}
+                                className="w-20 bg-bg2 border border-border2 px-1.5 py-0.5 text-text1 tracking-widest"
+                              />
+                              <button type="submit" disabled={busy || resolveTotp.length !== PILOT_TOTP_LENGTH} className="uppercase border border-gold text-gold px-1.5 disabled:opacity-40">Resolver: não colocada</button>
+                            </form>
+                          )}
+                        </div>
+                      )}
                       {canApprove && approveKey === i.idempotencyKey && (
                         <form
                           className="mt-1 flex flex-wrap items-center gap-2"
