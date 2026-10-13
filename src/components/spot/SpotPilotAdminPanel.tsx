@@ -28,6 +28,37 @@ type Detail = {
   mismatches: Array<{ id: string; kind: string; severity: string; symbol: string | null; asset: string | null }>;
 };
 
+type StrategyPosition = {
+  symbol: string;
+  quantity: number;
+  averageEntryPrice: number | null;
+  price: number | null;
+  pnlPct: number | null;
+  peakPct: number | null;
+  stopLossPrice: number | null;
+  takeProfitPrice: number | null;
+  exitSignal: string | null;
+};
+
+type StrategyStatus = {
+  loopRunning: boolean;
+  entriesEnabled: boolean;
+  strategyAccountIds: string[];
+  blockers: string[];
+  policy: { takeProfitPct: number; stopLossPct: number; trailingActivatePct: number; trailingGivebackPct: number; momentumExitScoreDrop: number; maxPositions: number; maxEntriesPerCycle: number };
+  accounts: Array<{
+    accountId: string;
+    state: string;
+    reasons: string[];
+    position: StrategyPosition | null;
+    lastAction: { at: string; decision: string; side: string; symbol: string; state: string | null } | null;
+    consecutiveErrors: number;
+    lastTickAt: string;
+  }>;
+};
+
+const fmt = (n: number | null | undefined, d = 2) => (n == null || !Number.isFinite(n) ? '—' : n.toFixed(d));
+
 const STATE_TONE: Record<PilotState, string> = {
   DISABLED: 'text-text3 border-border2',
   ARMED: 'text-gold border-gold',
@@ -52,11 +83,35 @@ export default function SpotPilotAdminPanel() {
   const approvingRef = useRef(false);
   const selectedRef = useRef<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [strategy, setStrategy] = useState<StrategyStatus | null>(null);
 
   useEffect(() => {
     const t = window.setInterval(() => setNowMs(Date.now()), 15_000);
     return () => window.clearInterval(t);
   }, []);
+
+  const loadStrategy = useCallback(async () => {
+    try {
+      setStrategy((await api.get<StrategyStatus>('/spot-pilot/strategy/status')).data);
+    } catch {
+      setStrategy(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadStrategy();
+    const t = window.setInterval(() => void loadStrategy(), 30_000);
+    return () => window.clearInterval(t);
+  }, [loadStrategy]);
+
+  const setEntries = (enabled: boolean) => {
+    if (enabled && !window.confirm('Retomar entradas automáticas? Cada compra continua a exigir aprovação com TOTP.')) return;
+    void act(enabled ? 'Entradas automáticas retomadas' : 'Entradas automáticas suspensas (saídas continuam geridas)', async () => {
+      await api.post('/spot-pilot/strategy/entries', { enabled });
+      await loadStrategy();
+      return undefined;
+    });
+  };
 
   const openAccount = (id: string) => {
     if (busy || approvingRef.current) return;
@@ -216,6 +271,54 @@ export default function SpotPilotAdminPanel() {
         )}
         {s && s.blockers.length > 0 && <p className="mt-3 text-gold font-mono text-[10px]">Bloqueios ativos: {s.blockers.join(' · ')}</p>}
         {status && !status.executorWired && <p className="mt-1 text-text3 font-mono text-[10px]">Executor não ligado ao runtime da estratégia. Nenhuma ordem é enviada a partir deste painel.</p>}
+      </div>
+
+      <div className="bg-bg1 border border-border1 p-4" data-testid="spot-pilot-strategy">
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <h3 className="font-mono text-[9px] uppercase tracking-wider text-text2">Estratégia automática (Momentum Spot · LONG · sem alavancagem)</h3>
+          {strategy && (
+            <>
+              <span className={`font-mono text-[9px] uppercase border px-1.5 py-0.5 ${strategy.entriesEnabled ? 'text-cyan border-cyan-30' : 'text-text3 border-border2'}`}>
+                {strategy.entriesEnabled ? 'entradas ligadas' : 'entradas suspensas'}
+              </span>
+              <button type="button" disabled={busy} onClick={() => setEntries(!strategy.entriesEnabled)} className="font-mono text-[9px] uppercase border border-gold text-gold px-2 py-1 disabled:opacity-40">
+                {strategy.entriesEnabled ? 'Suspender entradas' : 'Retomar entradas'}
+              </button>
+            </>
+          )}
+        </div>
+        {strategy ? (
+          <div className="space-y-2 font-mono text-[10px] text-text2">
+            <p className="text-text3">
+              TP {strategy.policy.takeProfitPct}% · SL {strategy.policy.stopLossPct}% · trailing +{strategy.policy.trailingActivatePct}%/−{strategy.policy.trailingGivebackPct} · momentum −{strategy.policy.momentumExitScoreDrop} · {strategy.policy.maxPositions} posição / {strategy.policy.maxEntriesPerCycle} entrada · todas as ordens com aprovação TOTP
+            </p>
+            {strategy.strategyAccountIds.length === 0 && <p className="text-text3">Nenhuma conta configurada para a estratégia (REAL_SPOT_PILOT_STRATEGY_ACCOUNT_IDS).</p>}
+            {strategy.blockers.length > 0 && <p className="text-gold">Bloqueios globais: {strategy.blockers.join(' · ')}</p>}
+            {strategy.accounts.map((a) => (
+              <div key={a.accountId} className="border border-border1 p-2 space-y-1">
+                <div>
+                  {a.accountId.slice(0, 8)} · <span className={a.state === 'ERROR' || a.state === 'RECONCILIATION_REQUIRED' ? 'text-red' : 'text-text1'}>{a.state}</span>
+                  {a.reasons.length > 0 && <span className="text-text3"> · {a.reasons.join(', ')}</span>}
+                  {a.consecutiveErrors > 0 && <span className="text-red"> · erros seguidos {a.consecutiveErrors}</span>}
+                </div>
+                {a.position && (
+                  <div>
+                    {a.position.symbol} {a.position.quantity} · médio {fmt(a.position.averageEntryPrice, 4)} · preço {fmt(a.position.price, 4)} · PnL {fmt(a.position.pnlPct)}% · pico {fmt(a.position.peakPct)}% · SL {fmt(a.position.stopLossPrice, 4)} · TP {fmt(a.position.takeProfitPrice, 4)}
+                    {a.position.exitSignal && <span className="text-gold"> · sinal de saída {a.position.exitSignal}</span>}
+                  </div>
+                )}
+                {a.lastAction && (
+                  <div className="text-text3">
+                    Última ação {new Date(a.lastAction.at).toLocaleString('pt-PT')} · {a.lastAction.symbol} {a.lastAction.side} · {a.lastAction.decision} · {a.lastAction.state ?? '—'}
+                  </div>
+                )}
+                <div className="text-text3">Último ciclo {new Date(a.lastTickAt).toLocaleTimeString('pt-PT')}</div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-text3 text-sm">Sem estado da estratégia.</p>
+        )}
       </div>
 
       {msg && <div className={`p-3 border font-mono text-[10px] ${msg.ok ? 'bg-cyan-dim border-cyan-20 text-cyan' : 'bg-red-dim border-red-30 text-red'}`}>{msg.text}</div>}
