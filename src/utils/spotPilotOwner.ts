@@ -87,6 +87,20 @@ export type HistoryItem = {
   reason: string
 }
 
+/** Resíduos dos fills do piloto abaixo do mínimo de uma posição (ex.: sobra da venda arredondada): fora da exposição. */
+export type PilotResidual = { costQuote: number; valueQuote: number | null; assets: Array<{ symbol: string; quantity: number; costQuote: number; valueQuote: number | null }> }
+
+export type PilotPnl = {
+  realizedQuote: number
+  unrealizedQuote: number | null
+  residualUnrealizedQuote?: number | null
+  /** realizado + não realizado (+ resíduos); null ⇒ indisponível. */
+  totalQuote: number | null
+  feesNotIncludedAssets?: string[]
+  untrackedSells?: boolean
+  partial: boolean
+}
+
 export type PilotOverview = {
   account: { id: string; exchange: 'BINANCE'; market: string | null; accountType: string | null; isActive: boolean; connectionStatus: string | null; eligibilityReasons: string[] }
   control: OwnerControl
@@ -103,8 +117,8 @@ export type PilotOverview = {
     takeProfitPct: number
   }
   balance: { status: string; usdtAvailable: number | null; usdtLocked: number | null; fetchedAt: string }
-  exposure: { investedQuote: number; openPositions: number }
-  pnl: { realizedQuote: number; unrealizedQuote: number | null; totalQuote: number | null; partial: boolean }
+  exposure: { investedQuote: number; openPositions: number; residual?: PilotResidual }
+  pnl: PilotPnl
   positions: PositionCard[]
   uncertainOrders: number
   pendingOrders: number
@@ -119,6 +133,8 @@ const finite = (n: unknown): n is number => typeof n === 'number' && Number.isFi
 
 export const usdtText = (n: number | null | undefined) => (finite(n) ? `${n.toFixed(2)} USDT` : '—')
 export const signedUsdtText = (n: number | null | undefined) => (finite(n) ? `${n >= 0 ? '+' : ''}${n.toFixed(2)} USDT` : '—')
+/** PnL com 4 casas abaixo de 1 USDT: +0.0083 não aparece como +0.00. */
+export const pnlUsdtText = (n: number | null | undefined) => (finite(n) ? `${n >= 0 ? '+' : ''}${n.toFixed(Math.abs(n) < 1 ? 4 : 2)} USDT` : 'Indisponível')
 export const pctText = (n: number | null | undefined) => (finite(n) ? `${n >= 0 ? '+' : ''}${n.toFixed(2)}%` : '—')
 export const priceText = (n: number | null | undefined) => {
   if (!finite(n)) return '—'
@@ -291,7 +307,35 @@ export function balanceText(b: PilotOverview['balance'] | null | undefined): str
   if (!b) return '—'
   if (b.status === 'OK') return usdtText(b.usdtAvailable)
   if (b.status === 'CREDENTIALS_INVALID') return 'Chave da Binance inválida'
+  if (b.status === 'CONNECTION_NOT_READY') return 'Ligação inválida — saldo não lido'
   return 'Indisponível neste momento'
+}
+
+export function balanceHint(b: PilotOverview['balance'] | null | undefined): string | undefined {
+  return b?.status === 'OK' && finite(b.usdtLocked) && b.usdtLocked > 0 ? `${usdtText(b.usdtLocked)} bloqueados em ordens` : undefined
+}
+
+/** Posições geridas pelo piloto; o resíduo aparece à parte e nunca conta como posição. */
+export function exposureHint(e: PilotOverview['exposure'] | null | undefined): string | undefined {
+  if (!e) return undefined
+  const parts = [`${e.openPositions} posição(ões) aberta(s)`]
+  const r = e.residual
+  if (r && r.assets.length) {
+    const what = r.assets.map((a) => `${Number(a.quantity.toPrecision(6))} ${a.symbol.replace(/USDT$/, '')}`).join(', ')
+    parts.push(`resíduo fora das posições: ${what} (≈ ${usdtText(r.valueQuote ?? r.costQuote)})`)
+  }
+  return parts.join(' · ')
+}
+
+/** O que o PnL total inclui e o que lhe falta (nunca um valor inventado). */
+export function pnlHint(p: PilotPnl | null | undefined): string | undefined {
+  if (!p) return undefined
+  const notes: string[] = []
+  if (p.totalQuote == null) notes.push('indisponível: falta o preço atual de uma moeda')
+  if (p.feesNotIncludedAssets?.length) notes.push(`comissões em ${p.feesNotIncludedAssets.join(', ')} não incluídas`)
+  if (p.untrackedSells) notes.push('há vendas sem custo de compra conhecido (fora do PnL)')
+  if (!notes.length) notes.push('realizado + não realizado, com comissões em USDT/no ativo')
+  return notes.join(' · ')
 }
 
 /** Regras do piloto em linguagem clara (valores do servidor). */

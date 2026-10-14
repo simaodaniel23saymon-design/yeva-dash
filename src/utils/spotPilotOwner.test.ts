@@ -5,8 +5,12 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import OwnerPilotAccount from '../components/spot/pilot/OwnerPilotAccount';
 import {
+  balanceHint,
   EMPTY_POSITIONS_TEXT,
+  exposureHint,
   historyLine,
+  pnlHint,
+  pnlUsdtText,
   ownerActionError,
   ownerActions,
   ownerReasonText,
@@ -142,7 +146,7 @@ describe('Spot Pilot do utilizador · cartões e histórico', () => {
     const html = render(summary('ACTIVE', true, 'ACTIVE'), overview());
     expect(html).toContain(EMPTY_POSITIONS_TEXT);
     expect(html).toContain('20.50 USDT');
-    expect(html).toContain('+0.12 USDT');
+    expect(html).toContain('+0.1200 USDT');
     expect(html).toContain('6.00 USDT');
     expect(html).toContain('Pausar novas compras');
     expect(html).toContain('Desativar');
@@ -172,6 +176,43 @@ describe('Spot Pilot do utilizador · cartões e histórico', () => {
     expect(html).toContain('Ativar piloto automático');
     expect(html).not.toContain(EMPTY_POSITIONS_TEXT);
     expect(html).toContain('Inativo');
+  });
+
+  it('ligação inválida ⇒ estado inválido e nenhum saldo (nunca o de outra ligação)', () => {
+    const invalid = { ...summary('DISABLED', false, 'INACTIVE'), market: null, accountType: null, connectionStatus: null, eligibilityReasons: ['ACCOUNT_STATUS_UNSUPPORTED'] };
+    const html = render(invalid, overview({
+      control: control('DISABLED', false),
+      display: { state: 'INACTIVE', reasons: ['AUTO_EXECUTION_NOT_AUTHORIZED'] },
+      balance: { status: 'CONNECTION_NOT_READY', usdtAvailable: null, usdtLocked: null, fetchedAt: NOW_ISO },
+    }));
+    expect(html).toContain('Ligação inválida — saldo não lido');
+    expect(html).not.toContain('20.50 USDT');
+  });
+
+  it('resíduo fora das posições: 0 posições, resíduo à parte e PnL pequeno sem arredondar a +0.00', () => {
+    const residual = { costQuote: 0.2053, valueQuote: 0.2061, assets: [{ symbol: 'QNTUSDT', quantity: 0.0009720000000000001, costQuote: 0.2053, valueQuote: 0.2061 }] };
+    const o = overview({
+      exposure: { investedQuote: 0, openPositions: 0, residual },
+      pnl: { realizedQuote: 0.0129, unrealizedQuote: 0, residualUnrealizedQuote: 0.0008, totalQuote: 0.0137, feesNotIncludedAssets: [], untrackedSells: false, partial: false },
+    });
+    expect(exposureHint(o.exposure)).toBe('0 posição(ões) aberta(s) · resíduo fora das posições: 0.000972 QNT (≈ 0.21 USDT)');
+    const html = render(summary('ACTIVE', true, 'ACTIVE'), o);
+    expect(html).toContain('+0.0137 USDT');
+    expect(html).toContain('+0.0129 USDT');
+    expect(html).toContain('PnL do resíduo');
+    expect(html).not.toContain('+0.00 USDT');
+  });
+
+  it('PnL: indisponível nunca vira zero; comissões noutro ativo e vendas sem custo assinaladas', () => {
+    expect(pnlUsdtText(null)).toBe('Indisponível');
+    expect(pnlUsdtText(-0.0412)).toBe('-0.0412 USDT');
+    expect(pnlUsdtText(1.5)).toBe('+1.50 USDT');
+    expect(pnlHint({ realizedQuote: 0.02, unrealizedQuote: null, totalQuote: null, partial: true })).toMatch(/indisponível/);
+    expect(pnlHint({ realizedQuote: 0.02, unrealizedQuote: 0, totalQuote: 0.02, feesNotIncludedAssets: ['BNB'], partial: true })).toMatch(/comissões em BNB não incluídas/);
+    expect(pnlHint({ realizedQuote: 0, unrealizedQuote: 0, totalQuote: 0, untrackedSells: true, partial: true })).toMatch(/vendas sem custo/);
+    expect(pnlHint({ realizedQuote: 0.02, unrealizedQuote: 0, totalQuote: 0.02, partial: false })).toMatch(/realizado \+ não realizado/);
+    expect(balanceHint({ status: 'OK', usdtAvailable: 10, usdtLocked: 2, fetchedAt: NOW_ISO })).toBe('2.00 USDT bloqueados em ordens');
+    expect(balanceHint({ status: 'CONNECTION_NOT_READY', usdtAvailable: null, usdtLocked: null, fetchedAt: NOW_ISO })).toBeUndefined();
   });
 
   it('histórico: enviada ≠ executada', () => {

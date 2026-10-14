@@ -1,14 +1,18 @@
 import {
   accountTitle,
   AUTH_EVENT_TEXT,
+  balanceHint,
   balanceText,
   EMPTY_POSITIONS_TEXT,
+  exposureHint,
   historyLine,
   ownerActions,
   ownerRules,
   ownerStatusView,
   pctText,
+  pnlHint,
   pnlTone,
+  pnlUsdtText,
   priceText,
   signedUsdtText,
   timeText,
@@ -111,9 +115,9 @@ export default function OwnerPilotAccount({ index, summary, overview, overviewEr
       </header>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Stat label="Saldo disponível" value={balanceText(overview?.balance)} />
-        <Stat label="Exposição" value={usdtText(overview?.exposure.investedQuote)} hint={overview ? `${overview.exposure.openPositions} posição(ões) aberta(s)` : undefined} />
-        <Stat label="PnL total" value={signedUsdtText(overview?.pnl.totalQuote)} tone={pnlTone(overview?.pnl.totalQuote)} hint={overview?.pnl.partial ? 'parcial: falta o preço de uma moeda' : undefined} />
+        <Stat label="Saldo disponível" value={balanceText(overview?.balance)} hint={balanceHint(overview?.balance)} />
+        <Stat label="Exposição (posições do piloto)" value={usdtText(overview?.exposure.investedQuote)} hint={exposureHint(overview?.exposure)} />
+        <Stat label="PnL total do piloto" value={overview ? pnlUsdtText(overview.pnl.totalQuote) : '—'} tone={pnlTone(overview?.pnl.totalQuote)} hint={pnlHint(overview?.pnl)} />
         <Stat
           label="Limite por compra"
           value={usdtText(overview?.limits.maxNotionalPerOrder ?? control.autoExecution?.maxNotionalQuote ?? platform?.maxNotionalPerOrder ?? null)}
@@ -221,9 +225,15 @@ export default function OwnerPilotAccount({ index, summary, overview, overviewEr
           <dt className="text-text3">Última passagem</dt>
           <dd>{timeText(overview?.engine?.lastTickAt ?? summary.engine?.lastTickAt)}</dd>
           <dt className="text-text3">PnL realizado</dt>
-          <dd>{signedUsdtText(overview?.pnl.realizedQuote)}</dd>
+          <dd>{overview ? pnlUsdtText(overview.pnl.realizedQuote) : '—'}</dd>
           <dt className="text-text3">PnL não realizado</dt>
-          <dd>{signedUsdtText(overview?.pnl.unrealizedQuote)}</dd>
+          <dd>{overview ? pnlUsdtText(overview.pnl.unrealizedQuote) : '—'}</dd>
+          {overview?.pnl.residualUnrealizedQuote !== undefined && (overview.exposure.residual?.assets.length ?? 0) > 0 && (
+            <>
+              <dt className="text-text3">PnL do resíduo</dt>
+              <dd>{pnlUsdtText(overview.pnl.residualUnrealizedQuote)}</dd>
+            </>
+          )}
           <dt className="text-text3">Ordens pendentes</dt>
           <dd>{overview?.pendingOrders ?? '—'}</dd>
           <dt className="text-text3">Atualizado</dt>
