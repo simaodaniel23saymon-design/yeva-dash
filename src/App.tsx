@@ -46,9 +46,22 @@ function ProtectedRoute({
   requireAdmin?: boolean;
   denied?: DeniedMode;
 }) {
-  const { user, loading } = useAuth();
+  const { user, loading, sessionUnavailable, retrySession } = useAuth();
   /* isAdmin vem sempre de GET /auth/me — não confiar em localStorage */
-  const access = routeAccess({ loading, user, requireAdmin });
+  const access = routeAccess({ loading, user, requireAdmin, sessionUnavailable });
+  if (access === 'unavailable') {
+    return (
+      <div className="min-h-screen bg-bg0 flex items-center justify-center p-4">
+        <div className="max-w-sm space-y-3 border border-border1 bg-bg1 p-5 text-center" role="alert">
+          <p className="text-sm font-semibold text-text1">Não foi possível ligar ao servidor</p>
+          <p className="text-[12px] text-text2">A tua sessão continua guardada. Verifica a ligação e tenta novamente.</p>
+          <button type="button" onClick={() => void retrySession()} className="border border-cyan-30 bg-cyan-dim px-4 py-2 font-mono text-[10px] uppercase tracking-widest text-cyan">
+            Tentar novamente
+          </button>
+        </div>
+      </div>
+    );
+  }
   if (access === 'loading') {
     return (
       <div className="min-h-screen bg-bg0 flex items-center justify-center">
@@ -112,7 +125,7 @@ export default function App() {
           <Route path="/spot" element={<AppRoute element={<SpotPage />} />} />
           <Route path="/futures" element={<AppRoute element={<FuturesPage />} />} />
           <Route path="/spot-paper" element={<AppRoute element={<SpotPaperPage />} requireAdmin denied={{ kind: 'page', area: 'Spot Paper' }} />} />
-          <Route path="/spot-pilot" element={<AppRoute element={<SpotPilotPage />} requireAdmin denied={{ kind: 'page', area: 'Spot Pilot' }} />} />
+          <Route path="/spot-pilot" element={<AppRoute element={<SpotPilotPage />} />} />
           <Route path="/market" element={<AppRoute element={<MarketPage />} />} />
           <Route path="/bots" element={<AppRoute element={<BotsPage />} />} />
           <Route path="/create-bot" element={<AppRoute element={<CreateBotPage />} />} />

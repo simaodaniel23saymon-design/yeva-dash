@@ -5,6 +5,10 @@ import { useAuth } from '../context/AuthContext';
 import { getFriendlyError } from '../utils/errorHandler';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { BrandLogo } from '../components/BrandLogo';
+import OtpCodeInput from '../components/ui/OtpCodeInput';
+import { TOTP_LENGTH } from '../utils/totpCode';
+import { loginTotpError } from '../utils/loginTotp';
+import { SESSION_ENDED_MESSAGE } from '../lib/sessionPolicy';
 
 export default function LoginPage() {
   const { login, register, loginDemo } = useAuth();
@@ -43,32 +47,40 @@ export default function LoginPage() {
 
   // 2FA step
   const [requires2FA, setRequires2FA] = useState(false);
-  const [totpDigits, setTotpDigits] = useState(['', '', '', '', '', '']);
-  const totpRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const [totpCode, setTotpCode] = useState('');
+  const submittingTotp = useRef(false);
 
-  useEffect(() => {
-    if (requires2FA) totpRefs.current[0]?.focus();
-  }, [requires2FA]);
-
-  const handleTotpInput = (idx: number, val: string) => {
-    if (!/^\d?$/.test(val)) return;
-    const next = [...totpDigits];
-    next[idx] = val;
-    setTotpDigits(next);
-    if (val && idx < 5) totpRefs.current[idx + 1]?.focus();
-  };
-
-  const handleTotpKeyDown = (idx: number, e: React.KeyboardEvent) => {
-    if (e.key === 'Backspace' && !totpDigits[idx] && idx > 0) {
-      totpRefs.current[idx - 1]?.focus();
+  /** Um único pedido por código; o código fica só no estado do formulário e é limpo se for recusado. */
+  const submitTotp = async (code: string) => {
+    if (submittingTotp.current) return;
+    if (code.length !== TOTP_LENGTH) {
+      setError('Introduz os 6 dígitos do autenticador.');
+      return;
     }
-    if (e.key === 'Enter') handleSubmit(e as any);
+    submittingTotp.current = true;
+    setError('');
+    setRateLimited(false);
+    setLoading(true);
+    try {
+      const result = await login(email, password, code);
+      if (!result.requires2FA) navigate('/dashboard');
+    } catch (err: unknown) {
+      const failure = loginTotpError(err);
+      setTotpCode('');
+      setError(failure.message);
+      setRateLimited(failure.code === 'RATE_LIMITED');
+    } finally {
+      submittingTotp.current = false;
+      setLoading(false);
+    }
   };
-
-  const totpCode = totpDigits.join('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (requires2FA) {
+      await submitTotp(totpCode);
+      return;
+    }
     setError('');
     setRateLimited(false);
     setLoading(true);
@@ -76,17 +88,6 @@ export default function LoginPage() {
       if (tab === 'register') {
         await register(email, password, referralCode || undefined);
         navigate('/dashboard');
-        return;
-      }
-
-      if (requires2FA) {
-        if (totpCode.length < 6) {
-          setError('Introduz os 6 dígitos do autenticador.');
-          setLoading(false);
-          return;
-        }
-        const result = await login(email, password, totpCode);
-        if (!result.requires2FA) navigate('/dashboard');
         return;
       }
 
@@ -135,7 +136,7 @@ export default function LoginPage() {
           {expired && (
             <div className="bg-gold-dim border-b border-gold-30 p-4">
               <p className="font-mono text-[10px] text-gold leading-relaxed">
-                Sessão expirou (24h de inactividade). Faz login novamente.
+                {SESSION_ENDED_MESSAGE}
               </p>
             </div>
           )}
@@ -170,22 +171,16 @@ export default function LoginPage() {
                 </p>
               </div>
 
-              {/* 6 inputs individuais */}
-              <div className="flex gap-2 justify-center mb-5">
-                {totpDigits.map((d, i) => (
-                  <input
-                    key={i}
-                    ref={el => { totpRefs.current[i] = el; }}
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={1}
-                    value={d}
-                    onChange={e => handleTotpInput(i, e.target.value)}
-                    onKeyDown={e => handleTotpKeyDown(i, e)}
-                    className="w-10 h-12 text-center text-xl font-bold text-cyan bg-bg3 border border-border2 outline-none focus:border-cyan transition-colors"
-                  />
-                ))}
-              </div>
+              <form onSubmit={handleSubmit} className="flex justify-center mb-5">
+                <OtpCodeInput
+                  id="login-totp"
+                  value={totpCode}
+                  onChange={setTotpCode}
+                  onComplete={(code) => void submitTotp(code)}
+                  busy={loading}
+                  autoFocus
+                />
+              </form>
 
               {rateLimited && (
                 <div className="mb-4 bg-red-dim border border-red-30 p-3 font-mono text-[10px] text-red">
@@ -199,7 +194,7 @@ export default function LoginPage() {
                 </div>
               )}
 
-              <button onClick={handleSubmit as any} disabled={loading || totpCode.length < 6}
+              <button onClick={() => void submitTotp(totpCode)} disabled={loading || totpCode.length !== TOTP_LENGTH}
                 className="w-full py-3 border border-cyan-30 bg-cyan-dim text-cyan font-mono text-[10px] tracking-widest uppercase hover:bg-cyan/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                 {loading
                   ? <><YevaTradeLoader size="xs" /> A verificar...</>
@@ -207,7 +202,7 @@ export default function LoginPage() {
                 }
               </button>
 
-              <button onClick={() => { setRequires2FA(false); setTotpDigits(['', '', '', '', '', '']); setError(''); }}
+              <button onClick={() => { setRequires2FA(false); setTotpCode(''); setError(''); }}
                 className="w-full mt-3 py-2 font-mono text-[9px] text-text2 hover:text-text1 tracking-wider uppercase transition-colors">
                 ← Voltar ao Login
               </button>

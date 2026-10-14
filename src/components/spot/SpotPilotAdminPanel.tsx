@@ -1,607 +1,154 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { api } from '../../lib/api';
-import { getFriendlyError } from '../../utils/errorHandler';
-import { approveThenRefresh, checkTotpCode, isIntentExpired, PILOT_TOTP_LENGTH, pilotReasonLabel, sanitizeTotpInput, submitPilotApproval, type ApprovalExpiry } from '../../utils/pilotApproval';
-import { readinessSummary, type PilotReadiness } from '../../utils/pilotReadinessView';
+import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import OtpCodeInput from '../ui/OtpCodeInput'
+import { api } from '../../lib/api'
+import { TOTP_LENGTH } from '../../utils/totpCode'
+import { ownerActionError, ownerReasonText, usdtText } from '../../utils/spotPilotOwner'
 
-type PilotState = 'DISABLED' | 'ARMED' | 'ACTIVE' | 'PAUSED' | 'BLOCKED';
+/**
+ * Spot Pilot — controlos da PLATAFORMA (só administradores). Só flags globais e contagens agregadas: o servidor não
+ * devolve ids, saldos nem posições de outros utilizadores. Cada conta continua a exigir a autorização do seu dono.
+ */
+type PlatformStatus = {
+  platform: {
+    spotLiveEnabled: boolean
+    spotKillSwitch: boolean
+    cexLiveWriteEnabledInBuild: boolean
+    realSpotPilotEnabled: boolean
+    maxNotionalPerOrder: number | null
+    maxNotionalCap: number | null
+    maxBuyOrdersPer24h: number | null
+    blockers: string[]
+  }
+  engine: { loopRunning: boolean; intervalMs: number; entriesEnabled: boolean; entriesStateLoaded: boolean; enrolledAccounts: number; accountsByState: Record<string, number> }
+}
 
-type Safety = {
-  spotLiveEnabled: boolean;
-  spotKillSwitch: boolean;
-  cexLiveWriteEnabledInBuild: boolean;
-  realSpotPilotEnabled: boolean;
-  realSpotPilotMaxNotional: number | null;
-  realSpotPilotAccountId?: string | null;
-  blockers: string[];
-};
-
-type Control = { exchangeAccountId: string; state: PilotState; reason: string | null; updatedBy: string | null; updatedAt: string | null };
-
-type StatusResponse = { safety: Safety; executorWired: boolean; accounts: Array<{ id: string; userId: string; isActive: boolean; control: Control }> };
-
-type Detail = {
-  safety?: { approvalTtlMs?: number; intentMaxAgeMs?: number };
-  control: Control;
-  decisions: Array<{ id: string; createdAt: string; symbol: string; side: string; notional: string | null; decision: string; reasons: string[] }>;
-  intents: Array<{ idempotencyKey: string; intentId: string; symbol: string; side: string; quantity: number; notional: number; state: string; createdAt: string; errorCode?: string | null }>;
-  mismatches: Array<{ id: string; kind: string; severity: string; symbol: string | null; asset: string | null }>;
-};
-
-type StrategyPosition = {
-  symbol: string;
-  quantity: number;
-  averageEntryPrice: number | null;
-  price: number | null;
-  pnlPct: number | null;
-  peakPct: number | null;
-  stopLossPrice: number | null;
-  takeProfitPrice: number | null;
-  exitSignal: string | null;
-};
-
-type UnknownInspection = {
-  idempotencyKey: string;
-  symbol: string;
-  side: string;
-  quantity: number;
-  state: string;
-  sentAt: string;
-  exchange: string;
-  exchangeStatus: string | null;
-  openOrderPresent: boolean | null;
-  pilotFills: number | null;
-  resolvable: boolean;
-  blockers: string[];
-  instructions: string[];
-};
-
-/** Estados em que a ordem pode ter ou não chegado à exchange: só inspeção/resolução, nunca reenvio. */
-const UNCERTAIN_STATES = new Set(['UNKNOWN', 'SUBMITTING', 'REQUIRES_RECONCILIATION']);
-
-type StrategyStatus = {
-  loopRunning: boolean;
-  entriesEnabled: boolean;
-  strategyAccountIds: string[];
-  blockers: string[];
-  policy: { takeProfitPct: number; stopLossPct: number; trailingActivatePct: number; trailingGivebackPct: number; momentumExitScoreDrop: number; maxPositions: number; maxEntriesPerCycle: number };
-  accounts: Array<{
-    accountId: string;
-    state: string;
-    reasons: string[];
-    position: StrategyPosition | null;
-    lastAction: { at: string; decision: string; side: string; symbol: string; state: string | null } | null;
-    consecutiveErrors: number;
-    reconciledSinceBoot?: boolean;
-    lastTickAt: string;
-  }>;
-};
-
-const fmt = (n: number | null | undefined, d = 2) => (n == null || !Number.isFinite(n) ? '—' : n.toFixed(d));
-
-const STATE_TONE: Record<PilotState, string> = {
-  DISABLED: 'text-text3 border-border2',
-  ARMED: 'text-gold border-gold',
-  ACTIVE: 'text-cyan border-cyan-30',
-  PAUSED: 'text-text2 border-border2',
-  BLOCKED: 'text-red border-red-30',
-};
-
-const yesNo = (v: boolean) => (v ? 'true' : 'false');
+const yesNo = (b: boolean | null | undefined) => (b == null ? '—' : b ? 'Sim' : 'Não')
 
 export default function SpotPilotAdminPanel() {
-  const [status, setStatus] = useState<StatusResponse | null>(null);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [detail, setDetail] = useState<Detail | null>(null);
-  const [check, setCheck] = useState<unknown>(null);
-  const [readiness, setReadiness] = useState<PilotReadiness | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [approveKey, setApproveKey] = useState<string | null>(null);
-  const [totpCode, setTotpCode] = useState('');
-  const [approvals, setApprovals] = useState<Record<string, ApprovalExpiry>>({});
-  const approvingRef = useRef(false);
-  const selectedRef = useRef<string | null>(null);
-  const [nowMs, setNowMs] = useState(() => Date.now());
-  const [strategy, setStrategy] = useState<StrategyStatus | null>(null);
-  const [inspection, setInspection] = useState<UnknownInspection | null>(null);
-  const [resolveNote, setResolveNote] = useState('');
-  const [resolveTotp, setResolveTotp] = useState('');
+  const [status, setStatus] = useState<PlatformStatus | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [message, setMessage] = useState<{ ok: boolean; text: string; notes: string[] } | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [resumeOpen, setResumeOpen] = useState(false)
+  const [totp, setTotp] = useState('')
+
+  const load = useCallback(async () => {
+    try {
+      setStatus((await api.get<PlatformStatus>('/spot-pilot/platform/status')).data)
+      setError(null)
+    } catch (e) {
+      setError(ownerActionError(e).message)
+    }
+  }, [])
 
   useEffect(() => {
-    const t = window.setInterval(() => setNowMs(Date.now()), 15_000);
-    return () => window.clearInterval(t);
-  }, []);
-
-  const loadStrategy = useCallback(async () => {
-    try {
-      setStrategy((await api.get<StrategyStatus>('/spot-pilot/strategy/status')).data);
-    } catch {
-      setStrategy(null);
+    const first = window.setTimeout(() => void load(), 0)
+    const t = window.setInterval(() => void load(), 30_000)
+    return () => {
+      window.clearTimeout(first)
+      window.clearInterval(t)
     }
-  }, []);
+  }, [load])
 
-  useEffect(() => {
-    void loadStrategy();
-    const t = window.setInterval(() => void loadStrategy(), 30_000);
-    return () => window.clearInterval(t);
-  }, [loadStrategy]);
-
-  /** Retomar entradas e armar exigem TOTP e pré-condições: só na página Spot Pilot. */
-  const suspendEntries = () => {
-    void act('Entradas automáticas suspensas (saídas continuam geridas)', async () => {
-      await api.post('/spot-pilot/strategy/entries', { enabled: false });
-      await loadStrategy();
-      return undefined;
-    });
-  };
-
-  const openAccount = (id: string) => {
-    if (busy || approvingRef.current) return;
-    selectedRef.current = id;
-    setDetail(null);
-    setApproveKey(null);
-    setTotpCode('');
-    setApprovals({});
-    setInspection(null);
-    setSelected(id);
-  };
-
-  const loadStatus = useCallback(async () => {
+  async function setEntries(enabled: boolean, code?: string) {
+    if (busy) return
+    setBusy(true)
+    setMessage(null)
     try {
-      setStatus((await api.get<StatusResponse>('/spot-pilot/status')).data);
+      await api.post('/spot-pilot/platform/entries', enabled ? { enabled, totpCode: code } : { enabled }, { skipAuthRetry: true })
+      setMessage({ ok: true, text: enabled ? 'Novas entradas retomadas na plataforma.' : 'Novas entradas pausadas em toda a plataforma. As saídas continuam.', notes: [] })
+      setResumeOpen(false)
     } catch (e) {
-      setMsg({ ok: false, text: getFriendlyError(e).message });
-    }
-  }, []);
-
-  /** Lança em erro; uma resposta de uma conta que já não está selecionada é ignorada. */
-  const fetchDetail = useCallback(async (id: string) => {
-    const data = (await api.get<Detail>(`/spot-pilot/accounts/${id}`)).data;
-    if (selectedRef.current === id) setDetail(data);
-  }, []);
-
-  const loadDetail = useCallback(async (id: string) => {
-    try {
-      await fetchDetail(id);
-    } catch (e) {
-      if (selectedRef.current === id) setMsg({ ok: false, text: getFriendlyError(e).message });
-    }
-  }, [fetchDetail]);
-
-  useEffect(() => {
-    void loadStatus();
-  }, [loadStatus]);
-
-  useEffect(() => {
-    setCheck(null);
-    if (selected) void loadDetail(selected);
-  }, [selected, loadDetail]);
-
-  async function act(label: string, fn: () => Promise<unknown>) {
-    setBusy(true);
-    setMsg(null);
-    try {
-      const r = await fn();
-      setMsg({ ok: true, text: label });
-      if (r !== undefined) setCheck(r);
-      await loadStatus();
-      if (selected) await loadDetail(selected);
-    } catch (e) {
-      setMsg({ ok: false, text: getFriendlyError(e).message });
+      const err = ownerActionError(e)
+      setMessage({ ok: false, text: err.message, notes: err.notes })
     } finally {
-      setBusy(false);
+      setTotp('')
+      setBusy(false)
+      await load()
     }
   }
 
-  const setState = (state: 'PAUSED' | 'DISABLED') => {
-    if (!selected) return;
-    void act(`Estado → ${state}`, async () => {
-      await api.post(`/spot-pilot/accounts/${selected}/state`, { state });
-      return undefined;
-    });
-  };
-
-  const reject = (idempotencyKey: string) => {
-    if (!selected) return;
-    void act('Intent rejeitado', async () => {
-      await api.post(`/spot-pilot/accounts/${selected}/reject`, { idempotencyKey });
-      return undefined;
-    });
-  };
-
-  /** Só leituras na Binance (ordem, ordens abertas) e no ledger; nada é alterado. */
-  async function inspectIntent(idempotencyKey: string) {
-    if (!selected) return;
-    setBusy(true);
-    setMsg(null);
-    setResolveNote('');
-    setResolveTotp('');
-    try {
-      setInspection((await api.get<{ inspection: UnknownInspection }>(`/spot-pilot/accounts/${selected}/intents/inspect`, { params: { key: idempotencyKey } })).data.inspection);
-    } catch (e) {
-      setMsg({ ok: false, text: getFriendlyError(e).message });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function resolveNotPlaced() {
-    if (!selected || !inspection?.resolvable) return;
-    const check = checkTotpCode(resolveTotp);
-    if (!check.ok) {
-      setMsg({ ok: false, text: check.message });
-      return;
-    }
-    if (resolveNote.trim().length < 10) {
-      setMsg({ ok: false, text: 'Indica uma nota com pelo menos 10 caracteres (o que foi verificado na Binance).' });
-      return;
-    }
-    if (!window.confirm('Fechar este intent como "ordem não colocada"? A Binance volta a ser consultada agora; nada é enviado nem cancelado e o piloto não é rearmado.')) return;
-    const code = resolveTotp;
-    setResolveTotp('');
-    await act('Intent resolvido como não colocado. Verifica o estado e rearma o piloto só se estiver tudo certo.', async () => {
-      await api.post(`/spot-pilot/accounts/${selected}/intents/resolve-not-placed`, { idempotencyKey: inspection.idempotencyKey, totpCode: code, note: resolveNote.trim() });
-      setInspection(null);
-      return undefined;
-    });
-  }
-
-  const openApprove = (idempotencyKey: string) => {
-    setApproveKey(idempotencyKey);
-    setTotpCode('');
-    setMsg(null);
-  };
-
-  const cancelApprove = () => {
-    setApproveKey(null);
-    setTotpCode('');
-  };
-
-  /** Uma tentativa = um pedido. O código é limpo sempre a seguir, com ou sem sucesso. */
-  async function confirmApprove(idempotencyKey: string) {
-    if (!selected || approvingRef.current) return;
-    const check = checkTotpCode(totpCode);
-    if (!check.ok) {
-      setMsg({ ok: false, text: check.message });
-      return;
-    }
-    if (!window.confirm('Aprovar esta ordem REAL? Ela só é enviada se o Risk Guard voltar a permitir.')) return;
-    const code = totpCode;
-    setTotpCode('');
-    approvingRef.current = true;
-    setBusy(true);
-    setMsg(null);
-    const accountId = selected;
-    try {
-      const { outcome, message } = await approveThenRefresh(
-        () =>
-          submitPilotApproval((url, body, config) => api.post(url, body, config), {
-            accountId,
-            idempotencyKey,
-            totpCode: code,
-            approvalTtlMs: detail?.safety?.approvalTtlMs ?? null,
-          }),
-        () => fetchDetail(accountId)
-      );
-      setMsg({ ok: outcome.kind === 'APPROVED', text: message });
-      if (outcome.kind === 'APPROVED' && outcome.expiresAt) {
-        setApprovals((m) => ({ ...m, [idempotencyKey]: { expiresAt: outcome.expiresAt as string, expired: false } }));
-      }
-      if (outcome.kind === 'REFUSED' && outcome.expiry) {
-        const expiry = outcome.expiry;
-        setApprovals((m) => ({ ...m, [idempotencyKey]: expiry }));
-      }
-      if (outcome.kind !== 'INVALID_INPUT') setApproveKey(null);
-    } finally {
-      approvingRef.current = false;
-      setBusy(false);
-    }
-  }
-
-  async function loadReadiness(id: string) {
-    setBusy(true);
-    setMsg(null);
-    try {
-      setReadiness((await api.get<PilotReadiness>(`/spot-pilot/accounts/${id}/readiness`, { params: { symbol: 'BTCUSDT', symbols: 'ETHUSDT' } })).data);
-    } catch (e) {
-      setMsg({ ok: false, text: getFriendlyError(e).message });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const s = status?.safety;
+  const p = status?.platform
+  const e = status?.engine
 
   return (
-    <div className="space-y-4" data-testid="spot-pilot-admin">
-      <div className="bg-bg1 border border-border1 p-4">
-        <h3 className="font-mono text-[9px] uppercase tracking-wider text-text2 mb-3">Segurança global (só leitura — alterada apenas por configuração do servidor)</h3>
-        {s ? (
-          <dl className="grid grid-cols-2 md:grid-cols-5 gap-3 font-mono text-[11px]">
-            <div><dt className="text-text3">SPOT_LIVE_ENABLED</dt><dd className="text-text1">{yesNo(s.spotLiveEnabled)}</dd></div>
-            <div><dt className="text-text3">SPOT_KILL_SWITCH</dt><dd className={s.spotKillSwitch ? 'text-red' : 'text-text1'}>{yesNo(s.spotKillSwitch)}</dd></div>
-            <div><dt className="text-text3">CEX_LIVE_WRITE_ENABLED_IN_BUILD</dt><dd className="text-text1">{yesNo(s.cexLiveWriteEnabledInBuild)}</dd></div>
-            <div><dt className="text-text3">REAL_SPOT_PILOT_ENABLED</dt><dd className="text-text1">{yesNo(s.realSpotPilotEnabled)}</dd></div>
-            <div><dt className="text-text3">Limite por ordem/ciclo/conta (PILOT ONLY)</dt><dd className="text-text1">{s.realSpotPilotMaxNotional == null ? 'não configurado' : `${s.realSpotPilotMaxNotional} USDT`}</dd></div>
-            <div><dt className="text-text3">Conta piloto (PILOT ONLY)</dt><dd className="text-text1 break-all">{s.realSpotPilotAccountId ?? 'não configurada'}</dd></div>
+    <section className="space-y-3 border border-border1 bg-bg1 p-4" data-testid="spot-pilot-platform-panel">
+      <header className="flex flex-wrap items-center gap-2">
+        <h2 className="text-[15px] font-semibold text-text1">Spot Pilot · plataforma</h2>
+        <Link to="/spot-pilot" className="ml-auto border border-border2 px-2 py-1 text-[11px] text-text2">
+          As minhas contas
+        </Link>
+      </header>
+      {error && <p className="text-[12px] text-red">{error}</p>}
+      {p && e && (
+        <>
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-[12px] sm:grid-cols-3">
+            <dt className="text-text3">Piloto ligado</dt>
+            <dd className="text-text1">{yesNo(p.realSpotPilotEnabled)}</dd>
+            <dt className="text-text3">Ordens reais Spot</dt>
+            <dd className="text-text1">{yesNo(p.spotLiveEnabled)}</dd>
+            <dt className="text-text3">Kill switch</dt>
+            <dd className={p.spotKillSwitch ? 'text-red' : 'text-text1'}>{p.spotKillSwitch ? 'Ligado' : 'Desligado'}</dd>
+            <dt className="text-text3">Limite por compra</dt>
+            <dd className="text-text1">{usdtText(p.maxNotionalPerOrder)}</dd>
+            <dt className="text-text3">Compras / 24h por conta</dt>
+            <dd className="text-text1">{p.maxBuyOrdersPer24h ?? '—'}</dd>
+            <dt className="text-text3">Motor a correr</dt>
+            <dd className="text-text1">{yesNo(e.loopRunning)}</dd>
+            <dt className="text-text3">Novas entradas</dt>
+            <dd className={e.entriesEnabled ? 'text-green' : 'text-gold'}>{e.entriesEnabled ? 'Ligadas' : 'Pausadas'}</dd>
+            <dt className="text-text3">Contas ativadas</dt>
+            <dd className="text-text1">{e.enrolledAccounts}</dd>
+            <dt className="text-text3">Por estado</dt>
+            <dd className="font-mono text-[11px] text-text2">
+              {Object.entries(e.accountsByState)
+                .map(([k, v]) => `${k}: ${v}`)
+                .join(' · ') || '—'}
+            </dd>
           </dl>
-        ) : (
-          <p className="text-text3 text-sm">A ler…</p>
-        )}
-        {s && s.blockers.length > 0 && <p className="mt-3 text-gold font-mono text-[10px]">Bloqueios ativos: {s.blockers.join(' · ')}</p>}
-        {status && !status.executorWired && <p className="mt-1 text-text3 font-mono text-[10px]">Executor não ligado ao runtime da estratégia. Nenhuma ordem é enviada a partir deste painel.</p>}
-      </div>
-
-      <div className="bg-bg1 border border-border1 p-4" data-testid="spot-pilot-strategy">
-        <div className="flex flex-wrap items-center gap-2 mb-3">
-          <h3 className="font-mono text-[9px] uppercase tracking-wider text-text2">Estratégia automática (Momentum Spot · LONG · sem alavancagem)</h3>
-          {strategy && (
-            <>
-              <span className={`font-mono text-[9px] uppercase border px-1.5 py-0.5 ${strategy.entriesEnabled ? 'text-cyan border-cyan-30' : 'text-text3 border-border2'}`}>
-                {strategy.entriesEnabled ? 'entradas ligadas' : 'entradas suspensas'}
-              </span>
-              {strategy.entriesEnabled ? (
-                <button type="button" disabled={busy} onClick={suspendEntries} className="font-mono text-[9px] uppercase border border-gold text-gold px-2 py-1 disabled:opacity-40">
-                  Suspender entradas
-                </button>
-              ) : (
-                <Link to="/spot-pilot" className="font-mono text-[9px] uppercase border border-gold text-gold px-2 py-1">Retomar entradas (Spot Pilot, TOTP)</Link>
-              )}
-            </>
-          )}
-        </div>
-        {strategy ? (
-          <div className="space-y-2 font-mono text-[10px] text-text2">
-            <p className="text-text3">
-              TP {strategy.policy.takeProfitPct}% · SL {strategy.policy.stopLossPct}% · trailing +{strategy.policy.trailingActivatePct}%/−{strategy.policy.trailingGivebackPct} · momentum −{strategy.policy.momentumExitScoreDrop} · {strategy.policy.maxPositions} posição / {strategy.policy.maxEntriesPerCycle} entrada · compras com aprovação TOTP · saídas protetoras automáticas (também em pausa)
-            </p>
-            <p className="text-text3">
-              Sem stop na exchange: com o kill switch, o piloto bloqueado/desativado, a API parada ou a Binance indisponível, a posição fica sem saída automática (alerta a cada 30 min). Um Stop Loss é uma ordem a mercado depois do sinal: o preço de saída pode ser pior do que o nível do stop.
-            </p>
-            {strategy.strategyAccountIds.length === 0 && <p className="text-text3">Nenhuma conta configurada para a estratégia (REAL_SPOT_PILOT_STRATEGY_ACCOUNT_IDS).</p>}
-            {strategy.blockers.length > 0 && <p className="text-gold">Bloqueios globais: {strategy.blockers.join(' · ')}</p>}
-            {strategy.accounts.map((a) => (
-              <div key={a.accountId} className="border border-border1 p-2 space-y-1">
-                <div>
-                  {a.accountId.slice(0, 8)} · <span className={a.state === 'ERROR' || a.state === 'RECONCILIATION_REQUIRED' ? 'text-red' : 'text-text1'}>{a.state}</span>
-                  {a.reasons.length > 0 && <span className="text-text3"> · {a.reasons.join(', ')}</span>}
-                  {a.consecutiveErrors > 0 && <span className="text-red"> · erros seguidos {a.consecutiveErrors}</span>}
-                  {a.reconciledSinceBoot === false && <span className="text-gold"> · reconciliação de arranque pendente</span>}
-                  {a.reasons.includes('POSITION_UNPROTECTED') && <span className="text-red"> · POSIÇÃO SEM PROTEÇÃO AUTOMÁTICA</span>}
-                </div>
-                {a.position && (
-                  <div>
-                    {a.position.symbol} {a.position.quantity} · médio {fmt(a.position.averageEntryPrice, 4)} · preço {fmt(a.position.price, 4)} · PnL {fmt(a.position.pnlPct)}% · pico {fmt(a.position.peakPct)}% · SL {fmt(a.position.stopLossPrice, 4)} · TP {fmt(a.position.takeProfitPrice, 4)}
-                    {a.position.exitSignal && <span className="text-gold"> · sinal de saída {a.position.exitSignal}</span>}
-                  </div>
-                )}
-                {a.lastAction && (
-                  <div className="text-text3">
-                    Última ação {new Date(a.lastAction.at).toLocaleString('pt-PT')} · {a.lastAction.symbol} {a.lastAction.side} · {a.lastAction.decision} · {a.lastAction.state ?? '—'}
-                  </div>
-                )}
-                <div className="text-text3">Último ciclo {new Date(a.lastTickAt).toLocaleTimeString('pt-PT')}</div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-text3 text-sm">Sem estado da estratégia.</p>
-        )}
-      </div>
-
-      {msg && <div className={`p-3 border font-mono text-[10px] ${msg.ok ? 'bg-cyan-dim border-cyan-20 text-cyan' : 'bg-red-dim border-red-30 text-red'}`}>{msg.text}</div>}
-
-      <div className="bg-bg1 border border-border1 scroll-area-x">
-        <table className="w-full min-w-[520px]">
-          <thead>
-            <tr className="border-b border-border1">
-              {['Conta Binance', 'Utilizador', 'Ativa', 'Piloto', ''].map((h) => (
-                <th key={h} className="px-4 py-2.5 text-left font-mono text-[8px] uppercase tracking-wider text-text3">{h}</th>
+          {p.blockers.length > 0 && (
+            <ul className="text-[12px] text-gold">
+              {ownerReasonText(p.blockers).map((r) => (
+                <li key={r}>• {r}</li>
               ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border1">
-            {(status?.accounts ?? []).map((a) => (
-              <tr key={a.id} className={selected === a.id ? 'bg-bg2' : 'hover:bg-bg2'}>
-                <td className="px-4 py-2.5 font-mono text-[10px] text-text2">{a.id}</td>
-                <td className="px-4 py-2.5 font-mono text-[10px] text-text3">{a.userId}</td>
-                <td className="px-4 py-2.5 font-mono text-[10px] text-text3">{a.isActive ? 'sim' : 'não'}</td>
-                <td className="px-4 py-2.5">
-                  <span className={`font-mono text-[9px] uppercase border px-1.5 py-0.5 ${STATE_TONE[a.control.state]}`}>{a.control.state}</span>
-                </td>
-                <td className="px-4 py-2.5 text-right">
-                  <button type="button" disabled={busy} className="font-mono text-[9px] uppercase text-cyan hover:underline disabled:opacity-40" onClick={() => openAccount(a.id)}>Abrir</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {selected && detail && (
-        <div className="bg-bg1 border border-border1 p-4 space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className={`font-mono text-[10px] uppercase border px-2 py-0.5 ${STATE_TONE[detail.control.state]}`}>{detail.control.state}</span>
-            <Link to="/spot-pilot" className="font-mono text-[9px] uppercase border border-gold text-gold px-2 py-1">Armar (Spot Pilot, TOTP)</Link>
-            <button type="button" disabled={busy} onClick={() => setState('PAUSED')} className="font-mono text-[9px] uppercase border border-border2 text-text2 px-2 py-1 disabled:opacity-40">Pausar</button>
-            <button type="button" disabled={busy} onClick={() => setState('DISABLED')} className="font-mono text-[9px] uppercase border border-border2 text-text2 px-2 py-1 disabled:opacity-40">Desativar</button>
-            <button type="button" disabled={busy} onClick={() => void act('Leitura da conta concluída', async () => (await api.post(`/spot-pilot/accounts/${selected}/read-check`)).data)} className="font-mono text-[9px] uppercase border border-cyan-30 text-cyan px-2 py-1 disabled:opacity-40">Verificar leitura</button>
-            <button type="button" disabled={busy} onClick={() => void act('Reconciliação concluída', async () => (await api.post(`/spot-pilot/accounts/${selected}/reconcile`)).data)} className="font-mono text-[9px] uppercase border border-cyan-30 text-cyan px-2 py-1 disabled:opacity-40">Reconciliar</button>
-            <button type="button" disabled={busy} onClick={() => void loadReadiness(selected)} className="font-mono text-[9px] uppercase border border-cyan-30 text-cyan px-2 py-1 disabled:opacity-40">Readiness (dry-run)</button>
+            </ul>
+          )}
+          <div className="flex flex-wrap gap-2">
+            {e.entriesEnabled ? (
+              <button type="button" disabled={busy} onClick={() => void setEntries(false)} className="border border-gold-30 px-3 py-1.5 text-[12px] text-gold disabled:opacity-40">
+                Pausar novas entradas (plataforma)
+              </button>
+            ) : (
+              <button type="button" disabled={busy} onClick={() => setResumeOpen(true)} className="border border-cyan-30 bg-cyan-dim px-3 py-1.5 text-[12px] text-cyan disabled:opacity-40">
+                Retomar novas entradas (plataforma)
+              </button>
+            )}
           </div>
-
-          {readiness && readiness.accountId === selected && (
-            <div data-testid="pilot-readiness">
-              <h4 className="font-mono text-[9px] uppercase tracking-wider text-text3 mb-2">
-                Readiness · <span className={readiness.readiness === 'READY' ? 'text-cyan' : 'text-gold'}>{readiness.readiness === 'READY' ? 'Pronto' : 'Não pronto'}</span> · só leitura, sem ordens
-              </h4>
-              <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 font-mono text-[10px]">
-                {readinessSummary(readiness).map(([k, v]) => (
-                  <div key={k} className="flex justify-between gap-3 border-b border-border1 py-1">
-                    <dt className="text-text3">{k}</dt>
-                    <dd className="text-text1 text-right">{v}</dd>
-                  </div>
-                ))}
-              </dl>
-              {readiness.blockers.length > 0 && <p className="mt-2 text-gold font-mono text-[10px]">Bloqueios: {readiness.blockers.join(' · ')}</p>}
-              {readiness.safety.gates.length > 0 && <p className="mt-1 text-text3 font-mono text-[10px]">Gates desta fase: {readiness.safety.gates.join(' · ')}</p>}
-              {readiness.dryRun && readiness.dryRun.reasons.length > 0 && <p className="mt-1 text-text3 font-mono text-[10px]">Dry-run: {readiness.dryRun.reasons.join(', ')}</p>}
+          {resumeOpen && !e.entriesEnabled && (
+            <div className="space-y-2 border border-border2 bg-bg2 p-3">
+              <p className="text-[12px] text-text2">Retomar exige o teu código de 6 dígitos. Cada conta só compra se o dono a tiver ativado.</p>
+              <OtpCodeInput id="pilot-platform-totp" value={totp} onChange={setTotp} onComplete={(code) => void setEntries(true, code)} busy={busy} />
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setResumeOpen(false)} className="border border-border2 px-3 py-1.5 text-[12px] text-text2">
+                  Cancelar
+                </button>
+                <button type="button" disabled={busy || totp.length !== TOTP_LENGTH} onClick={() => void setEntries(true, totp)} className="border border-cyan-30 px-3 py-1.5 text-[12px] text-cyan disabled:opacity-40">
+                  Confirmar
+                </button>
+              </div>
             </div>
           )}
-
-          <div>
-            <h4 className="font-mono text-[9px] uppercase tracking-wider text-text3 mb-2">Intents por resolver</h4>
-            {detail.intents.length === 0 ? (
-              <p className="text-text3 text-[12px]">Nenhum.</p>
-            ) : (
-              <ul className="space-y-1">
-                {detail.intents.map((i) => {
-                  const intentExpired = isIntentExpired(i.createdAt, detail.safety?.intentMaxAgeMs, nowMs);
-                  const known = approvals[i.idempotencyKey];
-                  const expiry = known ? { expiresAt: known.expiresAt, expired: nowMs >= Date.parse(known.expiresAt) } : null;
-                  const canApprove = i.state === 'PENDING' && (detail.control.state === 'ARMED' || detail.control.state === 'ACTIVE') && !intentExpired && !known;
-                  return (
-                    <li key={i.idempotencyKey} className="font-mono text-[10px] text-text2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span>{i.symbol} {i.side} {i.quantity} (~{i.notional.toFixed(2)} USDT)</span>
-                        <span className="text-text1">{i.state}</span>
-                        {intentExpired && i.state === 'PENDING' && <span className="text-red">INTENT_EXPIRED · rejeita e cria novo pedido</span>}
-                        {expiry && (
-                          <span className={expiry.expired ? 'text-red' : 'text-cyan'}>
-                            {expiry.expired ? 'APPROVAL_EXPIRED · aprovação expirada' : `aprovada · expira às ${new Date(expiry.expiresAt).toLocaleTimeString('pt-PT')}`}
-                          </span>
-                        )}
-                        {canApprove && approveKey !== i.idempotencyKey && (
-                          <button type="button" disabled={busy} onClick={() => openApprove(i.idempotencyKey)} className="uppercase border border-gold text-gold px-1.5 disabled:opacity-40">Aprovar</button>
-                        )}
-                        {i.state === 'PENDING' && (
-                          <button type="button" disabled={busy} onClick={() => reject(i.idempotencyKey)} className="uppercase border border-border2 text-text3 px-1.5 disabled:opacity-40">Rejeitar</button>
-                        )}
-                        {UNCERTAIN_STATES.has(i.state) && (
-                          <>
-                            <span className="text-red">estado incerto · sem novas ordens até resolver · não repetir a ordem manualmente</span>
-                            <button type="button" disabled={busy} onClick={() => void inspectIntent(i.idempotencyKey)} className="uppercase border border-cyan-30 text-cyan px-1.5 disabled:opacity-40">Inspecionar na Binance</button>
-                          </>
-                        )}
-                      </div>
-                      {inspection && inspection.idempotencyKey === i.idempotencyKey && (
-                        <div className="mt-1 border border-border1 p-2 space-y-1" data-testid="pilot-unknown-inspection">
-                          <div>
-                            Binance: <span className={inspection.exchange === 'ORDER_NOT_FOUND' ? 'text-cyan' : 'text-gold'}>{inspection.exchange}</span>
-                            {inspection.exchangeStatus && ` (${inspection.exchangeStatus})`} · ordem aberta: {inspection.openOrderPresent == null ? 'desconhecido' : inspection.openOrderPresent ? 'sim' : 'não'} · fills do piloto: {inspection.pilotFills ?? 'desconhecido'} · enviado {inspection.sentAt ? new Date(inspection.sentAt).toLocaleString('pt-PT') : '—'}
-                          </div>
-                          {inspection.blockers.length > 0 && <div className="text-gold">Bloqueios: {inspection.blockers.join(' · ')}</div>}
-                          <ul className="list-disc pl-4 text-text3">
-                            {inspection.instructions.map((t) => (
-                              <li key={t}>{t}</li>
-                            ))}
-                          </ul>
-                          {inspection.resolvable && (
-                            <form
-                              className="flex flex-wrap items-center gap-2"
-                              data-testid="pilot-resolve-unknown-form"
-                              onSubmit={(e) => {
-                                e.preventDefault();
-                                void resolveNotPlaced();
-                              }}
-                            >
-                              <input
-                                type="text"
-                                value={resolveNote}
-                                maxLength={500}
-                                onChange={(e) => setResolveNote(e.target.value)}
-                                placeholder="Nota: o que foi verificado na Binance"
-                                disabled={busy}
-                                className="flex-1 min-w-[200px] bg-bg2 border border-border2 px-1.5 py-0.5 text-text1"
-                              />
-                              <label htmlFor={`resolve-totp-${i.idempotencyKey}`} className="text-text3">Código TOTP</label>
-                              <input
-                                id={`resolve-totp-${i.idempotencyKey}`}
-                                type="text"
-                                inputMode="numeric"
-                                autoComplete="one-time-code"
-                                pattern="[0-9]{6}"
-                                maxLength={PILOT_TOTP_LENGTH}
-                                value={resolveTotp}
-                                onChange={(e) => setResolveTotp(sanitizeTotpInput(e.target.value))}
-                                disabled={busy}
-                                className="w-20 bg-bg2 border border-border2 px-1.5 py-0.5 text-text1 tracking-widest"
-                              />
-                              <button type="submit" disabled={busy || resolveTotp.length !== PILOT_TOTP_LENGTH} className="uppercase border border-gold text-gold px-1.5 disabled:opacity-40">Resolver: não colocada</button>
-                            </form>
-                          )}
-                        </div>
-                      )}
-                      {canApprove && approveKey === i.idempotencyKey && (
-                        <form
-                          className="mt-1 flex flex-wrap items-center gap-2"
-                          data-testid="pilot-approve-form"
-                          onSubmit={(e) => {
-                            e.preventDefault();
-                            void confirmApprove(i.idempotencyKey);
-                          }}
-                        >
-                          <label htmlFor={`totp-${i.idempotencyKey}`} className="text-text3">Código TOTP</label>
-                          <input
-                            id={`totp-${i.idempotencyKey}`}
-                            type="text"
-                            inputMode="numeric"
-                            autoComplete="one-time-code"
-                            pattern="[0-9]{6}"
-                            maxLength={PILOT_TOTP_LENGTH}
-                            value={totpCode}
-                            onChange={(e) => setTotpCode(sanitizeTotpInput(e.target.value))}
-                            disabled={busy}
-                            className="w-20 bg-bg2 border border-border2 px-1.5 py-0.5 text-text1 tracking-widest"
-                          />
-                          <button type="submit" disabled={busy || totpCode.length !== PILOT_TOTP_LENGTH} className="uppercase border border-gold text-gold px-1.5 disabled:opacity-40">Confirmar aprovação</button>
-                          <button type="button" disabled={busy} onClick={cancelApprove} className="uppercase border border-border2 text-text3 px-1.5 disabled:opacity-40">Cancelar</button>
-                          <span className="text-text3">Intent {i.intentId.slice(0, 8)} · uma tentativa por código</span>
-                        </form>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-
-          <div>
-            <h4 className="font-mono text-[9px] uppercase tracking-wider text-text3 mb-2">Divergências em aberto</h4>
-            {detail.mismatches.length === 0 ? (
-              <p className="text-text3 text-[12px]">Nenhuma.</p>
-            ) : (
-              <ul className="space-y-1 font-mono text-[10px]">
-                {detail.mismatches.map((m) => (
-                  <li key={m.id} className={m.severity === 'CRITICAL' ? 'text-red' : 'text-gold'}>{m.severity} · {m.kind} · {m.symbol ?? m.asset ?? '—'}</li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div>
-            <h4 className="font-mono text-[9px] uppercase tracking-wider text-text3 mb-2">Últimas decisões</h4>
-            {detail.decisions.length === 0 ? (
-              <p className="text-text3 text-[12px]">Nenhuma.</p>
-            ) : (
-              <ul className="space-y-1 font-mono text-[10px] text-text2">
-                {detail.decisions.map((d) => (
-                  <li key={d.id}>
-                    {new Date(d.createdAt).toLocaleString('pt-PT')} · {d.symbol} {d.side} · <span className={d.decision === 'ALLOW' ? 'text-cyan' : d.decision === 'BLOCK' ? 'text-red' : 'text-gold'}>{d.decision}</span>
-                    {d.reasons.length > 0 && <span className={d.reasons.includes('APPROVAL_EXPIRED') ? 'text-red' : 'text-text3'}> · {d.reasons.map(pilotReasonLabel).join(', ')}</span>}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {check != null && (
-            <pre className="bg-bg2 border border-border1 p-3 font-mono text-[10px] text-text2 overflow-x-auto max-h-80">{JSON.stringify(check, null, 2)}</pre>
-          )}
+        </>
+      )}
+      {message && (
+        <div className={`border p-2.5 text-[12px] ${message.ok ? 'border-green/40 text-green' : 'border-red-30 text-red'}`}>
+          <p>{message.text}</p>
+          {message.notes.map((n) => (
+            <p key={n}>• {n}</p>
+          ))}
         </div>
       )}
-    </div>
-  );
+    </section>
+  )
 }

@@ -4,9 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import {
   clearAuthStorage,
+  getAccessToken,
   persistTokens,
   type AuthTokens,
 } from '../lib/authStorage';
+import { isSessionRejected, SESSION_BOOT_RETRY_DELAYS_MS } from '../lib/sessionPolicy';
 
 export interface User {
   id: string;
@@ -23,6 +25,9 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  /** Há sessão guardada mas o servidor não respondeu: não apaga a sessão nem manda para o login. */
+  sessionUnavailable: boolean;
+  retrySession: () => Promise<void>;
   login: (email: string, password: string, totpCode?: string) => Promise<{ requires2FA?: boolean }>;
   register: (email: string, password: string, referralCode?: string) => Promise<void>;
   loginDemo: () => Promise<void>;
@@ -51,21 +56,45 @@ function applyAuthResponse(data: AuthResponse): User | null {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sessionUnavailable, setSessionUnavailable] = useState(false);
 
   const refreshUser = useCallback(async () => {
     const me = await fetchMe();
     setUser(me);
   }, []);
 
-  useEffect(() => {
-    fetchMe()
-      .then(setUser)
-      .catch(() => {
-        clearAuthStorage();
-        setUser(null);
-      })
-      .finally(() => setLoading(false));
+  const checkSession = useCallback(async () => {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        setUser(await fetchMe());
+        break;
+      } catch (err) {
+        if (isSessionRejected(err) || !getAccessToken()) {
+          clearAuthStorage();
+          setUser(null);
+          break;
+        }
+        const wait = SESSION_BOOT_RETRY_DELAYS_MS[attempt];
+        if (wait == null) {
+          setSessionUnavailable(true);
+          break;
+        }
+        await new Promise((r) => setTimeout(r, wait));
+      }
+    }
+    setLoading(false);
   }, []);
+
+  useEffect(() => {
+    const first = window.setTimeout(() => void checkSession(), 0);
+    return () => window.clearTimeout(first);
+  }, [checkSession]);
+
+  const retrySession = useCallback(async () => {
+    setLoading(true);
+    setSessionUnavailable(false);
+    await checkSession();
+  }, [checkSession]);
 
   const login = async (
     email: string,
@@ -122,7 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, loginDemo, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, sessionUnavailable, retrySession, login, register, loginDemo, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

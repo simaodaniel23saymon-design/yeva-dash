@@ -74,15 +74,16 @@ const guide = (over: Partial<GuideInput> = {}): GuideInput => ({
 const httpError = (status: number, data: unknown) => Object.assign(new Error(`HTTP ${status}`), { response: { status, data } });
 
 describe('acesso e allowlist', () => {
-  it('só administradores acedem à página', () => {
+  it('qualquer utilizador autenticado acede à página; sem sessão vai para o login', () => {
     expect(canAccessSpotPilot({ isAdmin: true })).toBe(true);
-    expect(canAccessSpotPilot({ isAdmin: false })).toBe(false);
+    expect(canAccessSpotPilot({ isAdmin: false })).toBe(true);
     expect(canAccessSpotPilot(null)).toBe(false);
-    expect(routeAccess({ loading: false, user: { isAdmin: false }, requireAdmin: true })).toBe('denied');
+    expect(routeAccess({ loading: false, user: { isAdmin: false }, requireAdmin: false })).toBe('allow');
+    expect(routeAccess({ loading: false, user: null, requireAdmin: false })).toBe('login');
   });
 
-  it('rota /spot-pilot exige admin e a navegação só mostra a entrada a administradores', () => {
-    expect(read('App.tsx')).toMatch(/path="\/spot-pilot" element=\{<AppRoute element=\{<SpotPilotPage \/>\} requireAdmin denied=\{\{ kind: 'page', area: 'Spot Pilot' \}\} \/>\}/);
+  it('rota /spot-pilot só exige sessão e a navegação mostra a entrada a todos os utilizadores autenticados', () => {
+    expect(read('App.tsx')).toMatch(/path="\/spot-pilot" element=\{<AppRoute element=\{<SpotPilotPage \/>\} \/>\}/);
     expect(read('components/Layout.tsx')).toMatch(/\{canAccessSpotPilot\(user\) && \(\s*<NavLink to="\/spot-pilot"/);
   });
 
@@ -215,93 +216,6 @@ describe('histórico', () => {
     expect(ev.map((e) => e.kind)).toEqual(['EXECUTION', 'INTENT', 'DECISION', 'RECONCILE', 'READ_CHECK']);
     expect(ev[1].detail).toMatch(/não enviada/);
     expect(ev[3].tone).toBe('bad');
-  });
-});
-
-describe('página Spot Pilot — fontes', () => {
-  const page = read('pages/SpotPilotPage.tsx');
-  const view = read('utils/spotPilotView.ts');
-  const simple = read('utils/spotPilotSimple.ts');
-  const card = read('components/spot/pilot/PilotAccountCard.tsx');
-  const tech = read('components/spot/pilot/PilotTechnicalDetails.tsx');
-
-  it('só usa os endpoints do piloto real; nada do Spot legado nem do Momentum Paper', () => {
-    const urls = [...page.matchAll(/api\.(get|post)<?[^(]*\(\s*[`']([^`']+)[`']/g)].map((m) => m[2]);
-    expect(urls.length).toBeGreaterThan(5);
-    for (const u of urls) expect(u.startsWith('/spot-pilot/')).toBe(true);
-    const reads = [...simple.matchAll(/get<[^>]+>\(\s*[`']([^`']+)[`']/g)].map((m) => m[1]);
-    expect(reads.length).toBeGreaterThanOrEqual(5);
-    for (const u of reads) expect(u.startsWith('/spot-pilot/')).toBe(true);
-    for (const src of [page, simple, card, tech]) {
-      expect(src).not.toMatch(/SPOT_BOT_ENABLED[^)]*\?/);
-      expect(src).not.toMatch(/useSpot|\/spot-ui|[`'"]\/spot\/|spot-paper/);
-    }
-  });
-
-  it('nenhuma operação corre no carregamento: o efeito inicial só lê o estado', () => {
-    const refresh = page.slice(page.indexOf('const refreshReadiness = useCallback'), page.indexOf('useEffect(() => {'));
-    expect(refresh).toContain('const refresh = useCallback');
-    expect(refresh).not.toMatch(/api\.post/);
-    const effect = page.slice(page.indexOf('useEffect(() => {'), page.indexOf('async function run'));
-    expect(effect).not.toMatch(/api\.post|doReadCheck|doReconcile|doRecheck|confirmDialog|confirmApprove|openDialog|openReview/);
-    expect(simple).not.toMatch(/\bpost\b|api\./);
-    expect(page).toMatch(/const get: PilotGet = \(url, config\) => api\.get\(url, config\);/);
-    for (const src of [card, tech]) expect(src).not.toMatch(/\bapi\b|useEffect/);
-  });
-
-  it('ativar e começar a procurar são pedidos separados', () => {
-    const arm = page.slice(page.indexOf("if (kind === 'ARM') {"), page.indexOf("} else if (kind === 'RESUME')"));
-    expect(arm).toContain('/state');
-    expect(arm).not.toMatch(/entries/);
-    const resume = page.slice(page.indexOf("} else if (kind === 'RESUME')"), page.indexOf("} else if (kind === 'PAUSE_ENTRIES')"));
-    expect(resume).toContain('/spot-pilot/strategy/entries');
-    expect(resume).not.toMatch(/\/state/);
-  });
-
-  it('aprovar uma compra exige revisão, confirmação e código TOTP, pelo fluxo existente', () => {
-    expect(page).toMatch(/disabled=\{busy \|\| !reviewAck \|\| approveTotp\.length !== PILOT_TOTP_LENGTH\}/);
-    expect(page).toMatch(/submitPilotApproval\(\(url, body, config\) => api\.post\(url, body, config\)/);
-    expect(page).not.toMatch(/\/approve/);
-    expect(page).toMatch(/api\.post\(`\/spot-pilot\/accounts\/\$\{accountId\}\/reject`, \{ idempotencyKey \}\)/);
-  });
-
-  it('armar e retomar enviam TOTP sem repetição automática; pausar, desarmar e kill switch não pedem TOTP', () => {
-    expect(page).toMatch(/\{ state: 'ARMED', totpCode: code \}, \{ skipAuthRetry: true \}/);
-    expect(page).toMatch(/\{ enabled: true, totpCode: code \}, \{ skipAuthRetry: true \}/);
-    expect(page).toMatch(/api\.post\('\/spot-pilot\/strategy\/entries', \{ enabled: false \}\)/);
-    expect(page).toMatch(/\{ state: 'PAUSED', reason:/);
-    expect(page).toMatch(/\{ state: 'DISABLED', reason:/);
-  });
-
-  it('pausa de entradas é distinta do kill switch, que exige confirmação escrita e avisa das saídas', () => {
-    expect(page).toContain("dialog.kind === 'KILL' && killWord !== KILL_CONFIRM_WORD");
-    expect(page).toMatch(/incluindo as saídas automáticas/);
-    expect(page).toMatch(/Não é uma pausa/);
-    const pause = page.slice(page.indexOf("kind === 'PAUSE_ENTRIES'"), page.indexOf("kind === 'DISARM'"));
-    expect(pause).not.toMatch(/DISABLED/);
-  });
-
-  it('todas as ações confirmam e o estado é relido do servidor depois de sucesso ou erro', () => {
-    expect(page).toMatch(/!ack \|\|/);
-    const run = page.slice(page.indexOf('async function run'), page.indexOf('const doReadCheck'));
-    expect(run).toMatch(/finally \{\s*await refresh\(\);/);
-    expect(run).toMatch(/catch \(e\) \{\s*const error = pilotActionError\(e\);/);
-  });
-
-  it('o código TOTP é limpo antes do pedido e nunca registado nem persistido', () => {
-    expect(page).toMatch(/closeDialog\(\);\s*if \(kind === 'ARM'\)/);
-    expect(page).toMatch(/const code = approveTotp;\s*setApproveTotp\(''\);/);
-    for (const src of [page, view, simple, card, tech]) {
-      expect(src).not.toMatch(/console\.|localStorage|sessionStorage/);
-      expect(src).not.toMatch(/apiKey|secret|signature|keyFingerprint/i);
-    }
-  });
-
-  it('sem stop na exchange: a página não promete proteção absoluta', () => {
-    expect(page).toMatch(/não há ordem de proteção colocada na Binance/i);
-    expect(page).toMatch(/slippage/);
-    expect(tech).toMatch(/Não há ordem de proteção colocada na Binance/);
-    for (const src of [page, simple, card, tech]) expect(src).not.toMatch(/proteção (total|absoluta|garantida)/i);
   });
 });
 

@@ -219,36 +219,6 @@ describe('pilotApproval — fontes', () => {
   const panel = read('components/spot/SpotPilotAdminPanel.tsx');
   const lib = read('utils/pilotApproval.ts');
 
-  it('painel usa o fluxo com TOTP, limpa o código e bloqueia pedidos em paralelo', () => {
-    expect(panel).toContain('submitPilotApproval(');
-    expect(panel).toContain('autoComplete="one-time-code"');
-    expect(panel).toMatch(/approvingRef\.current\) return/);
-    expect(panel).not.toMatch(/\/approve`/);
-    expect((panel.match(/setTotpCode\(''\)/g) ?? []).length).toBeGreaterThanOrEqual(3);
-  });
-
-  it('M2: a aprovação usa approveThenRefresh e o detalhe é atualizado sem substituir a mensagem', () => {
-    expect(panel).toContain('approveThenRefresh(');
-    expect(panel).toMatch(/\(\) => fetchDetail\(accountId\)/);
-    const confirm = panel.slice(panel.indexOf('async function confirmApprove'), panel.indexOf('async function loadReadiness'));
-    expect(confirm).not.toContain('loadDetail(');
-    expect(confirm).toContain('text: message');
-  });
-
-  it('B2: «Abrir» desativado durante pedidos e respostas de outra conta ignoradas', () => {
-    expect(panel).toMatch(/<button type="button" disabled=\{busy\}[^>]*onClick=\{\(\) => openAccount\(a\.id\)\}>Abrir<\/button>/);
-    expect(panel).toMatch(/const openAccount = \(id: string\) => \{\s*if \(busy \|\| approvingRef\.current\) return;/);
-    expect(panel).toMatch(/if \(selectedRef\.current === id\) setDetail\(data\)/);
-    expect(panel).toMatch(/if \(selectedRef\.current === id\) setMsg\(/);
-    expect((panel.match(/setSelected\(/g) ?? []).length).toBe(1);
-  });
-
-  it('B2: aprovação em curso fica presa à conta e ao intent do clique', () => {
-    const confirm = panel.slice(panel.indexOf('async function confirmApprove'), panel.indexOf('async function loadReadiness'));
-    expect(confirm).toContain('const accountId = selected;');
-    expect(confirm).toMatch(/accountId,\s*idempotencyKey,/);
-  });
-
   it('código TOTP nunca é registado nem persistido', () => {
     for (const src of [panel, lib]) {
       expect(src).not.toMatch(/console\.|localStorage|sessionStorage/);

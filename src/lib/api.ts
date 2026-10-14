@@ -6,6 +6,7 @@ import {
   persistTokens,
 } from './authStorage';
 import { accessTokenExpiresWithin, bearerToken } from './authToken';
+import { isRefreshRejected } from './sessionPolicy';
 
 const RAW_API_URL =
   import.meta.env.VITE_API_URL ||
@@ -44,7 +45,7 @@ const PROACTIVE_REFRESH_WINDOW_MS = 30_000;
 
 let refreshPromise: Promise<string | null> | null = null;
 
-/** Um único /auth/refresh em voo — o endpoint tem rate limit de 5/min por IP. */
+/** Um único /auth/refresh em voo (o endpoint tem rate limit próprio por cliente). */
 function refreshSessionOnce(): Promise<string | null> {
   if (!refreshPromise) {
     refreshPromise = tryRefreshSession().finally(() => {
@@ -65,8 +66,11 @@ api.interceptors.request.use(async (config) => {
     try {
       token = await refreshSessionOnce();
     } catch (refreshError) {
-      redirectToLogin(true);
-      throw refreshError;
+      if (isRefreshRejected(refreshError)) {
+        redirectToLogin(true);
+        throw refreshError;
+      }
+      // Falha transitória (rede/429/5xx): segue com o token atual; um 401 volta a tentar a renovação.
     }
   }
   if (token) {
@@ -118,8 +122,11 @@ api.interceptors.response.use(
         }
         return api(originalRequest);
       } catch (refreshError) {
-        redirectToLogin(true);
-        return Promise.reject(refreshError);
+        if (isRefreshRejected(refreshError)) {
+          redirectToLogin(true);
+          return Promise.reject(refreshError);
+        }
+        return Promise.reject(error);
       }
     }
 
